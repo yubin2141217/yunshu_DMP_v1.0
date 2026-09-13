@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="draw.io">
+  <diagram name="云数中台端到端主链路" id="yunshu-e2e-swimlane">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="spacer" parent="1" style="fillColor=none;strokeColor=none;opacity=0;" value="" vertex="1">
+          <mxGeometry width="1270" height="950" as="geometry"/>
+        </mxCell>
+        <mxCell id="outer" parent="1" style="swimlane;startSize=36;fillColor=#dae8fc;strokeColor=#b0b8c0;fontSize=14;fontStyle=1;html=1;whiteSpace=wrap;" value="云数中台 · 端到端主链路" vertex="1">
+          <mxGeometry x="40" y="20" width="1200" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_mt" parent="outer" style="swimlane;horizontal=0;startSize=100;fillColor=#e8f1fb;strokeColor=#b0b8c0;fontSize=12;fontStyle=1;html=1;" value="MT 运营端" vertex="1">
+          <mxGeometry y="36" width="1200" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_v8" parent="outer" style="swimlane;horizontal=0;startSize=100;fillColor=#f3e8f7;strokeColor=#b0b8c0;fontSize=12;fontStyle=1;html=1;" value="V8 机构端" vertex="1">
+          <mxGeometry y="236" width="1200" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_sup" parent="outer" style="swimlane;horizontal=0;startSize=100;fillColor=#f5f5f5;strokeColor=#b0b8c0;fontSize=12;fontStyle=1;html=1;" value="供数方系统" vertex="1">
+          <mxGeometry y="386" width="1200" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane_mid" parent="outer" style="swimlane;horizontal=0;startSize=100;fillColor=#fff8e6;strokeColor=#b0b8c0;fontSize=12;fontStyle=1;html=1;" value="中台接收能力" vertex="1">
+          <mxGeometry y="516" width="1200" height="384" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mt_supplier" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;供数方管理&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;编码 / appkey / 启停&lt;/font&gt;" vertex="1">
+          <mxGeometry x="130" y="95" width="140" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mt_field" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;字段库管理&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;字段 + 快速模板&lt;/font&gt;" vertex="1">
+          <mxGeometry x="320" y="95" width="140" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mt_scheme" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;接入方案管理&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;三步拼装并启用&lt;/font&gt;" vertex="1">
+          <mxGeometry x="510" y="95" width="150" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mt_ip" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;IP 白名单&lt;/b&gt;" vertex="1">
+          <mxGeometry x="710" y="95" width="110" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mt_orgcfg" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;机构供数配置&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;勾选供数方 / 绑定标准&lt;/font&gt;" vertex="1">
+          <mxGeometry x="870" y="95" width="160" height="55" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="v8_spec" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;shadow=1;" value="&lt;b&gt;接入规范&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;预览 / 下载生效标准&lt;/font&gt;" vertex="1">
+          <mxGeometry x="515" y="285" width="150" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="v8_stats" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;shadow=1;" value="&lt;b&gt;数据概览 / 供数统计&lt;/b&gt;" vertex="1">
+          <mxGeometry x="950" y="290" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="supplier_push" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;fontStyle=2;shadow=1;" value="按生效标准送数" vertex="1">
+          <mxGeometry x="515" y="430" width="150" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mid_path" parent="outer" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;shadow=1;" value="接入路径" vertex="1">
+          <mxGeometry x="535" y="545" width="110" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_appkey" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;接口&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;appkey 鉴权识别厂商&lt;/font&gt;" vertex="1">
+          <mxGeometry x="250" y="640" width="150" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_scode" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;库表&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;行内 supplier_code 识别厂商&lt;/font&gt;" vertex="1">
+          <mxGeometry x="700" y="640" width="170" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_reject" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;shadow=1;" value="拒收不落库" vertex="1">
+          <mxGeometry x="1020" y="645" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_wl_q" parent="outer" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;shadow=1;" value="方案是否开启&lt;br&gt;IP 白名单?" vertex="1">
+          <mxGeometry x="510" y="730" width="160" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_check_ip" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="校验来源 IP" vertex="1">
+          <mxGeometry x="250" y="840" width="130" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_org" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;shadow=1;" value="&lt;b&gt;归属机构&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;org_id&lt;/font&gt;" vertex="1">
+          <mxGeometry x="700" y="830" width="130" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="mid_store" parent="outer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;shadow=1;" value="落库副本 + 自动打标" vertex="1">
+          <mxGeometry x="920" y="830" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_field_scheme" edge="1" parent="outer" source="mt_field" target="mt_scheme" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_scheme_orgcfg" edge="1" parent="outer" source="mt_scheme" target="mt_orgcfg" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="122"/>
+              <mxPoint x="690" y="70"/>
+              <mxPoint x="850" y="70"/>
+              <mxPoint x="850" y="122"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ip_wl" edge="1" parent="outer" source="mt_ip" target="mid_wl_q" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#9673a6;strokeWidth=1;fontColor=#666;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="方案开启时参与">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="765" y="200"/>
+              <mxPoint x="1100" y="200"/>
+              <mxPoint x="1100" y="710"/>
+              <mxPoint x="590" y="710"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_sup_appkey" edge="1" parent="outer" source="mt_supplier" target="mid_appkey" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=1;dashed=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="165" y="220"/>
+              <mxPoint x="120" y="220"/>
+              <mxPoint x="120" y="620"/>
+              <mxPoint x="325" y="620"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_sup_scode" edge="1" parent="outer" source="mt_supplier" target="mid_scode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=1;dashed=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="235" y="210"/>
+              <mxPoint x="785" y="210"/>
+              <mxPoint x="785" y="620"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_orgcfg_spec" edge="1" parent="outer" source="mt_orgcfg" target="v8_spec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="910" y="200"/>
+              <mxPoint x="910" y="312"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_scheme_spec" edge="1" parent="outer" source="mt_scheme" target="v8_spec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_spec_push" edge="1" parent="outer" source="v8_spec" target="supplier_push" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="转交规范">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_orgcfg_org" edge="1" parent="outer" source="mt_orgcfg" target="mid_org" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;strokeWidth=1;dashed=1;fontColor=#666;fontSize=10;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" value="可接收关系">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="990" y="200"/>
+              <mxPoint x="1160" y="200"/>
+              <mxPoint x="1160" y="842"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_push_path" edge="1" parent="outer" source="supplier_push" target="mid_path" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_path_appkey" edge="1" parent="outer" source="mid_path" target="mid_appkey" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="接口推送">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="580"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_path_scode" edge="1" parent="outer" source="mid_path" target="mid_scode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="库表/JDBC">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="580"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_appkey_wl" edge="1" parent="outer" source="mid_appkey" target="mid_wl_q" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="325" y="770"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_scode_wl" edge="1" parent="outer" source="mid_scode" target="mid_wl_q" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="770"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_wl_yes" edge="1" parent="outer" source="mid_wl_q" target="mid_check_ip" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="是">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="315" y="810"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_wl_no" edge="1" parent="outer" source="mid_wl_q" target="mid_org" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" value="否">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="765" y="810"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ip_miss" edge="1" parent="outer" source="mid_check_ip" target="mid_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;strokeWidth=2;fontColor=#666;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" value="未命中">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="860"/>
+              <mxPoint x="180" y="880"/>
+              <mxPoint x="1080" y="880"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_ip_hit" edge="1" parent="outer" source="mid_check_ip" target="mid_org" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="命中">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_appkey_reject" edge="1" parent="outer" source="mid_appkey" target="mid_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="无效/停用">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="667"/>
+              <mxPoint x="450" y="560"/>
+              <mxPoint x="980" y="560"/>
+              <mxPoint x="980" y="670"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_scode_reject" edge="1" parent="outer" source="mid_scode" target="mid_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" value="编码无法识别">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_org_reject" edge="1" parent="outer" source="mid_org" target="mid_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#b85450;strokeWidth=2;fontColor=#666;fontSize=10;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" value="无法归属">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="765" y="720"/>
+              <mxPoint x="1080" y="720"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_org_store" edge="1" parent="outer" source="mid_org" target="mid_store" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;strokeWidth=2;fontColor=#666;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="通过">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_store_stats" edge="1" parent="outer" source="mid_store" target="v8_stats" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1000" y="500"/>
+              <mxPoint x="1030" y="500"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

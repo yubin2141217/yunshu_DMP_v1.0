@@ -1,34 +1,41 @@
 html.yunshu-mt {
-  /* 高清参考图像素取样 */
-  --mt-sider-width: 220px;
-  --mt-navbar-height: 52px;
-  /* 顶栏 / 侧栏：同系天蓝 */
-  --mt-chrome-bg: #d5ecfe;
-  --mt-chrome-border: #b9d7f2;
-  --mt-sider-bg: #d5ecfe;
-  /* 内容区：近白冷灰 */
-  --mt-page-bg: #f9fafc;
-  --mt-card-radius: 10px;
-  --mt-card-shadow: 0 1px 2px rgba(22, 50, 92, 0.04), 0 6px 16px rgba(22, 50, 92, 0.05);
-  /* 选中菜单：深蓝海军色（非亮蓝） */
-  --mt-menu-selected: #1e3765;
-  --mt-menu-text: #243b5c;
-  --mt-menu-icon: #4a678c;
-  /* 操作主色仍用品牌蓝 */
-  --mt-primary: #2f6bff;
-  --primary-1: 230, 244, 255;
-  --primary-2: 186, 224, 255;
-  --primary-3: 145, 202, 255;
-  --primary-4: 105, 177, 255;
-  --primary-5: 64, 150, 255;
-  --primary-6: 47, 107, 255;
-  --primary-7: 30, 80, 220;
-  --primary-8: 20, 60, 180;
-  --primary-9: 14, 45, 140;
-  --primary-10: 8, 30, 100;
-  --arcoblue-6: 47, 107, 255;
-  --pro-theme-color: #2f6bff;
-  --pro-theme-color-soft: rgba(47, 107, 255, 0.2);
-  --login-bg-hue: -28deg;
-  --login-bg-sat: 1.08;
+  /* 顶栏/侧栏同色浅蓝灰（对齐截图 #EAF1FB）；主色仍为蓝 */
+  --mt-sider-width: 210px;
+  --mt-navbar-height: 56px;
+  --mt-chrome-bg: #eaf1fb;
+  --mt-chrome-border: #d7e3f4;
+  --mt-sider-bg: #eaf1fb;
+  --mt-page-bg: #eef3f9;
+  /* 主区两侧留白收窄，列表更易一屏展示、少水平滚动 */
+  --mt-content-side-pad: 5%;
+  --mt-card-radius: 12px;
+  --mt-control-radius: 8px;
+  --mt-modal-radius: 12px;
+  --mt-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.05);
+  --mt-menu-selected: #171d33;
+  --mt-menu-text: #4e5969;
+  --mt-menu-icon: #86909c;
+  --mt-primary: #165dff;
+  --mt-text-title: #1d2129;
+  --mt-text-secondary: #86909c;
+
+  --border-radius-small: 6px;
+  --border-radius-medium: 8px;
+  --border-radius-large: 12px;
+
+  --primary-1: 232, 243, 255;
+  --primary-2: 186, 214, 255;
+  --primary-3: 148, 187, 255;
+  --primary-4: 106, 161, 255;
+  --primary-5: 64, 128, 255;
+  --primary-6: 22, 93, 255;
+  --primary-7: 14, 66, 210;
+  --primary-8: 10, 48, 170;
+  --primary-9: 8, 35, 130;
+  --primary-10: 6, 24, 95;
+  --arcoblue-6: 22, 93, 255;
+  --pro-theme-color: #165dff;
+  --pro-theme-color-soft: rgba(22, 93, 255, 0.16);
+  --login-bg-hue: -12deg;
+  --login-bg-sat: 1.02;
 }

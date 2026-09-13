@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h2 class="page-title">{{ isEdit ? '编辑接入方案' : '新增接入方案' }}</h2>
-        <p class="page-desc">按步骤配置基础信息、字段库与接口接入方式；提交后自动生成接口文档。</p>
+        <p class="page-desc">按步骤配置基础信息、字段库与接入方式；提交后自动生成接入文档。</p>
       </div>
       <a-space>
         <a-button @click="goBack">返回列表</a-button>
@@ -15,172 +15,153 @@
         <div class="edit-main">
           <div class="edit-center">
             <a-steps :current="step" class="edit-steps">
-              <a-step title="基础信息" description="名称 / 范围 / 状态等" />
+              <a-step title="基础信息" description="名称 / 机构 / 供数方" />
               <a-step title="字段库配置" description="勾选送数字段" />
-              <a-step title="接入方式" description="接口推送参数" />
+              <a-step title="接入方式" description="选择推送 / 队列 / 文件" />
             </a-steps>
 
-            <a-form ref="formRef" :model="editor" :rules="rules" layout="vertical" class="edit-form">
+            <a-form ref="formRef" :model="editor" :rules="rules" layout="vertical" class="edit-form" :class="{ 'edit-form--fields': step === 2 }">
               <div v-show="step === 1">
                 <a-row :gutter="16">
                   <a-col :span="12">
-                    <a-form-item field="name" label="方案名称" required>
-                      <a-input v-model="editor.name" placeholder="如：云数中台全局接入方案 V1" />
+                    <a-form-item field="name" required>
+                      <template #label>
+                        <FormFieldLabel
+                          title="方案名称"
+                          desc="支持汉字、英文字母、数字、下划线组合，长度不超过 100"
+                        />
+                      </template>
+                      <a-input
+                        v-model="editor.name"
+                        placeholder="如：陕西省网信办-清博接入方案"
+                        :max-length="100"
+                        show-word-limit
+                        allow-clear
+                      />
                     </a-form-item>
                   </a-col>
                   <a-col :span="12">
-                    <a-form-item field="status" label="状态" required>
-                      <a-select v-model="editor.status" :options="statusOpts" />
+                    <a-form-item field="status" required>
+                      <template #label>
+                        <FormFieldLabel
+                          title="状态"
+                          desc="开启后方案生效可供接入；停用后暂停接入"
+                        />
+                      </template>
+                      <a-switch
+                        :model-value="editor.status === 'enabled'"
+                        @change="onStatusSwitch"
+                      />
                     </a-form-item>
                   </a-col>
                 </a-row>
-                <a-form-item field="scope" label="范围" required>
-                  <a-radio-group v-model="editor.scope">
-                    <a-radio value="global">全局</a-radio>
-                    <a-radio value="org">机构</a-radio>
-                  </a-radio-group>
-                </a-form-item>
-                <a-form-item v-if="editor.scope === 'org'" field="orgId" label="机构" required>
-                  <a-select v-model="editor.orgId" :options="orgOpts" placeholder="选择机构" />
-                </a-form-item>
+                <a-row :gutter="16">
+                  <a-col :span="12">
+                    <a-form-item field="orgId" required>
+                      <template #label>
+                        <FormFieldLabel title="选择机构" desc="本方案与所选机构一对一绑定" />
+                      </template>
+                      <a-select
+                        v-model="editor.orgId"
+                        :options="orgOpts"
+                        allow-search
+                        placeholder="请选择机构"
+                      />
+                    </a-form-item>
+                  </a-col>
+                  <a-col :span="12">
+                    <a-form-item field="supplierId" required>
+                      <template #label>
+                        <FormFieldLabel title="选择供数方" desc="本方案与所选供数方一对一绑定" />
+                      </template>
+                      <a-select
+                        v-model="editor.supplierId"
+                        :options="supplierOpts"
+                        allow-search
+                        placeholder="请选择供数方"
+                      />
+                    </a-form-item>
+                  </a-col>
+                </a-row>
                 <a-form-item>
                   <template #label>
                     <FormFieldLabel
                       title="IP 白名单管控"
-                      desc="开启后须在「IP 白名单」维护数据提供厂商的来源IP，非名单内IP推送请求将被拒绝"
+                      desc="开启后须在「IP 白名单」维护数据提供厂商的来源 IP（仅启用状态生效），非名单内 IP 推送请求将被拒绝"
                     />
                   </template>
                   <a-switch v-model="editor.requireIpWhitelist" />
                 </a-form-item>
                 <a-form-item label="备注">
-                  <a-textarea v-model="editor.remark" placeholder="可选补充说明" :auto-size="{ minRows: 2, maxRows: 4 }" />
+                  <a-textarea
+                    v-model="editor.remark"
+                    placeholder="可选补充说明"
+                    :auto-size="{ minRows: 5, maxRows: 10 }"
+                  />
                 </a-form-item>
               </div>
 
-              <div v-show="step === 2">
-                <a-form-item field="fieldIds" label="字段库配置" required>
-                  <FieldPicker v-model="editor.fieldIds" :fields="metaFields" />
+              <div v-show="step === 2" class="step-fields">
+                <a-form-item field="fieldIds" required class="step-fields__item">
+                  <template #label>
+                    <FormFieldLabel
+                      title="字段库配置"
+                      desc="从字段库中选择要接入的数据，并且可以配置这些字段和供数方数据的映射关系；如字段库不满足需求，请联系管理员扩充"
+                    />
+                  </template>
+                  <FieldPicker
+                    v-model="editor.fieldIds"
+                    v-model:field-maps="editor.fieldMaps"
+                    :fields="metaFields"
+                  />
                 </a-form-item>
               </div>
 
-              <div v-show="step === 3">
-                <a-alert type="info" style="margin-bottom: 16px">
-                  本期仅支持「接口推送」一种接入方式。供数方凭 appkey 鉴权并推送 JSON 报文。
-                </a-alert>
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.protocol" label="协议" required>
-                      <a-select
-                        v-model="editor.apiAccess.protocol"
-                        :options="[
-                          { label: 'HTTPS', value: 'HTTPS' },
-                          { label: 'HTTP', value: 'HTTP' },
-                        ]"
-                      />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.method" label="HTTP 方法" required>
-                      <a-select
-                        v-model="editor.apiAccess.method"
-                        :options="[
-                          { label: 'POST', value: 'POST' },
-                          { label: 'PUT', value: 'PUT' },
-                          { label: 'PATCH', value: 'PATCH' },
-                        ]"
-                      />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.contentType" label="Content-Type" required>
-                      <a-input v-model="editor.apiAccess.contentType" placeholder="application/json" />
-                    </a-form-item>
-                  </a-col>
-                </a-row>
-                <a-form-item field="apiAccess.baseUrl" label="Base URL" required>
-                  <a-input v-model="editor.apiAccess.baseUrl" placeholder="https://api.yunshu.example.com" />
-                </a-form-item>
-                <a-form-item field="apiAccess.path" label="接口 Path" required>
-                  <a-input v-model="editor.apiAccess.path" placeholder="/api/v1/articles/push" />
-                </a-form-item>
-                <a-form-item label="完整地址预览">
-                  <a-input :model-value="endpointPreview" readonly />
-                </a-form-item>
-                <a-row :gutter="16">
-                  <a-col :span="12">
-                    <a-form-item field="apiAccess.authType" label="鉴权方式" required>
-                      <a-select v-model="editor.apiAccess.authType" :options="apiAuthTypeOptions" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="12">
-                    <a-form-item field="apiAccess.authHeaderName" label="鉴权 Header 名" required>
-                      <a-input v-model="editor.apiAccess.authHeaderName" placeholder="X-App-Key" />
-                    </a-form-item>
-                  </a-col>
-                </a-row>
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.charset" label="字符集">
-                      <a-input v-model="editor.apiAccess.charset" placeholder="UTF-8" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.timeoutSec" label="超时（秒）">
-                      <a-input-number v-model="editor.apiAccess.timeoutSec" :min="1" :max="300" style="width: 100%" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.retry" label="失败重试次数">
-                      <a-input-number v-model="editor.apiAccess.retry" :min="0" :max="10" style="width: 100%" />
-                    </a-form-item>
-                  </a-col>
-                </a-row>
-                <a-row :gutter="16">
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.rateLimitQps" label="限流 QPS">
-                      <a-input-number v-model="editor.apiAccess.rateLimitQps" :min="1" :max="10000" style="width: 100%" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.batchMaxSize" label="单批最大条数">
-                      <a-input-number v-model="editor.apiAccess.batchMaxSize" :min="1" :max="5000" style="width: 100%" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="8">
-                    <a-form-item field="apiAccess.idempotencyHeader" label="幂等 Header">
-                      <a-input v-model="editor.apiAccess.idempotencyHeader" placeholder="X-Idempotency-Key" />
-                    </a-form-item>
-                  </a-col>
-                </a-row>
-                <a-row :gutter="16">
-                  <a-col :span="12">
-                    <a-form-item field="apiAccess.successCodePath" label="成功码字段路径">
-                      <a-input v-model="editor.apiAccess.successCodePath" placeholder="code" />
-                    </a-form-item>
-                  </a-col>
-                  <a-col :span="12">
-                    <a-form-item field="apiAccess.successCodeValue" label="成功码取值">
-                      <a-input v-model="editor.apiAccess.successCodeValue" placeholder="0" />
-                    </a-form-item>
-                  </a-col>
-                </a-row>
+              <div v-show="step === 3" class="step-access">
+                <AccessMethodForm
+                  v-model:access-method="editor.accessMethod"
+                  v-model:api-access="editor.apiAccess"
+                  v-model:mq-access="editor.mqAccess"
+                  v-model:file-access="editor.fileAccess"
+                  @method-change="onAccessMethodChange"
+                />
+
                 <a-form-item class="request-example-item" hide-label>
                   <div class="request-example">
                     <div class="request-example__head">
                       <div class="request-example__title-wrap">
                         <span class="request-example__title">请求示例</span>
-                        <span class="request-example__tip">按当前接入参数与已选字段生成请求报文格式</span>
+                        <span class="request-example__tip">按当前接入参数与已选字段生成报文 / 配置示例</span>
                       </div>
                       <a-button type="outline" size="small" @click="onGenerateExample">生成示例</a-button>
                     </div>
                     <a-textarea
                       v-model="requestExample"
-                      placeholder="点击右上角「生成示例」生成请求报文内容格式"
-                      :auto-size="{ minRows: 12, maxRows: 20 }"
+                      placeholder="点击右上角「生成示例」生成内容"
+                      :auto-size="{ minRows: 10, maxRows: 18 }"
                       class="request-example__input"
                     />
                   </div>
                 </a-form-item>
+
+                <div class="conn-test">
+                  <div class="conn-test__head">
+                    <a-button type="primary" :loading="testing" @click="onTestConnectivity">测试</a-button>
+                    <span class="conn-test__tip">
+                      测试「{{ accessMethodLabel(editor.accessMethod) }}」连通性，响应「{{ currentSuccessCode }}」为成功
+                    </span>
+                  </div>
+                  <a-alert v-if="testDone" :type="testOk ? 'success' : 'warning'" style="margin-bottom: 10px">
+                    {{ testOk ? '连通性测试成功' : '连通性测试未成功，仍可提交保存' }}
+                  </a-alert>
+                  <a-textarea
+                    v-if="testResponse"
+                    :model-value="testResponse"
+                    readonly
+                    :auto-size="{ minRows: 6, maxRows: 14 }"
+                    class="conn-test__response"
+                  />
+                </div>
               </div>
             </a-form>
           </div>
@@ -223,15 +204,24 @@ import { useRoute, useRouter } from 'vue-router'
 import { Message, type FormInstance } from '@arco-design/web-vue'
 import FormFieldLabel from '@/components/FormFieldLabel.vue'
 import FieldPicker, { type PickerField } from '@/components/FieldPicker.vue'
-import { getStandard, listStandards, saveStandard } from '@/api/mt'
+import AccessMethodForm from '@/components/AccessMethodForm.vue'
+import { checkStandardNameExists, getStandard, listStandards, saveStandard, testAccessConnectivity } from '@/api/mt'
 import {
-  apiAuthTypeOptions,
+  accessMethodLabel,
+  buildAccessExample,
   buildApiDocMarkdown,
-  buildApiEndpoint,
-  buildRequestExample,
-  defaultApiAccess,
+  emptyApiAccess,
+  defaultFileAccess,
+  defaultMqAccess,
+  normalizeApiAccess,
+  normalizeFileAccess,
+  normalizeMqAccess,
+  successCodeOfAccess,
+  type AccessMethodType,
   type ApiAccessConfig,
-  type StandardScope,
+  type FieldMapItem,
+  type FileAccessConfig,
+  type MqAccessConfig,
   type Status,
 } from '@/mock/mt'
 import { validateForm } from '@/utils/formValidate'
@@ -240,47 +230,61 @@ const route = useRoute()
 const router = useRouter()
 const step = ref(1)
 const saving = ref(false)
+const testing = ref(false)
+const testDone = ref(false)
+const testOk = ref(false)
+const testResponse = ref('')
 const formRef = ref<FormInstance>()
 const metaFields = ref<PickerField[]>([])
 const orgOpts = ref<{ label: string; value: string }[]>([])
+const supplierOpts = ref<{ label: string; value: string }[]>([])
 const requestExample = ref('')
 const previewVisible = ref(false)
 const previewMarkdown = ref('')
-const statusOpts = [
-  { label: '开启', value: 'enabled' },
-  { label: '停用', value: 'disabled' },
-]
+function onStatusSwitch(val: string | number | boolean) {
+  editor.status = val ? 'enabled' : 'disabled'
+}
 
 const editor = reactive({
   id: '',
   name: '',
-  scope: 'global' as StandardScope,
   orgId: '',
+  supplierId: '',
   status: 'enabled' as Status,
   requireIpWhitelist: false,
   remark: '',
   fieldIds: [] as string[],
-  apiAccess: defaultApiAccess() as ApiAccessConfig,
+  fieldMaps: [] as FieldMapItem[],
+  accessMethod: 'http_post' as AccessMethodType,
+  apiAccess: emptyApiAccess() as ApiAccessConfig,
+  mqAccess: defaultMqAccess() as MqAccessConfig,
+  fileAccess: defaultFileAccess() as FileAccessConfig,
 })
 
 function resetEditor() {
   Object.assign(editor, {
     id: '',
     name: '',
-    scope: 'global' as StandardScope,
     orgId: '',
+    supplierId: '',
     status: 'enabled' as Status,
     requireIpWhitelist: false,
     remark: '',
     fieldIds: [] as string[],
-    apiAccess: defaultApiAccess() as ApiAccessConfig,
+    fieldMaps: [] as FieldMapItem[],
+    accessMethod: 'http_post' as AccessMethodType,
+    apiAccess: emptyApiAccess() as ApiAccessConfig,
+    mqAccess: defaultMqAccess() as MqAccessConfig,
+    fileAccess: defaultFileAccess() as FileAccessConfig,
   })
   requestExample.value = ''
+  testDone.value = false
+  testOk.value = false
+  testResponse.value = ''
   step.value = 1
 }
 
 const isEdit = computed(() => !!editor.id)
-const endpointPreview = computed(() => buildApiEndpoint(editor.apiAccess))
 
 const selectedFields = computed(() =>
   editor.fieldIds
@@ -294,18 +298,41 @@ const selectedFields = computed(() =>
     })),
 )
 
+const currentSuccessCode = computed(() =>
+  successCodeOfAccess(editor.accessMethod, editor.apiAccess, editor.mqAccess, editor.fileAccess),
+)
+
+const NAME_PATTERN = /^[\u4e00-\u9fa5a-zA-Z0-9_]+$/
+
 const rules = {
-  name: [{ required: true, message: '请填写方案名称' }],
-  status: [{ required: true, message: '请选择状态' }],
-  scope: [{ required: true, message: '请选择范围' }],
-  orgId: [
+  name: [
+    { required: true, message: '请填写方案名称' },
     {
       validator: (value: string, callback: (error?: string) => void) => {
-        if (editor.scope === 'org' && !value) callback('请选择机构')
-        else callback()
+        const name = String(value || '').trim()
+        if (!name) {
+          callback()
+          return
+        }
+        if (name.length > 100) {
+          callback('方案名称长度不能超过 100')
+          return
+        }
+        if (!NAME_PATTERN.test(name)) {
+          callback('仅支持汉字、英文字母、数字、下划线')
+          return
+        }
+        checkStandardNameExists(name, editor.id || undefined).then((exists) => {
+          if (exists) callback('方案名称已存在，请修改后再提交')
+          else callback()
+        })
       },
     },
   ],
+  status: [{ required: true, message: '请选择状态' }],
+  accessMethod: [{ required: true, message: '请选择接入方式' }],
+  orgId: [{ required: true, message: '请选择机构' }],
+  supplierId: [{ required: true, message: '请选择供数方' }],
   fieldIds: [
     {
       validator: (value: string[], callback: (error?: string) => void) => {
@@ -314,38 +341,215 @@ const rules = {
       },
     },
   ],
-  'apiAccess.baseUrl': [{ required: true, message: '请填写 Base URL' }],
-  'apiAccess.path': [{ required: true, message: '请填写接口 Path' }],
-  'apiAccess.protocol': [{ required: true, message: '请选择协议' }],
-  'apiAccess.method': [{ required: true, message: '请选择方法' }],
-  'apiAccess.authType': [{ required: true, message: '请选择鉴权方式' }],
-  'apiAccess.authHeaderName': [{ required: true, message: '请填写鉴权 Header' }],
-  'apiAccess.contentType': [{ required: true, message: '请填写 Content-Type' }],
+  'apiAccess.endpointUrl': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'http_post' && !value?.trim()) callback('请填写接口地址')
+        else callback()
+      },
+    },
+  ],
+  'apiAccess.protocol': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'http_post' && !value) callback('请选择请求协议')
+        else callback()
+      },
+    },
+  ],
+  'apiAccess.method': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'http_post' && !value) callback('请选择请求方法')
+        else callback()
+      },
+    },
+  ],
+  'apiAccess.authType': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'http_post' && !value) callback('请选择鉴权方式')
+        else callback()
+      },
+    },
+  ],
+  'apiAccess.appKey': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (
+          editor.accessMethod === 'http_post' &&
+          editor.apiAccess.authType === 'appkey' &&
+          !value?.trim()
+        ) {
+          callback('请填写或自动生成 AppKey')
+        } else callback()
+      },
+    },
+  ],
+  'apiAccess.appSecret': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (
+          editor.accessMethod === 'http_post' &&
+          editor.apiAccess.authType === 'appkey' &&
+          !value?.trim()
+        ) {
+          callback('请填写或自动生成 AppSecret')
+        } else callback()
+      },
+    },
+  ],
+  'mqAccess.brokers': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'mq' && editor.mqAccess.mqType !== 'rocketmq' && !value?.trim()) {
+          callback('请填写接入地址集群')
+        } else callback()
+      },
+    },
+  ],
+  'mqAccess.nameServer': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'mq' && editor.mqAccess.mqType === 'rocketmq' && !value?.trim()) {
+          callback('请填写 NameServer 地址')
+        } else callback()
+      },
+    },
+  ],
+  'mqAccess.topic': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'mq' && !value?.trim()) callback('请填写 Topic 名称')
+        else callback()
+      },
+    },
+  ],
+  'mqAccess.consumerGroup': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'mq' && !value?.trim()) callback('请填写消费组名称')
+        else callback()
+      },
+    },
+  ],
+  'fileAccess.host': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'file' && !value?.trim()) callback('请填写服务器地址')
+        else callback()
+      },
+    },
+  ],
+  'fileAccess.remoteDir': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'file' && !value?.trim()) callback('请填写文件目录路径')
+        else callback()
+      },
+    },
+  ],
+  'fileAccess.fileNamePattern': [
+    {
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (editor.accessMethod === 'file' && !value?.trim()) callback('请填写文件命名匹配规则')
+        else callback()
+      },
+    },
+  ],
 }
 
 function goBack() {
   router.push('/standard')
 }
 
-function onGenerateExample() {
+function refreshExample() {
+  requestExample.value = buildAccessExample(
+    editor.accessMethod,
+    editor.apiAccess,
+    editor.mqAccess,
+    editor.fileAccess,
+    selectedFields.value,
+  )
+}
+
+function onAccessMethodChange() {
+  testDone.value = false
+  testOk.value = false
+  testResponse.value = ''
+  requestExample.value = ''
+}
+
+async function onGenerateExample() {
+  const basicFields =
+    editor.accessMethod === 'http_post'
+      ? [
+          'apiAccess.endpointUrl',
+          'apiAccess.protocol',
+          'apiAccess.method',
+          'apiAccess.authType',
+          'apiAccess.appKey',
+          'apiAccess.appSecret',
+        ]
+      : editor.accessMethod === 'mq'
+        ? [
+            'mqAccess.brokers',
+            'mqAccess.nameServer',
+            'mqAccess.topic',
+            'mqAccess.consumerGroup',
+          ]
+        : ['fileAccess.host', 'fileAccess.remoteDir', 'fileAccess.fileNamePattern']
+
+  const ok = await validateForm(formRef.value, basicFields)
+  if (!ok) {
+    Message.error('请先完善基础信息中的必填项')
+    return
+  }
   if (!editor.fieldIds.length) {
     Message.warning('请先在字段库配置中勾选字段')
     return
   }
-  requestExample.value = buildRequestExample(editor.apiAccess, selectedFields.value)
+  refreshExample()
   Message.success('已生成请求示例')
+}
+
+async function onTestConnectivity() {
+  testing.value = true
+  try {
+    const res = await testAccessConnectivity({
+      accessMethod: editor.accessMethod,
+      apiAccess: editor.apiAccess,
+      mqAccess: editor.mqAccess,
+      fileAccess: editor.fileAccess,
+    })
+    testDone.value = true
+    testOk.value = res.ok
+    testResponse.value = res.responseText
+    if (res.ok) Message.success('连通性测试成功')
+    else Message.warning('连通性测试未成功，仍可提交保存')
+  } catch (e) {
+    testDone.value = true
+    testOk.value = false
+    testResponse.value = String((e as Error).message || e)
+    Message.warning('连通性测试未成功，仍可提交保存')
+  } finally {
+    testing.value = false
+  }
 }
 
 function onPreviewScheme() {
   const orgName = orgOpts.value.find((o) => o.value === editor.orgId)?.label || ''
   previewMarkdown.value = buildApiDocMarkdown({
     name: editor.name.trim() || '未命名接入方案',
-    scope: editor.scope,
-    orgName: editor.scope === 'org' ? orgName : '',
+    scope: 'org',
+    orgName,
     requireIpWhitelist: editor.requireIpWhitelist,
     remark: editor.remark,
     fields: selectedFields.value,
     api: editor.apiAccess,
+    accessMethod: editor.accessMethod,
+    mq: editor.mqAccess,
+    file: editor.fileAccess,
   })
   previewVisible.value = true
 }
@@ -360,36 +564,50 @@ async function loadOptions() {
     bizCategory: m.bizCategory || '',
   }))
   orgOpts.value = res.orgs
+  supplierOpts.value = res.suppliers || []
 }
 
 async function loadDetail() {
   const id = String(route.params.id || '')
-  if (!id) {
+  const copyFrom = String(route.query.copyFrom || '')
+  if (!id && !copyFrom) {
     resetEditor()
     return
   }
-  const item = await getStandard(id)
+  const item = await getStandard(id || copyFrom)
   if (!item) {
     Message.error('未找到接入方案')
     goBack()
     return
   }
+  const isCopy = !id && !!copyFrom
   Object.assign(editor, {
-    id: item.id,
+    id: isCopy ? '' : item.id,
     name: item.name,
-    scope: item.scope || 'global',
     orgId: item.orgId || '',
+    supplierId: item.supplierId || '',
     status: item.status === 'disabled' ? 'disabled' : 'enabled',
     requireIpWhitelist: !!item.requireIpWhitelist,
     remark: item.remark || '',
     fieldIds: [...(item.fieldIds || [])],
-    apiAccess: { ...defaultApiAccess(), ...(item.apiAccess || {}) },
+    fieldMaps: (item.fieldMaps || []).map((m) => ({ ...m })),
+    accessMethod: (item.accessMethod || 'http_post') as AccessMethodType,
+    apiAccess: normalizeApiAccess(item.apiAccess),
+    mqAccess: normalizeMqAccess(item.mqAccess),
+    fileAccess: normalizeFileAccess(item.fileAccess),
   })
-  requestExample.value = buildRequestExample(editor.apiAccess, selectedFields.value)
+  refreshExample()
+  testDone.value = false
+  testOk.value = false
+  testResponse.value = ''
+  step.value = 1
+  if (isCopy) {
+    Message.info('已回填原方案配置，请修改方案名称后提交')
+  }
 }
 
 watch(
-  () => String(route.params.id || ''),
+  () => `${String(route.params.id || '')}|${String(route.query.copyFrom || '')}`,
   async () => {
     await loadDetail()
   },
@@ -397,31 +615,37 @@ watch(
 
 async function onNext() {
   const fieldsByStep: Record<number, string[]> = {
-    1: editor.scope === 'org' ? ['name', 'status', 'scope', 'orgId'] : ['name', 'status', 'scope'],
+    1: ['name', 'status', 'orgId', 'supplierId'],
     2: ['fieldIds'],
   }
   const ok = await validateForm(formRef.value, fieldsByStep[step.value])
   if (!ok) return
   step.value += 1
-  if (step.value === 3 && !requestExample.value) {
-    requestExample.value = buildRequestExample(editor.apiAccess, selectedFields.value)
-  }
 }
 
 async function onSubmit() {
   if (!(await validateForm(formRef.value))) return
+  if (await checkStandardNameExists(editor.name, editor.id || undefined)) {
+    Message.error('方案名称已存在，不允许添加同名接入方案')
+    return
+  }
   saving.value = true
   try {
     const item = await saveStandard({
       id: editor.id || undefined,
       name: editor.name,
-      scope: editor.scope,
-      orgId: editor.scope === 'org' ? editor.orgId : undefined,
+      scope: 'org',
+      orgId: editor.orgId,
+      supplierId: editor.supplierId,
       status: editor.status,
       requireIpWhitelist: editor.requireIpWhitelist,
       remark: editor.remark,
       fieldIds: editor.fieldIds,
+      fieldMaps: editor.fieldMaps,
+      accessMethod: editor.accessMethod,
       apiAccess: editor.apiAccess,
+      mqAccess: editor.mqAccess,
+      fileAccess: editor.fileAccess,
     })
     Message.success('已保存并生成接口文档')
     router.replace({ path: '/standard', query: { preview: item.id } })
@@ -439,48 +663,109 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.edit-page {
-  min-height: calc(100vh - 120px);
-}
-
-.edit-card-inner {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 220px);
-}
-
 .edit-main {
-  flex: 1;
   display: flex;
   justify-content: center;
-  padding-bottom: 8px;
 }
 
 .edit-center {
   width: 100%;
-  max-width: 880px;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .edit-steps {
+  width: 100%;
+  max-width: 100%;
   margin-bottom: 28px;
 }
 
 .edit-form {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.edit-form--fields {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.step-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
+.step-fields__item {
+  flex: 1;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.step-fields__item :deep(.arco-form-item-wrapper-col),
+.step-fields__item :deep(.arco-form-item-content-wrapper),
+.step-fields__item :deep(.arco-form-item-content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 0;
+}
+
+.step-fields__item :deep(.field-picker) {
+  flex: 1;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 280px;
+  box-sizing: border-box;
+}
+
+.step-access {
+  width: 100%;
+}
+
+.step-access .request-example-item,
+.step-access .conn-test {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.request-example-item {
+  margin-bottom: 14px;
+}
+
+.request-example-item :deep(.arco-form-item) {
+  display: block;
+  width: 100%;
 }
 
 .request-example-item :deep(.arco-form-item-label-col) {
-  display: none;
+  display: none !important;
 }
 
-.request-example-item :deep(.arco-form-item-wrapper-col) {
-  flex: 1 1 100%;
-  width: 100%;
-  max-width: 100%;
+.request-example-item :deep(.arco-form-item-wrapper-col),
+.request-example-item :deep(.arco-form-item-content-wrapper),
+.request-example-item :deep(.arco-form-item-content) {
+  display: block;
+  flex: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .request-example {
   width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--color-border-2, #e5e6eb);
   border-radius: 6px;
   background: #fff;
@@ -537,16 +822,35 @@ onMounted(async () => {
   padding: 12px 14px;
 }
 
-.edit-actions {
+.conn-test {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 6px;
+  background: #fafbfc;
+}
+
+.conn-test__head {
   display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding: 16px 0 4px;
-  border-top: 1px solid var(--color-border-2, #e5e6eb);
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.conn-test__tip {
+  font-size: 12px;
+  color: #86909c;
+  line-height: 1.5;
+}
+
+.conn-test__response :deep(textarea) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
   background: #fff;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
 }
 
 .doc-stage {

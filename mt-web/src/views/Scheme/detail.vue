@@ -7,10 +7,16 @@
       </div>
       <a-button @click="$router.push('/scheme')">返回列表</a-button>
     </div>
-    <a-card class="content-card" :bordered="false">
-      <a-descriptions v-if="record" title="对接策略" :column="2" bordered>
+    <a-card v-if="record" class="content-card detail-block" :bordered="false" title="对接策略">
+      <a-descriptions :column="2" bordered size="large">
         <a-descriptions-item label="方案名称">{{ record.name }}</a-descriptions-item>
+        <a-descriptions-item label="状态">
+          <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
+            {{ record.status === 'enabled' ? '启用' : '停用' }}
+          </a-tag>
+        </a-descriptions-item>
         <a-descriptions-item label="数据源类型">{{ record.dataSourceTypeLabel || '—' }}</a-descriptions-item>
+        <a-descriptions-item label="更新时间">{{ record.updatedAt || '—' }}</a-descriptions-item>
         <template v-if="(record.dataSourceType || 'table') === 'table'">
           <a-descriptions-item label="数据库类型">{{ record.jdbcDbTypeLabel || record.jdbcDbType || '—' }}</a-descriptions-item>
           <a-descriptions-item label="主机 / 端口">{{ hostPort }}</a-descriptions-item>
@@ -23,16 +29,16 @@
           <a-descriptions-item label="更新规则">{{ record.updateModeLabel }}</a-descriptions-item>
           <a-descriptions-item label="增量字段">{{ record.incrementField || '—' }}</a-descriptions-item>
           <a-descriptions-item label="失败重试">{{ record.retry }}</a-descriptions-item>
-          <a-descriptions-item label="IP白名单管控">{{ record.requireIpWhitelist ? '是' : '否' }}</a-descriptions-item>
+          <a-descriptions-item label="IP 白名单管控">{{ record.requireIpWhitelist ? '是' : '否' }}</a-descriptions-item>
         </template>
         <template v-else>
           <a-descriptions-item label="配置状态" :span="2">该数据源类型配置能力预留</a-descriptions-item>
         </template>
-        <a-descriptions-item label="状态">{{ record.status === 'enabled' ? '启用' : '停用' }}</a-descriptions-item>
-        <a-descriptions-item label="更新时间">{{ record.updatedAt || '—' }}</a-descriptions-item>
         <a-descriptions-item label="备注" :span="2">{{ record.remark || '—' }}</a-descriptions-item>
       </a-descriptions>
-      <a-empty v-else description="未找到该接入方案">
+    </a-card>
+    <a-card v-else class="content-card" :bordered="false">
+      <a-empty description="未找到该接入方案">
         <a-button type="primary" style="margin-top: 12px" @click="$router.push('/scheme')">返回列表</a-button>
       </a-empty>
     </a-card>
@@ -47,15 +53,22 @@ import type { Scheme } from '@/mock/mt'
 
 const route = useRoute()
 const record = ref<Scheme | null>(null)
+
 const hostPort = computed(() => {
   if (!record.value) return '—'
-  const host = record.value.jdbcHost || record.value.frontHost || ''
-  const port = record.value.jdbcPort || record.value.frontPort || ''
-  if (!host) return '—'
-  return port ? `${host}:${port}` : host
+  const host = record.value.jdbcHost || ''
+  const port = record.value.jdbcPort
+  if (!host && !port) return '—'
+  return `${host || '—'}:${port || '—'}`
 })
 
 onMounted(async () => {
   record.value = await getScheme(String(route.params.id || ''))
 })
 </script>
+
+<style scoped>
+.detail-block {
+  margin-bottom: 14px;
+}
+</style>

@@ -3,9 +3,8 @@
     <div class="page-head">
       <div>
         <h2 class="page-title">字段库管理</h2>
-        <p class="page-desc">维护可复用数据标准字段（字段名、描述、数据类型、业务分类）。库表识别厂商依赖预置字段 supplier_code（对应供数方编码）；归属机构依赖 org_id（对应机构供数配置中的机构编码）。</p>
       </div>
-      <a-button v-if="activeTab === 'fields'" type="primary" @click="openCreate">新增字段</a-button>
+      <a-button v-if="activeTab === 'fields'" type="primary" @click="$router.push('/metadata/create')">新增字段</a-button>
       <a-button v-else-if="activeTab === 'templates'" type="primary" @click="openTplCreate">新增模板</a-button>
     </div>
     <a-card class="content-card" :bordered="false">
@@ -22,6 +21,7 @@
             />
             <a-select v-model="form.status" :options="statusOptions" allow-clear placeholder="状态" style="width: 140px" />
             <a-button type="primary" @click="fetchData(1)">查询</a-button>
+            <a-button @click="onResetFields">重置</a-button>
           </div>
           <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" :bordered="false" stripe>
             <template #refCount="{ record }">
@@ -80,9 +80,10 @@
               style="width: 140px"
             />
             <a-button type="primary" @click="fetchTemplates">查询</a-button>
+            <a-button @click="onResetTemplates">重置</a-button>
           </div>
           <a-alert type="info" style="margin-bottom: 12px">
-            系统内置模板不可删除；用户自定义模板可在此新增/编辑，也可在接入方案「字段库配置」中点选或「保存为模板」。
+            系统内置模板不可删除；用户自定义模板可在此新增/编辑（含供数方字段映射），也可在接入方案「字段库配置」中下拉选用或「保存为模板」。
           </a-alert>
           <a-table
             :columns="tplColumns"
@@ -114,7 +115,7 @@
         </a-tab-pane>
       </a-tabs>
 
-      <a-modal v-model:visible="visible" :title="editor.id ? '编辑字段' : '新增字段'" :width="560" unmount-on-close :on-before-ok="onSubmit">
+      <a-modal v-model:visible="visible" title="编辑字段" :width="560" unmount-on-close :on-before-ok="onSubmit">
         <a-form ref="formRef" :model="editor" :rules="rules" layout="vertical">
           <a-form-item field="name" required>
             <template #label>
@@ -182,6 +183,12 @@
           <template #scope="{ record }">
             {{ record.scope === 'org' ? '机构' : '全局' }}
           </template>
+          <template #org="{ record }">
+            <div class="org-cell">
+              <div class="cell-main">{{ record.orgName || '—' }}</div>
+              <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
+            </div>
+          </template>
           <template #status="{ record }">
             <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
               {{ record.status === 'enabled' ? '启用' : '停用' }}
@@ -224,11 +231,13 @@
       <a-modal
         v-model:visible="tplEditVisible"
         :title="tplEditor.id ? '编辑快速模板' : '新增快速模板'"
-        :width="860"
+        :width="960"
+        modal-class="tpl-edit-modal"
+        :top="'5vh'"
         unmount-on-close
         :on-before-ok="onSubmitTpl"
       >
-        <a-form ref="tplFormRef" :model="tplEditor" :rules="tplRules" layout="vertical">
+        <a-form ref="tplFormRef" :model="tplEditor" :rules="tplRules" layout="vertical" class="tpl-edit-form">
           <a-form-item field="name" label="模板名称" required>
             <a-input v-model="tplEditor.name" placeholder="请输入模板名称" :max-length="50" allow-clear />
           </a-form-item>
@@ -236,20 +245,22 @@
             <a-textarea
               v-model="tplEditor.desc"
               placeholder="可选，说明适用场景"
-              :auto-size="{ minRows: 2, maxRows: 4 }"
+              :auto-size="{ minRows: 2, maxRows: 3 }"
               :max-length="200"
               allow-clear
             />
           </a-form-item>
-          <a-form-item label="字段配置" required>
+          <a-form-item label="字段配置" required class="tpl-edit-form__fields">
             <FieldPicker
               v-model="tplEditor.fieldIds"
+              v-model:field-maps="tplEditor.fieldMaps"
               :fields="tplPickerFields"
+              compact
               hide-template-panel
               hide-save-as-template
             />
           </a-form-item>
-          <a-alert type="info">保存后类型为「用户自定义」，可在接入方案第 2 步字段库配置中选用。</a-alert>
+          <a-alert type="info">保存后类型为「用户自定义」；供数方字段名称/类型为非必填，默认与平台字段一致。</a-alert>
         </a-form>
       </a-modal>
     </a-card>
@@ -275,12 +286,14 @@ import {
 import {
   bizCategoryOptions,
   dataTypeOptions,
+  type FieldMapItem,
   type FieldTemplate,
   type Metadata,
   type Standard,
   type Status,
 } from '@/mock/mt'
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
+import { formatOrgSub } from '@/utils/orgDisplay'
 
 const router = useRouter()
 const activeTab = ref('fields')
@@ -324,10 +337,16 @@ const tplList = ref<FieldTemplate[]>([])
 const tplLoading = ref(false)
 const tplDetailVisible = ref(false)
 const tplDetail = ref<FieldTemplate | null>(null)
-const tplDetailFields = ref<Metadata[]>([])
+const tplDetailFields = ref<(Metadata & { supplierFieldName?: string; supplierDataType?: string })[]>([])
 const tplEditVisible = ref(false)
 const tplFormRef = ref<FormInstance>()
-const tplEditor = reactive({ id: '', name: '', desc: '', fieldIds: [] as string[] })
+const tplEditor = reactive({
+  id: '',
+  name: '',
+  desc: '',
+  fieldIds: [] as string[],
+  fieldMaps: [] as FieldMapItem[],
+})
 const tplPickerFields = ref<PickerField[]>([])
 const tplRules = {
   name: [{ required: true, message: '请填写模板名称' }],
@@ -357,15 +376,17 @@ const tplColumns = [
   { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 180 },
 ]
 const tplFieldColumns = [
-  { title: '字段名', dataIndex: 'name', width: 160 },
-  { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
-  { title: '数据类型', dataIndex: 'dataType', width: 96 },
-  { title: '业务分类', dataIndex: 'bizCategory', width: 100 },
+  { title: '平台字段名', dataIndex: 'name', width: 140 },
+  { title: '字段描述', dataIndex: 'description', ellipsis: true, tooltip: true },
+  { title: '平台字段类型', dataIndex: 'dataType', width: 110 },
+  { title: '业务分类', dataIndex: 'bizCategory', width: 96 },
+  { title: '供数方字段名称', dataIndex: 'supplierFieldName', width: 140, ellipsis: true, tooltip: true },
+  { title: '供数方字段类型', dataIndex: 'supplierDataType', width: 120 },
 ]
 const refColumns = [
   { title: '方案名称', dataIndex: 'name', ellipsis: true, tooltip: true },
   { title: '范围', dataIndex: 'scope', slotName: 'scope', width: 72 },
-  { title: '机构', dataIndex: 'orgName', width: 120, ellipsis: true, tooltip: true },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 72 },
   { title: '发布时间', dataIndex: 'uploadedAt', width: 160 },
   { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 100 },
@@ -404,10 +425,16 @@ function onPageSize(size: number) {
   pagination.pageSize = size
   fetchData(1)
 }
-function openCreate() {
-  Object.assign(editor, emptyEditor())
-  visible.value = true
-  nextTick(() => clearFormValidate(formRef.value))
+function onResetFields() {
+  form.name = ''
+  form.bizCategory = ''
+  form.status = ''
+  fetchData(1)
+}
+function onResetTemplates() {
+  tplQuery.name = ''
+  tplQuery.type = ''
+  fetchTemplates()
 }
 function openEdit(record: Metadata) {
   Object.assign(editor, emptyEditor(), record, {
@@ -444,7 +471,7 @@ async function ensureTplPickerFields() {
 }
 async function openTplCreate() {
   await ensureTplPickerFields()
-  Object.assign(tplEditor, { id: '', name: '', desc: '', fieldIds: [] as string[] })
+  Object.assign(tplEditor, { id: '', name: '', desc: '', fieldIds: [] as string[], fieldMaps: [] as FieldMapItem[] })
   tplEditVisible.value = true
   nextTick(() => clearFormValidate(tplFormRef.value))
 }
@@ -453,7 +480,17 @@ async function openTplDetail(record: FieldTemplate) {
   tplDetailVisible.value = true
   const all = await listMetadata({ name: '', status: '', page: 1, pageSize: 500 })
   const idSet = new Set(record.fieldIds || [])
-  tplDetailFields.value = all.list.filter((f) => idSet.has(f.id))
+  const mapById = new Map((record.fieldMaps || []).map((m) => [m.fieldId, m]))
+  tplDetailFields.value = all.list
+    .filter((f) => idSet.has(f.id))
+    .map((f) => {
+      const m = mapById.get(f.id)
+      return {
+        ...f,
+        supplierFieldName: m?.supplierFieldName || f.name,
+        supplierDataType: m?.supplierDataType || f.dataType,
+      } as Metadata & { supplierFieldName: string; supplierDataType: string }
+    })
 }
 async function openTplEdit(record: FieldTemplate) {
   await ensureTplPickerFields()
@@ -462,6 +499,7 @@ async function openTplEdit(record: FieldTemplate) {
     name: record.name,
     desc: record.desc || '',
     fieldIds: [...(record.fieldIds || [])],
+    fieldMaps: [...(record.fieldMaps || [])],
   })
   tplEditVisible.value = true
   nextTick(() => clearFormValidate(tplFormRef.value))
@@ -478,6 +516,7 @@ async function onSubmitTpl() {
       name: tplEditor.name.trim(),
       desc: tplEditor.desc.trim(),
       fieldIds: tplEditor.fieldIds,
+      fieldMaps: tplEditor.fieldMaps,
     })
     Message.success('保存成功')
     fetchTemplates()
@@ -564,5 +603,44 @@ onMounted(() => fetchData(1))
 .del-disabled-wrap {
   display: inline-block;
   cursor: not-allowed;
+}
+.org-cell {
+  min-width: 0;
+}
+.cell-main {
+  font-size: 13px;
+  color: #1d2129;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cell-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #86909c;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+
+<style>
+/* 弹窗 teleport 到 body，需全局类限制高度，上下留白 */
+.tpl-edit-modal.arco-modal {
+  max-height: calc(100vh - 10vh);
+}
+.tpl-edit-modal .arco-modal-body {
+  max-height: calc(100vh - 10vh - 118px);
+  overflow-y: auto;
+  padding-top: 16px;
+  padding-bottom: 8px;
+}
+.tpl-edit-modal .tpl-edit-form__fields {
+  margin-bottom: 12px;
+}
+.tpl-edit-modal .tpl-edit-form__fields .arco-form-item-content {
+  width: 100%;
 }
 </style>

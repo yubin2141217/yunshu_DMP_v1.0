@@ -17,10 +17,15 @@ export interface Org {
   code: string
   status: Status
   supplierIds: string[]
-  /** 可绑定多个接入方案（原标准） */
+  /** 绑定的接入方案（表单为单选，存储仍用数组兼容） */
   standardIds: string[]
   /** @deprecated 兼容旧单选 */
   standardId?: string
+  remark?: string
+  /** 所属统计单元 */
+  statUnit?: string
+  /** 所属销售 */
+  salesName?: string
   supplierNames?: string[]
   standardName?: string
   standardNames?: string[]
@@ -101,12 +106,24 @@ export interface Scheme {
 
 export interface Standard {
   id: string
+  /** 后台自增数字方案 ID（展示与搜索用） */
+  schemeNo: number
   name: string
+  /** @deprecated 业务上已统一为机构绑定；保存时固定为 org */
   scope: StandardScope
   orgId?: string
   orgName?: string
+  /** 机构副信息：统计单元 */
+  orgStatUnit?: string
+  /** 机构副信息：所属销售 */
+  orgSalesName?: string
+  /** 绑定供数方（与机构一对一绑定到本方案） */
+  supplierId?: string
+  supplierName?: string
   /** 勾选的字段库 id 列表 */
   fieldIds: string[]
+  /** 供数方字段映射（与 fieldIds 对应，非必填覆盖） */
+  fieldMaps?: FieldMapItem[]
   /** 兼容旧字段：取 fieldIds[0] */
   metadataId: string
   /** @deprecated 已内嵌 apiAccess，保留兼容 */
@@ -121,8 +138,14 @@ export interface Standard {
   /** IP 白名单管控 */
   requireIpWhitelist: boolean
   remark: string
-  /** 接口接入方式配置 */
+  /** 接口接入方式配置（HTTP POST） */
   apiAccess: ApiAccessConfig
+  /** 接入方式类型 */
+  accessMethod?: AccessMethodType
+  /** 消息队列接入配置 */
+  mqAccess?: MqAccessConfig
+  /** 文件传输接入配置 */
+  fileAccess?: FileAccessConfig
   /** 提交后生成的接口文档（Markdown） */
   apiDocMarkdown: string
   fileName: string
@@ -130,59 +153,378 @@ export interface Standard {
   fileUrl: string
   status: Status
   uploader: string
+  /** 创建时间 */
   uploadedAt: string
+  /** 更新时间 */
+  updatedAt?: string
   type?: string
   publishedAt?: string
+  /** 各时间跨度接入条数 */
+  accessStats?: AccessVolumeStats
+  /** 最近接入时间 */
+  lastAccessAt?: string
+  /** 近 1 周有接入数据的天数（用于活跃判定） */
+  accessActiveDaysW1?: number
 }
 
-export type ApiAuthType = 'appkey_header' | 'bearer' | 'signature'
+/** 接入数据量时间跨度 */
+export type AccessVolumeRange = 'total' | 'today' | 'd3' | 'w1' | 'm1'
 
-/** 接口类型接入方式（不再区分库表等数据源） */
+export interface AccessVolumeStats {
+  total: number
+  today: number
+  d3: number
+  w1: number
+  m1: number
+}
+
+export const accessVolumeRangeOptions: { label: string; value: AccessVolumeRange }[] = [
+  { label: '累计', value: 'total' },
+  { label: '今日', value: 'today' },
+  { label: '近3天', value: 'd3' },
+  { label: '近1周', value: 'w1' },
+  { label: '近1月', value: 'm1' },
+]
+
+/** 活跃：近 1 周累计接入 > 1 万条，或近 1 周至少 5 天有接入数据 */
+export const ACTIVE_ACCESS_W1_THRESHOLD = 10000
+export const ACTIVE_ACCESS_DAYS_THRESHOLD = 5
+
+export function isStandardActive(item: {
+  accessStats?: AccessVolumeStats | null
+  accessActiveDaysW1?: number
+}) {
+  const days = Number(item.accessActiveDaysW1) || 0
+  return (
+    accessVolumeOf(item.accessStats || undefined, 'w1') > ACTIVE_ACCESS_W1_THRESHOLD ||
+    days >= ACTIVE_ACCESS_DAYS_THRESHOLD
+  )
+}
+
+export function emptyAccessStats(): AccessVolumeStats {
+  return { total: 0, today: 0, d3: 0, w1: 0, m1: 0 }
+}
+
+export function normalizeAccessStats(raw?: Partial<AccessVolumeStats> | null): AccessVolumeStats {
+  const base = emptyAccessStats()
+  if (!raw) return base
+  return {
+    total: Number(raw.total) || 0,
+    today: Number(raw.today) || 0,
+    d3: Number(raw.d3) || 0,
+    w1: Number(raw.w1) || 0,
+    m1: Number(raw.m1) || 0,
+  }
+}
+
+export function accessVolumeOf(stats: AccessVolumeStats | undefined, range: AccessVolumeRange) {
+  const s = normalizeAccessStats(stats)
+  return s[range] || 0
+}
+
+export type ApiAuthType = 'none' | 'appkey' | 'token' | 'signature' | 'appkey_header' | 'bearer'
+
+export type AccessMethodType = 'http_post' | 'mq' | 'file'
+
+export const accessMethodOptions = [
+  { label: 'HTTP/HTTPS POST 推送', value: 'http_post' },
+  { label: '消息队列订阅', value: 'mq' },
+]
+
+export const accessMethodTips: Record<AccessMethodType, string> = {
+  http_post:
+    '供数方主动调用中台前置机开放接口，POST JSON 报文推送单条 / 批量数据记录（REST API）',
+  mq: '供数方把数据消息持续写入 Topic，我方前置机作为消费端订阅 Topic 拉取数据；支持 BMQ / Kafka / RocketMQ',
+  file: '厂商定时生成文件（json、csv、parquet）放到 SFTP 服务器；前置机定时去拉取文件解析入库',
+}
+
+/** 接口类型接入方式（HTTP/HTTPS POST） */
 export interface ApiAccessConfig {
   protocol: 'HTTPS' | 'HTTP'
   method: 'POST' | 'PUT' | 'PATCH'
+  /** 接口地址（前置机对外 URL） */
+  endpointUrl: string
   baseUrl: string
   path: string
   contentType: string
   charset: string
   authType: ApiAuthType
   authHeaderName: string
+  /** Token 静态串（鉴权=token 时） */
+  staticToken: string
+  /** 自定义请求头，多行 key: value */
+  customHeaders: string
   timeoutSec: number
   retry: number
+  retryIntervalMs: number
   rateLimitQps: number
+  rateLimitStrategy: 'reject' | 'queue'
   idempotencyHeader: string
   batchMaxSize: number
   successCodePath: string
   successCodeValue: string
+  /** 连通性测试成功响应码，默认 200 */
+  successHttpCode: string
+  payloadRootPath: string
+  enableFieldValidate: boolean
+  dedupeEnabled: boolean
+  dedupeField: string
+  pushTimeoutMs: number
+  alertFailThreshold: number
+  /** HTTP 推送鉴权凭证（方案级，可手动改） */
+  appKey: string
+  appSecret: string
+}
+
+export type MqType = 'bmq' | 'kafka' | 'rocketmq'
+export type MqAuthType = 'none' | 'sasl' | 'ssl'
+
+export interface MqAccessConfig {
+  mqType: MqType
+  /** 接入地址集群，逗号分隔；RocketMQ 时作为 NameServer */
+  brokers: string
+  topic: string
+  consumerGroup: string
+  authType: MqAuthType
+  username: string
+  password: string
+  certPath: string
+  startOffset: 'latest' | 'earliest'
+  concurrency: number
+  maxPullSize: number
+  retryCount: number
+  deadLetterEnabled: boolean
+  dataFormat: string
+  enableFieldValidate: boolean
+  dedupeField: string
+  lagAlertThreshold: number
+  failAlertThreshold: number
+  /** BMQ */
+  saslMechanism: 'PLAIN' | 'SCRAM'
+  /** Kafka */
+  autoCommit: boolean
+  autoCommitIntervalMs: number
+  /** RocketMQ */
+  nameServer: string
+  tagFilter: string
+  consumeMode: 'clustering' | 'broadcasting'
+  consumeTimeoutMs: number
+  successCode: string
+}
+
+export interface FileAccessConfig {
+  protocol: 'SFTP' | 'FTP'
+  host: string
+  port: number
+  loginType: 'password' | 'key'
+  username: string
+  password: string
+  privateKeyPath: string
+  remoteDir: string
+  fileNamePattern: string
+  encoding: 'UTF-8' | 'GBK'
+  fileFormat: 'JSON' | 'CSV' | 'Parquet'
+  maxFilesPerPull: number
+  pollInterval: string
+  afterProcess: 'delete' | 'archive' | 'keep'
+  resumeEnabled: boolean
+  enableFieldValidate: boolean
+  dedupeField: string
+  fileTimeoutAlert: boolean
+  parseFailAlert: boolean
+  successCode: string
 }
 
 export function defaultApiAccess(): ApiAccessConfig {
   return {
     protocol: 'HTTPS',
     method: 'POST',
+    endpointUrl: 'https://ingress.yunshu.example.com/api/v1/push',
     baseUrl: 'https://api.yunshu.example.com',
     path: '/api/v1/articles/push',
     contentType: 'application/json',
     charset: 'UTF-8',
-    authType: 'appkey_header',
+    authType: 'appkey',
     authHeaderName: 'X-App-Key',
+    staticToken: '',
+    customHeaders: 'Content-Type: application/json',
     timeoutSec: 30,
     retry: 3,
+    retryIntervalMs: 1000,
     rateLimitQps: 50,
+    rateLimitStrategy: 'reject',
     idempotencyHeader: 'X-Idempotency-Key',
     batchMaxSize: 100,
     successCodePath: 'code',
     successCodeValue: '0',
+    successHttpCode: '200',
+    payloadRootPath: 'data.records',
+    enableFieldValidate: false,
+    dedupeEnabled: false,
+    dedupeField: '',
+    pushTimeoutMs: 5000,
+    alertFailThreshold: 3,
+    appKey: '',
+    appSecret: '',
+  }
+}
+
+/** 新增接入方案表单用：不预填接口地址 / 限流重试 / 成功码等 */
+export function emptyApiAccess(): ApiAccessConfig {
+  return {
+    ...defaultApiAccess(),
+    endpointUrl: '',
+    baseUrl: '',
+    path: '',
+    authType: 'none',
+    customHeaders: 'Content-Type: application/json',
+    contentType: 'application/json',
+    rateLimitQps: undefined as unknown as number,
+    retry: undefined as unknown as number,
+    retryIntervalMs: undefined as unknown as number,
+    successHttpCode: '',
+    payloadRootPath: '',
+    idempotencyHeader: '',
+    appKey: '',
+    appSecret: '',
+  }
+}
+
+export function defaultMqAccess(): MqAccessConfig {
+  return {
+    mqType: 'kafka',
+    brokers: '',
+    topic: '',
+    consumerGroup: '',
+    authType: 'none',
+    username: '',
+    password: '',
+    certPath: '',
+    startOffset: 'latest',
+    concurrency: 4,
+    maxPullSize: 100,
+    retryCount: 3,
+    deadLetterEnabled: true,
+    dataFormat: 'JSON',
+    enableFieldValidate: false,
+    dedupeField: '',
+    lagAlertThreshold: 10000,
+    failAlertThreshold: 3,
+    saslMechanism: 'PLAIN',
+    autoCommit: true,
+    autoCommitIntervalMs: 5000,
+    nameServer: '',
+    tagFilter: '',
+    consumeMode: 'clustering',
+    consumeTimeoutMs: 15000,
+    successCode: 'OK',
+  }
+}
+
+export function defaultFileAccess(): FileAccessConfig {
+  return {
+    protocol: 'SFTP',
+    host: '',
+    port: 22,
+    loginType: 'password',
+    username: '',
+    password: '',
+    privateKeyPath: '',
+    remoteDir: '',
+    fileNamePattern: 'op_data_*.json',
+    encoding: 'UTF-8',
+    fileFormat: 'JSON',
+    maxFilesPerPull: 50,
+    pollInterval: '5min',
+    afterProcess: 'archive',
+    resumeEnabled: true,
+    enableFieldValidate: false,
+    dedupeField: '',
+    fileTimeoutAlert: true,
+    parseFailAlert: true,
+    successCode: 'OK',
   }
 }
 
 export const apiAuthTypeOptions = [
-  { label: 'Header AppKey（推荐）', value: 'appkey_header' },
-  { label: 'Bearer Token', value: 'bearer' },
-  { label: '请求签名', value: 'signature' },
+  { label: '无鉴权', value: 'none' },
+  { label: 'AppKey+AppSecret', value: 'appkey' },
 ]
 
+/** HTTP 请求头预设（下拉） */
+export const requestHeaderOptions = [
+  { label: 'Content-Type: application/json', value: 'Content-Type: application/json' },
+  { label: 'Content-Type: text/plain', value: 'Content-Type: text/plain' },
+  { label: 'Content-Type: application/xml', value: 'Content-Type: application/xml' },
+]
+
+export function normalizeAuthType(t?: string): ApiAuthType {
+  if (t === 'none') return 'none'
+  if (t === 'appkey_header' || t === 'appkey') return 'appkey'
+  // 历史 Token / 签名等选项已下线，统一归一为 AppKey
+  return 'appkey'
+}
+
+export function accessMethodLabel(method?: AccessMethodType | string) {
+  const hit = accessMethodOptions.find((o) => o.value === method)
+  return hit?.label || 'HTTP/HTTPS POST 推送'
+}
+
+export function normalizeApiAccess(raw?: Partial<ApiAccessConfig> | null): ApiAccessConfig {
+  const api = { ...defaultApiAccess(), ...(raw || {}) }
+  api.authType = normalizeAuthType(api.authType)
+  api.method = 'POST'
+  if (!requestHeaderOptions.some((o) => o.value === api.customHeaders)) {
+    const ct = (api.contentType || '').trim().toLowerCase()
+    const hit = requestHeaderOptions.find((o) => o.value.toLowerCase().includes(ct) && ct)
+    api.customHeaders = hit?.value || 'Content-Type: application/json'
+  }
+  const ctMatch = api.customHeaders.match(/content-type\s*:\s*(.+)/i)
+  if (ctMatch?.[1]) api.contentType = ctMatch[1].trim()
+  if (!api.endpointUrl?.trim() && (api.baseUrl || api.path)) {
+    api.endpointUrl = buildApiEndpoint(api)
+  }
+  return api
+}
+
+export function normalizeMqAccess(raw?: Partial<MqAccessConfig> | null): MqAccessConfig {
+  return { ...defaultMqAccess(), ...(raw || {}) }
+}
+
+export function normalizeFileAccess(raw?: Partial<FileAccessConfig> | null): FileAccessConfig {
+  const file = { ...defaultFileAccess(), ...(raw || {}) }
+  if (!raw?.port) {
+    file.port = file.protocol === 'FTP' ? 21 : 22
+  }
+  return file
+}
+
+/** 由接口地址同步 baseUrl/path，或反向补全 endpointUrl */
+export function syncEndpointParts(api: ApiAccessConfig): ApiAccessConfig {
+  const next = { ...api }
+  const url = (next.endpointUrl || '').trim()
+  if (url) {
+    try {
+      const u = new URL(url.includes('://') ? url : `${next.protocol === 'HTTP' ? 'http' : 'https'}://${url}`)
+      next.protocol = u.protocol === 'http:' ? 'HTTP' : 'HTTPS'
+      next.baseUrl = `${u.protocol}//${u.host}`
+      next.path = u.pathname || '/'
+      next.endpointUrl = u.toString().replace(/\/$/, u.pathname === '/' ? '/' : '')
+    } catch {
+      /* keep raw */
+    }
+  } else if (next.baseUrl || next.path) {
+    next.endpointUrl = buildApiEndpoint(next)
+  }
+  return next
+}
+
 export function buildApiEndpoint(api: ApiAccessConfig) {
+  if (api.endpointUrl?.trim()) {
+    const url = api.endpointUrl.trim()
+    if (/^https?:\/\//i.test(url)) return url
+    return `${api.protocol === 'HTTP' ? 'http' : 'https'}://${url.replace(/^\/\//, '')}`
+  }
   const base = (api.baseUrl || '').replace(/\/$/, '')
   const path = api.path?.startsWith('/') ? api.path : `/${api.path || ''}`
   return `${api.protocol.toLowerCase() === 'http' ? 'http' : 'https'}://${base.replace(/^https?:\/\//, '')}${path}`
@@ -197,28 +539,255 @@ type DocField = {
   bizCategory?: string
 }
 
+function jsonSampleLiteral(value: string | number | boolean | null): string {
+  if (value === null) return 'null'
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return JSON.stringify(value)
+}
+
+/** 按字段名 / 类型 / 业务含义生成报文示例值（JSON 字面量片段） */
+export function sampleValueForField(field: DocField): string {
+  const name = String(field.name || '').trim().toLowerCase()
+  const desc = `${field.description || ''}${field.bizCategory || ''}`.toLowerCase()
+  const type = String(field.dataType || 'String').trim().toLowerCase()
+  const text = `${name} ${desc}`
+
+  const byName: Record<string, string | number | boolean> = {
+    supplier_code: 'QB001',
+    org_id: 'ORG_WXB_001',
+    platform: 'weibo',
+    platform_name: '新浪微博',
+    platform_domain_pri: 'weibo.com',
+    platform_domain_sec: 'm.weibo.cn',
+    platform_province: '浙江省',
+    platform_city: '杭州市',
+    platform_county: '西湖区',
+    media_name: '云数观察',
+    media_id: 'media_10086',
+    media_followers_count: 12860,
+    media_friends_count: 326,
+    media_statues_count: 1842,
+    media_is_verified: '是',
+    media_verifiedtype: '机构认证',
+    news_uuid: 'nws_20260910_001',
+    news_url: 'https://example.com/news/20260910/001',
+    news_title: '陕西推进数字化治理取得新进展',
+    news_posttime: '2026-09-10 09:30:00',
+    news_digest: '当地持续推进数字化治理，提升公共服务效率。',
+    news_content: '近日，陕西省网信办表示将持续完善数据汇聚与协同机制，推动重点领域数字化转型落地。',
+    news_keywords: '数字化,治理,公共服务',
+    news_author: '记者张三',
+    news_origin: '陕西日报',
+    news_origin_url: 'https://example.com/origin/001',
+    news_is_origin: '是',
+    news_read_count: 3560,
+    news_like_count: 128,
+    news_comment_count: 36,
+    news_reposts_count: 18,
+    news_fetch_time: '2026-09-10 10:05:00',
+    news_headimg_url: 'https://cdn.example.com/img/cover_001.jpg',
+    news_emotion: '中性',
+    news_postdate: '2026-09-10',
+    news_origin_content: '原文内容示例，供联调对照。',
+    news_origin_title: '原文标题示例',
+    news_content_ip_location: '浙江',
+    solr_create_time: '2026-09-10 10:06:12',
+    news_ocr: '图片文字识别结果示例',
+  }
+  if (name && Object.prototype.hasOwnProperty.call(byName, name)) {
+    return jsonSampleLiteral(byName[name])
+  }
+
+  if (/uuid/.test(text)) return jsonSampleLiteral(`uuid_${Date.now().toString(36)}`)
+  if (/(^|_)url($|_)|链接|href|link/.test(text)) return jsonSampleLiteral('https://example.com/demo')
+  if (/email|邮箱/.test(text)) return jsonSampleLiteral('demo@example.com')
+  if (/phone|mobile|手机|电话/.test(text)) return jsonSampleLiteral('13800138000')
+  if (/province|省/.test(text)) return jsonSampleLiteral('浙江省')
+  if (/city|市/.test(text) && !/county|县|区/.test(text)) return jsonSampleLiteral('杭州市')
+  if (/county|district|县|区/.test(text)) return jsonSampleLiteral('西湖区')
+  if (/title|标题/.test(text)) return jsonSampleLiteral('示例标题')
+  if (/keyword|关键词/.test(text)) return jsonSampleLiteral('关键词A,关键词B')
+  if (/emotion|情感|sentiment/.test(text)) return jsonSampleLiteral('中性')
+  if (/digest|摘要/.test(text)) return jsonSampleLiteral('这是一条示例摘要。')
+  if (/content|正文|ocr/.test(text)) return jsonSampleLiteral('这是示例正文内容，用于联调对照。')
+  if (/author|作者|昵称/.test(text)) return jsonSampleLiteral('示例作者')
+  if (/origin|来源/.test(text) && !/url/.test(text)) return jsonSampleLiteral('示例来源')
+  if (/platform/.test(text) && /name|名称/.test(text)) return jsonSampleLiteral('示例平台')
+  if (/platform/.test(text)) return jsonSampleLiteral('wechat')
+  if (/domain/.test(text)) return jsonSampleLiteral('example.com')
+  if (/ip.*属|属地/.test(text)) return jsonSampleLiteral('浙江')
+  if (/(^|_)date($|_)|日期/.test(text)) return jsonSampleLiteral('2026-09-10')
+  if (/time|时间|posttime|fetch/.test(text)) return jsonSampleLiteral('2026-09-10 12:00:00')
+  if (/count|数量|次数|粉丝|阅读|点赞|评论|转发/.test(text)) return jsonSampleLiteral(100)
+  if (/is_|是否|开关|认证/.test(text)) return jsonSampleLiteral('是')
+  if (/(^|_)id($|_)/.test(name)) return jsonSampleLiteral('ID_10001')
+  if (/code|编码/.test(text)) return jsonSampleLiteral('CODE_001')
+
+  if (['int', 'integer', 'long', 'number', 'float', 'double', 'decimal', 'bigint'].includes(type)) {
+    return jsonSampleLiteral(0)
+  }
+  if (['bool', 'boolean'].includes(type)) return jsonSampleLiteral(true)
+  if (['array', 'list', 'json'].includes(type)) return '[]'
+  return jsonSampleLiteral('示例值')
+}
+
+function buildSampleJsonBody(fields: DocField[]): string {
+  const bodyFields = fields.length ? fields : [{ name: 'field', dataType: 'String' }]
+  return `{\n${bodyFields.map((f) => `  "${f.name}": ${sampleValueForField(f)}`).join(',\n')}\n}`
+}
+
+function apiAuthDesc(api: ApiAccessConfig): string {
+  const t = normalizeAuthType(api.authType)
+  if (t === 'none') return '无鉴权'
+  return `AppKey+AppSecret（Header：${api.authHeaderName || 'X-App-Key'}）`
+}
+
+function dash(v: string | number | undefined | null) {
+  if (v === undefined || v === null || v === '') return '—'
+  return String(v)
+}
+
+function mqAuthLabel(t: MqAuthType) {
+  if (t === 'sasl') return 'SASL 账号密码'
+  if (t === 'ssl') return 'SSL 证书'
+  return '无'
+}
+
+function mqOffsetLabel(v: MqAccessConfig['startOffset']) {
+  return v === 'earliest' ? '最早位点' : '最新位点'
+}
+
+function buildSecurityNotice(
+  scope: StandardScope,
+  orgName: string | undefined,
+  authType: ApiAuthType,
+  requireIpWhitelist: boolean,
+): string {
+  const scopePart =
+    scope === 'org'
+      ? `本方案适用范围为机构${orgName ? `（${orgName}）` : ''}`
+      : '本方案适用范围为全局（未选择机构）'
+  if (normalizeAuthType(authType) === 'none') {
+    return `${scopePart}：当前为无鉴权接入，请做好网络侧访问控制${
+      requireIpWhitelist ? '（已启用 IP 白名单）' : '（建议启用 IP 白名单）'
+    }，凭证与接口地址请勿通过公开渠道传播。`
+  }
+  const contact =
+    scope === 'org' ? '请联系机构负责人获取 AppKey / AppSecret' : '请联系康奈公司对接人获取 AppKey / AppSecret'
+  return `${scopePart}：${contact}，请妥善保管，勿通过公开渠道传播。`
+}
+
 /** 按已选字段与接入参数生成请求报文示例（HTTP + JSON） */
 export function buildRequestExample(api: ApiAccessConfig, fields: DocField[]): string {
-  const host = (api.baseUrl || '').replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const path = api.path?.startsWith('/') ? api.path : `/${api.path || ''}`
-  const authLine =
-    api.authType === 'bearer'
-      ? 'Authorization: Bearer <token>'
-      : api.authType === 'signature'
-        ? `${api.authHeaderName || 'X-Signature'}: <signature>`
-        : `${api.authHeaderName || 'X-App-Key'}: <your-appkey>`
-  const bodyFields = fields.length ? fields : [{ name: 'field', dataType: 'string' }]
-  const sampleBody = `{\n${bodyFields
-    .map((f) => `  "${f.name}": "<${f.dataType || 'string'}>"`)
-    .join(',\n')}\n}`
+  const synced = syncEndpointParts(api)
+  let host = (synced.baseUrl || '').replace(/^https?:\/\//, '').replace(/\/$/, '')
+  let path = synced.path?.startsWith('/') ? synced.path : `/${synced.path || ''}`
+  try {
+    const u = new URL(buildApiEndpoint(synced))
+    host = u.host
+    path = u.pathname || path
+  } catch {
+    /* keep */
+  }
+  const authType = normalizeAuthType(synced.authType)
+  const sampleBody = buildSampleJsonBody(fields)
   const headers = [
-    `${api.method} ${path} HTTP/1.1`,
+    `${synced.method || 'POST'} ${path || '/'} HTTP/1.1`,
     `Host: ${host || 'api.example.com'}`,
-    `Content-Type: ${api.contentType || 'application/json'}; charset=${api.charset || 'UTF-8'}`,
-    authLine,
+    `Content-Type: ${synced.contentType || 'application/json'}; charset=${synced.charset || 'UTF-8'}`,
   ]
-  if (api.idempotencyHeader) headers.push(`${api.idempotencyHeader}: <uuid>`)
+  if (authType === 'appkey') {
+    headers.push(`${synced.authHeaderName || 'X-App-Key'}: <your-appkey>`)
+    headers.push(`X-App-Secret: <your-appsecret>`)
+  }
+  if (synced.customHeaders?.trim()) {
+    synced.customHeaders
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        if (!headers.some((h) => h.toLowerCase().startsWith(line.split(':')[0].toLowerCase()))) {
+          headers.push(line)
+        }
+      })
+  }
   return `${headers.join('\n')}\n\n${sampleBody}`
+}
+
+export function buildMqExample(mq: MqAccessConfig, fields: DocField[]): string {
+  const sample = buildSampleJsonBody(fields)
+  const addr =
+    mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
+  return [
+    `# 消息队列订阅示例（${mq.mqType.toUpperCase()}）`,
+    `Brokers/NameServer: ${addr || '<cluster-address>'}`,
+    `Topic: ${mq.topic || '<topic>'}`,
+    `ConsumerGroup: ${mq.consumerGroup || '<group>'}`,
+    mq.mqType === 'rocketmq' && mq.tagFilter ? `Tag: ${mq.tagFilter}` : '',
+    `StartOffset: ${mq.startOffset}`,
+    `DataFormat: ${mq.dataFormat || 'JSON'}`,
+    '',
+    '## 消息体示例',
+    sample,
+  ]
+    .filter((l) => l !== '')
+    .join('\n')
+}
+
+export function buildFileExample(file: FileAccessConfig, fields: DocField[]): string {
+  const sample = buildSampleJsonBody(fields)
+  return [
+    `# 文件传输类拉取示例（${file.protocol}）`,
+    `Host: ${file.host || '<host>'}:${file.port || (file.protocol === 'FTP' ? 21 : 22)}`,
+    `RemoteDir: ${file.remoteDir || '/data/inbox'}`,
+    `FilePattern: ${file.fileNamePattern || 'op_data_*.json'}`,
+    `Format: ${file.fileFormat} / Encoding: ${file.encoding}`,
+    `PollInterval: ${file.pollInterval}`,
+    `AfterProcess: ${file.afterProcess}`,
+    '',
+    '## 单文件内容示例（JSON）',
+    sample,
+  ].join('\n')
+}
+
+export function buildAccessExample(
+  method: AccessMethodType,
+  api: ApiAccessConfig,
+  mq: MqAccessConfig,
+  file: FileAccessConfig,
+  fields: DocField[],
+): string {
+  if (method === 'mq') return buildMqExample(mq, fields)
+  if (method === 'file') return buildFileExample(file, fields)
+  return buildRequestExample(api, fields)
+}
+
+export function successCodeOfAccess(
+  method: AccessMethodType,
+  api: ApiAccessConfig,
+  mq: MqAccessConfig,
+  file: FileAccessConfig,
+) {
+  if (method === 'mq') return mq.successCode || 'OK'
+  if (method === 'file') return file.successCode || 'OK'
+  return api.successHttpCode || '200'
+}
+
+export function isAccessConfigReady(
+  method: AccessMethodType,
+  api: ApiAccessConfig,
+  mq: MqAccessConfig,
+  file: FileAccessConfig,
+) {
+  if (method === 'mq') {
+    const addr = mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
+    return !!(addr?.trim() && mq.topic?.trim() && mq.consumerGroup?.trim())
+  }
+  if (method === 'file') {
+    return !!(file.host?.trim() && file.remoteDir?.trim() && file.fileNamePattern?.trim())
+  }
+  const synced = syncEndpointParts(api)
+  return !!(synced.endpointUrl?.trim() || (synced.baseUrl?.trim() && synced.path?.trim()))
 }
 
 export function buildApiDocMarkdown(input: {
@@ -229,47 +798,106 @@ export function buildApiDocMarkdown(input: {
   remark: string
   fields: DocField[]
   api: ApiAccessConfig
+  accessMethod?: AccessMethodType
+  mq?: MqAccessConfig
+  file?: FileAccessConfig
 }): string {
   const scopeLabel = input.scope === 'org' ? `机构${input.orgName ? `（${input.orgName}）` : ''}` : '全局'
-  const authDesc =
-    input.api.authType === 'bearer'
-      ? `Authorization: Bearer <token>`
-      : input.api.authType === 'signature'
-        ? `签名头（按联调约定计算）`
-        : `${input.api.authHeaderName}: <appkey>`
-  const requestExample = buildRequestExample(input.api, input.fields)
+  const method = input.accessMethod || 'http_post'
+  const api = normalizeApiAccess(input.api)
+  const mq = input.mq || defaultMqAccess()
+  const file = input.file || defaultFileAccess()
+  const requestExample = buildAccessExample(method, api, mq, file, input.fields)
+  const successCode = successCodeOfAccess(method, api, mq, file)
   const securityNotice =
-    input.scope === 'org'
-      ? `本方案适用范围为机构${input.orgName ? `（${input.orgName}）` : ''}：接口鉴权所需的 appkey 请联系机构负责人获取，请勿通过公开渠道传播。`
-      : `本方案适用范围为全局（未选择机构）：接口鉴权所需的 appkey 请联系康奈公司对接人获取，请勿通过公开渠道传播。`
-  return `# ${input.name} · 接口接入文档
+    method === 'http_post'
+      ? buildSecurityNotice(input.scope, input.orgName, api.authType, input.requireIpWhitelist)
+      : `${
+          input.scope === 'org'
+            ? `本方案适用范围为机构${input.orgName ? `（${input.orgName}）` : ''}`
+            : '本方案适用范围为全局（未选择机构）'
+        }：请妥善保管接入地址与鉴权凭证，勿通过公开渠道传播${
+          input.requireIpWhitelist ? '；已启用 IP 白名单' : ''
+        }。`
+
+  let accessSection = ''
+  if (method === 'mq') {
+    const addr = mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
+    accessSection = `## 3. 消息队列配置
+| 项 | 说明 |
+| --- | --- |
+| 队列类型 | ${mq.mqType.toUpperCase()} |
+| 接入地址 | ${dash(addr)} |
+| Topic | ${dash(mq.topic)} |
+| 消费组 | ${dash(mq.consumerGroup)} |
+| 鉴权方式 | ${mqAuthLabel(mq.authType)} |
+| 起始消费位点 | ${mqOffsetLabel(mq.startOffset)} |
+| 消费并发数 | ${dash(mq.concurrency)} |
+| 单次拉取最大条数 | ${dash(mq.maxPullSize)} |
+| 消息重试次数 | ${dash(mq.retryCount)} |
+| 死信开关 | ${mq.deadLetterEnabled ? '开启' : '关闭'} |
+| 数据格式 | ${dash(mq.dataFormat)} |
+| 字段校验 | ${mq.enableFieldValidate ? '开启' : '关闭'} |
+| 去重主键 | ${dash(mq.dedupeField)} |
+| 堆积告警阈值 | ${dash(mq.lagAlertThreshold)} |
+| 失败告警阈值 | ${dash(mq.failAlertThreshold)} |
+| 成功响应码 | ${dash(mq.successCode)} |`
+    if (mq.mqType === 'bmq') {
+      accessSection += `\n| SASL 机制 | ${mq.saslMechanism} |`
+    }
+    if (mq.mqType === 'kafka') {
+      accessSection += `\n| Offset 自动提交 | ${mq.autoCommit ? '是' : '否'} |\n| 自动提交间隔（ms） | ${dash(mq.autoCommitIntervalMs)} |`
+    }
+    if (mq.mqType === 'rocketmq') {
+      accessSection += `\n| Tag 过滤 | ${dash(mq.tagFilter)} |\n| 消费模式 | ${mq.consumeMode === 'broadcasting' ? '广播消费' : '集群消费'} |\n| 单消息消费超时（ms） | ${dash(mq.consumeTimeoutMs)} |`
+    }
+  } else if (method === 'file') {
+    accessSection = `## 3. 文件传输配置
+| 项 | 说明 |
+| --- | --- |
+| 传输协议 | ${file.protocol} |
+| 服务器地址 | ${dash(file.host)} |
+| 端口号 | ${dash(file.port)} |
+| 登录方式 | ${file.loginType === 'key' ? '密钥登录' : '用户名密码'} |
+| 文件目录路径 | ${dash(file.remoteDir)} |
+| 文件命名匹配规则 | ${dash(file.fileNamePattern)} |
+| 文件格式 / 编码 | ${file.fileFormat} / ${file.encoding} |
+| 单次拉取最大文件数 | ${dash(file.maxFilesPerPull)} |
+| 轮询扫描周期 | ${dash(file.pollInterval)} |
+| 处理完成动作 | ${file.afterProcess === 'delete' ? '删除远程文件' : file.afterProcess === 'archive' ? '移动到归档目录' : '保留'} |
+| 断点续传 | ${file.resumeEnabled ? '开启' : '关闭'} |
+| 字段校验 | ${file.enableFieldValidate ? '开启' : '关闭'} |
+| 去重主键 | ${dash(file.dedupeField)} |
+| 成功响应码 | ${dash(file.successCode)} |`
+  } else {
+    accessSection = `## 3. 接口信息
+| 项 | 说明 |
+| --- | --- |
+| 接口地址 | \`${dash(buildApiEndpoint(api))}\` |
+| 请求协议 | ${dash(api.protocol)} |
+| 请求方法 | ${dash(api.method || 'POST')} |
+| 鉴权方式 | ${apiAuthDesc(api)} |
+| 请求头 | ${dash(api.customHeaders || `Content-Type: ${api.contentType}`)} |
+| 最大 QPS 上限 | ${dash(api.rateLimitQps)} |
+| 重试次数 | ${dash(api.retry)} |
+| 重试间隔（ms） | ${dash(api.retryIntervalMs)} |
+| 成功响应码 | ${dash(api.successHttpCode || '200')} |
+| 数据编码 | ${dash(api.charset)} |
+| 字段校验 | ${api.enableFieldValidate ? '开启' : '关闭'} |`
+  }
+
+  return `# ${input.name} · 接入文档
 
 ## 1. 概要
 - 生效范围：${scopeLabel}
-- 接入方式：HTTPS 接口推送
+- 接入方式：${accessMethodLabel(method)}
 - IP 白名单管控：${input.requireIpWhitelist ? '是' : '否'}
 - 备注：${input.remark || '—'}
 
 ## 2. 安全说明
 ${securityNotice}
 
-## 3. 接口信息
-| 项 | 说明 |
-| --- | --- |
-| 协议 | ${input.api.protocol} |
-| 方法 | ${input.api.method} |
-| Base URL | ${input.api.baseUrl} |
-| Path | ${input.api.path} |
-| 完整地址 | \`${buildApiEndpoint(input.api)}\` |
-| Content-Type | ${input.api.contentType} |
-| 字符集 | ${input.api.charset} |
-| 鉴权 | ${authDesc} |
-| 超时 | ${input.api.timeoutSec}s |
-| 失败重试 | ${input.api.retry} 次 |
-| 限流 | ${input.api.rateLimitQps} QPS |
-| 幂等头 | ${input.api.idempotencyHeader || '—'} |
-| 单批最大条数 | ${input.api.batchMaxSize} |
-| 成功判定 | \`${input.api.successCodePath}\` = \`${input.api.successCodeValue}\` |
+${accessSection}
 
 ## 4. 请求体字段
 | 序号 | 字段名 | 描述 | 类型 | 长度 | 业务分类 |
@@ -289,12 +917,8 @@ ${requestExample}
 \`\`\`
 
 ## 6. 响应约定
-成功时 HTTP 200，且业务码字段 \`${input.api.successCodePath}\` 等于 \`${input.api.successCodeValue}\`。
+连通性测试成功响应码为 \`${successCode}\`。
 失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。
-
-## 7. 来源识别说明
-- 接口路径：凭 appkey 识别供数方
-- 报文建议同时携带 \`supplier_code\`、\`org_id\`，与主数据编码一致
 `
 }
 
@@ -307,6 +931,9 @@ export function resolveStandardApiDoc(item: {
   remark?: string
   fields?: DocField[]
   apiAccess?: ApiAccessConfig | null
+  accessMethod?: AccessMethodType
+  mqAccess?: MqAccessConfig | null
+  fileAccess?: FileAccessConfig | null
   apiDocMarkdown?: string
 }): string {
   return buildApiDocMarkdown({
@@ -316,7 +943,10 @@ export function resolveStandardApiDoc(item: {
     requireIpWhitelist: !!item.requireIpWhitelist,
     remark: item.remark || '',
     fields: item.fields || [],
-    api: { ...defaultApiAccess(), ...(item.apiAccess || {}) },
+    api: normalizeApiAccess(item.apiAccess),
+    accessMethod: item.accessMethod || 'http_post',
+    mq: normalizeMqAccess(item.mqAccess),
+    file: normalizeFileAccess(item.fileAccess),
   })
 }
 
@@ -329,55 +959,123 @@ export function buildApiDocHtml(input: {
   remark: string
   fields: DocField[]
   api: ApiAccessConfig
+  accessMethod?: AccessMethodType
+  mq?: MqAccessConfig
+  file?: FileAccessConfig
 }): string {
   const scopeLabel = input.scope === 'org' ? `机构${input.orgName ? `（${input.orgName}）` : ''}` : '全局'
-  const authDesc =
-    input.api.authType === 'bearer'
-      ? `Authorization: Bearer &lt;token&gt;`
-      : input.api.authType === 'signature'
-        ? `签名头（按联调约定计算）`
-        : `${escapeHtml(input.api.authHeaderName)}: &lt;appkey&gt;`
+  const method = input.accessMethod || 'http_post'
+  const api = normalizeApiAccess(input.api)
+  const mq = input.mq || defaultMqAccess()
+  const file = input.file || defaultFileAccess()
+  const successCode = successCodeOfAccess(method, api, mq, file)
   const securityNotice =
-    input.scope === 'org'
-      ? `本方案适用范围为机构${input.orgName ? `（${escapeHtml(input.orgName)}）` : ''}：接口鉴权所需的 <strong>appkey</strong> 请联系<strong>机构负责人</strong>获取，请勿通过公开渠道传播。`
-      : `本方案适用范围为全局（未选择机构）：接口鉴权所需的 <strong>appkey</strong> 请联系<strong>康奈公司对接人</strong>获取，请勿通过公开渠道传播。`
+    method === 'http_post'
+      ? buildSecurityNotice(input.scope, input.orgName, api.authType, input.requireIpWhitelist)
+      : `${
+          input.scope === 'org'
+            ? `本方案适用范围为机构${input.orgName ? `（${input.orgName}）` : ''}`
+            : '本方案适用范围为全局（未选择机构）'
+        }：请妥善保管接入地址与鉴权凭证，勿通过公开渠道传播${
+          input.requireIpWhitelist ? '；已启用 IP 白名单' : ''
+        }。`
   const fieldRows = input.fields
     .map(
       (f, i) =>
         `<tr><td>${i + 1}</td><td><code>${escapeHtml(f.name)}</code></td><td>${escapeHtml(f.description || '—')}</td><td>${escapeHtml(f.dataType || '—')}</td><td>${escapeHtml(f.length || '—')}</td><td>${escapeHtml(f.bizCategory || '—')}</td></tr>`,
     )
     .join('')
-  const example = escapeHtml(buildRequestExample(input.api, input.fields))
+  const example = escapeHtml(buildAccessExample(method, api, mq, file, input.fields))
+
+  const kv = (rows: [string, string][]) =>
+    rows
+      .map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${v}</td></tr>`)
+      .join('')
+
+  let accessHtml = ''
+  if (method === 'mq') {
+    const addr = mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
+    const rows: [string, string][] = [
+      ['队列类型', escapeHtml(mq.mqType.toUpperCase())],
+      ['接入地址', escapeHtml(dash(addr))],
+      ['Topic', escapeHtml(dash(mq.topic))],
+      ['消费组', escapeHtml(dash(mq.consumerGroup))],
+      ['鉴权方式', escapeHtml(mqAuthLabel(mq.authType))],
+      ['起始消费位点', escapeHtml(mqOffsetLabel(mq.startOffset))],
+      ['消费并发数', escapeHtml(dash(mq.concurrency))],
+      ['单次拉取最大条数', escapeHtml(dash(mq.maxPullSize))],
+      ['消息重试次数', escapeHtml(dash(mq.retryCount))],
+      ['死信开关', mq.deadLetterEnabled ? '开启' : '关闭'],
+      ['数据格式', escapeHtml(dash(mq.dataFormat))],
+      ['字段校验', mq.enableFieldValidate ? '开启' : '关闭'],
+      ['去重主键', escapeHtml(dash(mq.dedupeField))],
+      ['堆积告警阈值', escapeHtml(dash(mq.lagAlertThreshold))],
+      ['失败告警阈值', escapeHtml(dash(mq.failAlertThreshold))],
+      ['成功响应码', escapeHtml(dash(mq.successCode))],
+    ]
+    if (mq.mqType === 'bmq') rows.push(['SASL 机制', escapeHtml(mq.saslMechanism)])
+    if (mq.mqType === 'kafka') {
+      rows.push(['Offset 自动提交', mq.autoCommit ? '是' : '否'])
+      rows.push(['自动提交间隔（ms）', escapeHtml(dash(mq.autoCommitIntervalMs))])
+    }
+    if (mq.mqType === 'rocketmq') {
+      rows.push(['Tag 过滤', escapeHtml(dash(mq.tagFilter))])
+      rows.push(['消费模式', mq.consumeMode === 'broadcasting' ? '广播消费' : '集群消费'])
+      rows.push(['单消息消费超时（ms）', escapeHtml(dash(mq.consumeTimeoutMs))])
+    }
+    accessHtml = `<h2>3. 消息队列配置</h2><table><tbody>${kv(rows)}</tbody></table>`
+  } else if (method === 'file') {
+    accessHtml = `<h2>3. 文件传输配置</h2><table><tbody>${kv([
+      ['传输协议', escapeHtml(file.protocol)],
+      ['服务器地址', escapeHtml(dash(file.host))],
+      ['端口号', escapeHtml(dash(file.port))],
+      ['登录方式', file.loginType === 'key' ? '密钥登录' : '用户名密码'],
+      ['文件目录路径', escapeHtml(dash(file.remoteDir))],
+      ['文件命名匹配规则', escapeHtml(dash(file.fileNamePattern))],
+      ['文件格式 / 编码', escapeHtml(`${file.fileFormat} / ${file.encoding}`)],
+      ['单次拉取最大文件数', escapeHtml(dash(file.maxFilesPerPull))],
+      ['轮询扫描周期', escapeHtml(dash(file.pollInterval))],
+      [
+        '处理完成动作',
+        file.afterProcess === 'delete'
+          ? '删除远程文件'
+          : file.afterProcess === 'archive'
+            ? '移动到归档目录'
+            : '保留',
+      ],
+      ['断点续传', file.resumeEnabled ? '开启' : '关闭'],
+      ['字段校验', file.enableFieldValidate ? '开启' : '关闭'],
+      ['去重主键', escapeHtml(dash(file.dedupeField))],
+      ['成功响应码', escapeHtml(dash(file.successCode))],
+    ])}</tbody></table>`
+  } else {
+    accessHtml = `<h2>3. 接口信息</h2><table><tbody>${kv([
+      ['接口地址', `<code>${escapeHtml(dash(buildApiEndpoint(api)))}</code>`],
+      ['请求协议', escapeHtml(dash(api.protocol))],
+      ['请求方法', escapeHtml(dash(api.method || 'POST'))],
+      ['鉴权方式', escapeHtml(apiAuthDesc(api))],
+      ['请求头', escapeHtml(dash(api.customHeaders || `Content-Type: ${api.contentType}`))],
+      ['最大 QPS 上限', escapeHtml(dash(api.rateLimitQps))],
+      ['重试次数', escapeHtml(dash(api.retry))],
+      ['重试间隔（ms）', escapeHtml(dash(api.retryIntervalMs))],
+      ['成功响应码', escapeHtml(dash(api.successHttpCode || '200'))],
+      ['数据编码', escapeHtml(dash(api.charset))],
+      ['字段校验', api.enableFieldValidate ? '开启' : '关闭'],
+    ])}</tbody></table>`
+  }
+
   return `<div class="api-doc-pdf">
-  <h1>${escapeHtml(input.name)} · 接口接入文档</h1>
+  <h1>${escapeHtml(input.name)} · 接入文档</h1>
   <h2>1. 概要</h2>
   <ul>
     <li>生效范围：${escapeHtml(scopeLabel)}</li>
-    <li>接入方式：HTTPS 接口推送</li>
+    <li>接入方式：${escapeHtml(accessMethodLabel(method))}</li>
     <li>IP 白名单管控：${input.requireIpWhitelist ? '是' : '否'}</li>
     <li>备注：${escapeHtml(input.remark || '—')}</li>
   </ul>
   <h2>2. 安全说明</h2>
-  <p class="security">${securityNotice}</p>
-  <h2>3. 接口信息</h2>
-  <table>
-    <tbody>
-      <tr><th>协议</th><td>${escapeHtml(input.api.protocol)}</td></tr>
-      <tr><th>方法</th><td>${escapeHtml(input.api.method)}</td></tr>
-      <tr><th>Base URL</th><td>${escapeHtml(input.api.baseUrl)}</td></tr>
-      <tr><th>Path</th><td>${escapeHtml(input.api.path)}</td></tr>
-      <tr><th>完整地址</th><td><code>${escapeHtml(buildApiEndpoint(input.api))}</code></td></tr>
-      <tr><th>Content-Type</th><td>${escapeHtml(input.api.contentType)}</td></tr>
-      <tr><th>字符集</th><td>${escapeHtml(input.api.charset)}</td></tr>
-      <tr><th>鉴权</th><td>${authDesc}</td></tr>
-      <tr><th>超时</th><td>${input.api.timeoutSec}s</td></tr>
-      <tr><th>失败重试</th><td>${input.api.retry} 次</td></tr>
-      <tr><th>限流</th><td>${input.api.rateLimitQps} QPS</td></tr>
-      <tr><th>幂等头</th><td>${escapeHtml(input.api.idempotencyHeader || '—')}</td></tr>
-      <tr><th>单批最大条数</th><td>${input.api.batchMaxSize}</td></tr>
-      <tr><th>成功判定</th><td><code>${escapeHtml(input.api.successCodePath)}</code> = <code>${escapeHtml(input.api.successCodeValue)}</code></td></tr>
-    </tbody>
-  </table>
+  <p class="security">${escapeHtml(securityNotice)}</p>
+  ${accessHtml}
   <h2>4. 请求体字段</h2>
   <table>
     <thead><tr><th>序号</th><th>字段名</th><th>描述</th><th>类型</th><th>长度</th><th>业务分类</th></tr></thead>
@@ -386,12 +1084,7 @@ export function buildApiDocHtml(input: {
   <h2>5. 请求示例</h2>
   <pre>${example}</pre>
   <h2>6. 响应约定</h2>
-  <p>成功时 HTTP 200，且业务码字段 <code>${escapeHtml(input.api.successCodePath)}</code> 等于 <code>${escapeHtml(input.api.successCodeValue)}</code>。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。</p>
-  <h2>7. 来源识别说明</h2>
-  <ul>
-    <li>接口路径：凭 appkey 识别供数方</li>
-    <li>报文建议同时携带 <code>supplier_code</code>、<code>org_id</code>，与主数据编码一致</li>
-  </ul>
+  <p>连通性测试成功响应码为 <code>${escapeHtml(successCode)}</code>。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。</p>
 </div>`
 }
 
@@ -411,6 +1104,9 @@ export function resolveStandardApiDocHtml(item: {
   remark?: string
   fields?: DocField[]
   apiAccess?: ApiAccessConfig | null
+  accessMethod?: AccessMethodType
+  mqAccess?: MqAccessConfig | null
+  fileAccess?: FileAccessConfig | null
 }): string {
   return buildApiDocHtml({
     name: item.name,
@@ -419,7 +1115,10 @@ export function resolveStandardApiDocHtml(item: {
     requireIpWhitelist: !!item.requireIpWhitelist,
     remark: item.remark || '',
     fields: item.fields || [],
-    api: { ...defaultApiAccess(), ...(item.apiAccess || {}) },
+    api: normalizeApiAccess(item.apiAccess),
+    accessMethod: item.accessMethod || 'http_post',
+    mq: normalizeMqAccess(item.mqAccess),
+    file: normalizeFileAccess(item.fileAccess),
   })
 }
 
@@ -430,10 +1129,12 @@ export interface IpWhitelistItem {
   supplierId: string
   supplierName?: string
   remark: string
+  /** 启用后才参与接入校验 */
+  status: Status
   createdAt: string
 }
 
-const STORAGE_KEY = 'yunshu-mt-mock-v18'
+const STORAGE_KEY = 'yunshu-mt-mock-v31'
 const BRIDGE_KEY = 'yunshu-enabled-standard-v1'
 const BRIDGE_LIST_KEY = 'yunshu-enabled-standards-v2'
 
@@ -468,6 +1169,15 @@ export function isLockedFieldId(_id: string) {
   return false
 }
 
+/** 接入方案 / 快速模板中的供数方字段映射 */
+export interface FieldMapItem {
+  fieldId: string
+  /** 供数方字段名称（可选，默认同平台字段名） */
+  supplierFieldName: string
+  /** 供数方字段类型（可选，默认同平台字段类型） */
+  supplierDataType: string
+}
+
 /** 字段库快速模板 */
 export type FieldTemplateType = 'system' | 'custom'
 
@@ -477,6 +1187,8 @@ export interface FieldTemplate {
   /** 模板说明 */
   desc: string
   fieldIds: string[]
+  /** 选中字段的供数方映射 */
+  fieldMaps?: FieldMapItem[]
   /** 系统内置 / 用户自定义 */
   type: FieldTemplateType
   updatedAt: string
@@ -565,6 +1277,37 @@ export function sameFieldIdSet(a: string[], b: string[]) {
   if (a.length !== b.length) return false
   const set = new Set(a)
   return b.every((id) => set.has(id))
+}
+
+/** 规范化字段映射：仅保留 fieldIds 内项，补全缺省 */
+export function normalizeFieldMaps(
+  fieldIds: string[],
+  maps: FieldMapItem[] | undefined,
+  resolveDefault?: (fieldId: string) => { name: string; dataType: string } | null,
+): FieldMapItem[] {
+  const mapById = new Map((maps || []).map((m) => [m.fieldId, m]))
+  return fieldIds.map((fieldId) => {
+    const hit = mapById.get(fieldId)
+    const def = resolveDefault?.(fieldId)
+    return {
+      fieldId,
+      supplierFieldName: (hit?.supplierFieldName ?? def?.name ?? '').trim(),
+      supplierDataType: (hit?.supplierDataType ?? def?.dataType ?? '').trim(),
+    }
+  })
+}
+
+export function sameFieldMaps(a: FieldMapItem[], b: FieldMapItem[]) {
+  if (a.length !== b.length) return false
+  const mb = new Map(b.map((x) => [x.fieldId, x]))
+  return a.every((x) => {
+    const y = mb.get(x.fieldId)
+    if (!y) return false
+    return (
+      (x.supplierFieldName || '').trim() === (y.supplierFieldName || '').trim() &&
+      (x.supplierDataType || '').trim() === (y.supplierDataType || '').trim()
+    )
+  })
 }
 
 export const dataTypeOptions = [
@@ -665,7 +1408,130 @@ function genAppkey(code: string) {
   return `ak_${code}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+export const SCHEME_APP_KEY_LEN = 8
+export const SCHEME_APP_SECRET_LEN = 16
+
+function randomAlnum(len: number) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghjkmnpqrstuvwxyz'
+  let out = ''
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  return out
+}
+
+export function genSchemeAppKey() {
+  return randomAlnum(SCHEME_APP_KEY_LEN)
+}
+
+export function genSchemeAppSecret() {
+  return randomAlnum(SCHEME_APP_SECRET_LEN)
+}
+
+/** 机构主数据（模拟从 MT 同步） */
+export interface OrgCatalogItem {
+  id: string
+  name: string
+  code: string
+}
+
+/** 机构供数配置列表行：接入方案 × 供数方 展开 */
+export interface OrgBindingRow {
+  id: string
+  orgId: string
+  orgName: string
+  orgCode: string
+  /** 所属统计单元 */
+  orgStatUnit?: string
+  /** 所属销售 */
+  orgSalesName?: string
+  status: Status
+  standardId: string
+  standardName: string
+  supplierId: string
+  supplierName: string
+  remark?: string
+  orgStandardIds: string[]
+  orgSupplierIds: string[]
+}
+
+export type SupplyTimeRange = 'today' | '3d' | '1w' | '1m'
+
+export interface SupplyStatsFilter {
+  /** 多选：指定若干机构，空=全部 */
+  orgIds?: string[]
+  /** 多选：指定若干接入方案，空=全部 */
+  standardIds?: string[]
+  /** 多选：指定若干供数方，空=全部 */
+  supplierIds?: string[]
+  /** 时间跨度：今日 / 近3天 / 近1周 / 近1月 */
+  timeRange?: SupplyTimeRange
+}
+
+const TIME_RANGE_SCALE: Record<SupplyTimeRange, number> = {
+  today: 1 / 30,
+  '3d': 3 / 30,
+  '1w': 7 / 30,
+  '1m': 1,
+}
+
+/** 单一维度下的分类汇总行 */
+export interface SupplyDimRow {
+  id: string
+  name: string
+  inboundCount: number
+  backlogCount: number
+}
+
+export interface SupplyStatsRow {
+  id: string
+  orgId: string
+  orgName: string
+  orgStatUnit?: string
+  orgSalesName?: string
+  standardId: string
+  standardName: string
+  supplierId: string
+  supplierName: string
+  inboundCount: number
+  backlogCount: number
+  lastInboundAt: string
+}
+
+/** 供数统计总览：总量 + 三个维度分类汇总 + 组合明细 */
+export interface SupplyStatsOverview {
+  totalInbound: number
+  totalBacklog: number
+  byOrg: SupplyDimRow[]
+  byStandard: SupplyDimRow[]
+  bySupplier: SupplyDimRow[]
+  details: SupplyStatsRow[]
+}
+
+/** 筛选范围内的聚合趋势（仅接入量 / 堆积量两条线） */
+export interface SupplyAggregateTrend {
+  dates: string[]
+  inbound: number[]
+  backlog: number[]
+}
+
+export interface SupplyTrendPoint {
+  date: string
+  inbound: number
+  backlog: number
+}
+
+export interface SupplyTrendSeries {
+  name: string
+  points: SupplyTrendPoint[]
+}
+
 const seed = {
+  orgCatalog: [
+    { id: 'oc1', name: '陕西省网信办', code: 'ORG_WXB_001' },
+    { id: 'oc2', name: '西安市委宣传部', code: 'ORG_XCB_002' },
+    { id: 'oc3', name: '西安市雁塔区融媒体中心', code: 'ORG_RMT_003' },
+    { id: 'oc4', name: '咸阳市网信办', code: 'ORG_SWXB_004' },
+    { id: 'oc5', name: '礼泉县融媒体中心', code: 'ORG_XRMT_005' },
+  ] as OrgCatalogItem[],
   suppliers: [
     { id: 's1', name: '清博智能', code: 'QB001', status: 'enabled' as Status, appkey: 'ak_QB001_demo01', updatedAt: '2026-09-01 14:20:00' },
     { id: 's2', name: '智慧星光', code: 'ZX001', status: 'enabled' as Status, appkey: 'ak_ZX001_demo02', updatedAt: '2026-08-28 09:10:00' },
@@ -673,9 +1539,54 @@ const seed = {
     { id: 's4', name: '百度舆情', code: 'BD001', status: 'enabled' as Status, appkey: 'ak_BD001_demo04', updatedAt: '2026-08-15 11:00:00' },
   ] as Supplier[],
   orgs: [
-    { id: 'o1', name: '某市网信办', code: 'ORG_WXB_001', status: 'enabled' as Status, supplierIds: ['s1', 's2', 's3'], standardIds: ['st1'], standardId: 'st1' },
-    { id: 'o2', name: '某省宣传部', code: 'ORG_XCB_002', status: 'enabled' as Status, supplierIds: ['s1'], standardIds: ['st1'], standardId: 'st1' },
-    { id: 'o3', name: '某区融媒体中心', code: 'ORG_RMT_003', status: 'disabled' as Status, supplierIds: [], standardIds: [], standardId: '' },
+    {
+      id: 'o1',
+      name: '陕西省网信办',
+      code: 'ORG_WXB_001',
+      status: 'enabled' as Status,
+      supplierIds: ['s1', 's2', 's3'],
+      standardIds: ['st1'],
+      standardId: 'st1',
+      remark: '',
+      statUnit: '陕西大区',
+      salesName: '张三三',
+    },
+    {
+      id: 'o2',
+      name: '西安市委宣传部',
+      code: 'ORG_XCB_002',
+      status: 'enabled' as Status,
+      supplierIds: ['s1'],
+      standardIds: ['st1'],
+      standardId: 'st1',
+      remark: '宣传口径供数',
+      statUnit: '陕西大区',
+      salesName: '李四五',
+    },
+    {
+      id: 'o3',
+      name: '西安市雁塔区融媒体中心',
+      code: 'ORG_RMT_003',
+      status: 'enabled' as Status,
+      supplierIds: ['s2', 's4'],
+      standardIds: ['st3'],
+      standardId: 'st3',
+      remark: '',
+      statUnit: '陕西大区',
+      salesName: '王小明',
+    },
+    {
+      id: 'o4',
+      name: '咸阳市网信办',
+      code: 'ORG_SWXB_004',
+      status: 'enabled' as Status,
+      supplierIds: ['s1', 's4'],
+      standardIds: ['st1', 'st5'],
+      standardId: 'st1',
+      remark: '市级双方案接入',
+      statUnit: '陕西大区',
+      salesName: '赵六',
+    },
   ] as Org[],
   metadata: [
     fieldSeed('supplier_code', 'String', '供数方编码，对应供数方管理中的编码；库表路径据此识别来源厂商', '运维管理', true, '32'),
@@ -764,13 +1675,23 @@ const seed = {
   standards: [
     {
       id: 'st1',
+      schemeNo: 10001,
       name: '云数中台全局接入方案',
-      scope: 'global' as StandardScope,
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's1',
       fieldIds: ['supplier_code', 'org_id', 'platform', 'platform_name', 'news_uuid', 'news_title', 'media_name', 'news_is_origin'],
       metadataId: 'supplier_code',
       requireIpWhitelist: true,
       remark: '全局默认接口推送方案',
-      apiAccess: defaultApiAccess(),
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        appKey: 'AkGlo8x1',
+        appSecret: 'SecGlo16DemoKey1',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
       apiDocMarkdown: '',
       fileName: '云数中台全局接入方案-接口文档.pdf',
       fileSize: '12 KB',
@@ -778,28 +1699,209 @@ const seed = {
       status: 'enabled' as Status,
       uploader: '平台运营',
       uploadedAt: '2026-09-03 11:00:00',
+      accessStats: { total: 186420, today: 4280, d3: 12600, w1: 31200, m1: 98400 },
+      lastAccessAt: '2026-09-11 13:42:18',
+      accessActiveDaysW1: 7,
     },
     {
       id: 'st2',
-      name: '某市网信办机构接入方案',
+      schemeNo: 10002,
+      name: '陕西省网信办机构接入方案',
       scope: 'org' as StandardScope,
       orgId: 'o1',
+      supplierId: 's2',
       fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title'],
       metadataId: 'supplier_code',
       requireIpWhitelist: false,
       remark: '',
+      accessMethod: 'http_post' as AccessMethodType,
       apiAccess: {
         ...defaultApiAccess(),
         path: '/api/v1/org/o1/articles/push',
         rateLimitQps: 20,
+        appKey: 'AkOrg8o1',
+        appSecret: 'SecOrg16DemoKey01',
       },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
       apiDocMarkdown: '',
-      fileName: '某市网信办机构接入方案-接口文档.pdf',
+      fileName: '陕西省网信办机构接入方案-接口文档.pdf',
       fileSize: '10 KB',
       fileUrl: '#',
       status: 'disabled' as Status,
       uploader: '平台运营',
       uploadedAt: '2026-08-15 10:00:00',
+      accessStats: { total: 820, today: 0, d3: 12, w1: 46, m1: 210 },
+      lastAccessAt: '2026-08-20 09:12:00',
+      accessActiveDaysW1: 1,
+    },
+    {
+      id: 'st3',
+      schemeNo: 10003,
+      name: '舆情实时推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o2',
+      supplierId: 's1',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title', 'news_content', 'news_posttime'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: true,
+      remark: '面向实时舆情入库的高 QPS 推送',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/opinion/realtime/push',
+        rateLimitQps: 200,
+        appKey: 'AkRt8yx2',
+        appSecret: 'SecRt16DemoKey002',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '舆情实时推送方案-接口文档.pdf',
+      fileSize: '11 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-09-05 09:20:00',
+      accessStats: { total: 256800, today: 6120, d3: 18400, w1: 45800, m1: 142000 },
+      lastAccessAt: '2026-09-11 14:01:06',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st4',
+      schemeNo: 10004,
+      name: 'Kafka 舆情订阅方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's3',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title', 'news_digest'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '通过 Kafka Topic 订阅供数方增量',
+      accessMethod: 'mq' as AccessMethodType,
+      apiAccess: defaultApiAccess(),
+      mqAccess: {
+        ...defaultMqAccess(),
+        mqType: 'kafka',
+        brokers: 'kafka-1.yunshu.local:9092,kafka-2.yunshu.local:9092',
+        topic: 'yunshu.opinion.inbound',
+        consumerGroup: 'cg-yunshu-mt',
+        startOffset: 'latest',
+        concurrency: 4,
+        maxPullSize: 200,
+      },
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: 'Kafka舆情订阅方案-接口文档.pdf',
+      fileSize: '9 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '数据接入组',
+      uploadedAt: '2026-09-01 16:40:00',
+      accessStats: { total: 38400, today: 960, d3: 2800, w1: 7200, m1: 24600 },
+      lastAccessAt: '2026-09-11 12:18:44',
+      accessActiveDaysW1: 5,
+    },
+    {
+      id: 'st5',
+      schemeNo: 10005,
+      name: '西安市委宣传部专属推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o2',
+      supplierId: 's2',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'platform_name', 'news_uuid', 'news_title', 'news_origin'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: true,
+      remark: '宣传口径供数，开启白名单',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/org/o2/articles/push',
+        rateLimitQps: 30,
+        appKey: 'AkXcb8p2',
+        appSecret: 'SecXcb16DemoKey03',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '西安市委宣传部专属推送方案-接口文档.pdf',
+      fileSize: '10 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-08-28 14:15:00',
+      accessStats: { total: 91200, today: 2100, d3: 6400, w1: 16800, m1: 52000 },
+      lastAccessAt: '2026-09-11 11:55:02',
+      accessActiveDaysW1: 6,
+    },
+    {
+      id: 'st6',
+      schemeNo: 10006,
+      name: 'RocketMQ 批量接入方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o2',
+      supplierId: 's3',
+      fieldIds: ['supplier_code', 'org_id', 'news_uuid', 'news_title', 'news_content', 'news_keywords'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '适合大批量异步投递',
+      accessMethod: 'mq' as AccessMethodType,
+      apiAccess: defaultApiAccess(),
+      mqAccess: {
+        ...defaultMqAccess(),
+        mqType: 'rocketmq',
+        nameServer: 'rmq-ns.yunshu.local:9876',
+        topic: 'TP_YUNSHU_BATCH',
+        consumerGroup: 'GID_YUNSHU_MT',
+        tagFilter: 'OPINION || NEWS',
+        consumeMode: 'clustering',
+        concurrency: 8,
+        maxPullSize: 500,
+      },
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: 'RocketMQ批量接入方案-接口文档.pdf',
+      fileSize: '8 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '数据接入组',
+      uploadedAt: '2026-09-06 10:05:00',
+      accessStats: { total: 142600, today: 3800, d3: 11200, w1: 28600, m1: 88000 },
+      lastAccessAt: '2026-09-11 13:20:31',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st8',
+      schemeNo: 10007,
+      name: '融媒体中心轻量推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o3',
+      supplierId: 's1',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title', 'media_name'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '区县融媒体轻量接入',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/org/o3/articles/push',
+        rateLimitQps: 10,
+        authType: 'none',
+        appKey: '',
+        appSecret: '',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '融媒体中心轻量推送方案-接口文档.pdf',
+      fileSize: '6 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-09-08 11:45:00',
+      accessStats: { total: 1560, today: 0, d3: 80, w1: 260, m1: 900 },
+      lastAccessAt: '2026-09-10 18:06:12',
+      accessActiveDaysW1: 2,
     },
   ] as Standard[],
   ipWhitelist: [
@@ -808,6 +1910,7 @@ const seed = {
       ip: '10.0.1.12',
       supplierId: 's2',
       remark: '前置机出口',
+      status: 'enabled' as Status,
       createdAt: '2026-09-01 10:00:00',
     },
     {
@@ -815,6 +1918,7 @@ const seed = {
       ip: '203.0.113.8',
       supplierId: 's2',
       remark: '联调出口',
+      status: 'enabled' as Status,
       createdAt: '2026-09-02 09:00:00',
     },
     {
@@ -822,6 +1926,7 @@ const seed = {
       ip: '10.0.2.20',
       supplierId: 's1',
       remark: '库表推送节点',
+      status: 'enabled' as Status,
       createdAt: '2026-09-03 11:00:00',
     },
   ] as IpWhitelistItem[],
@@ -829,6 +1934,7 @@ const seed = {
 }
 
 interface State {
+  orgCatalog: OrgCatalogItem[]
   suppliers: Supplier[]
   orgs: Org[]
   metadata: Metadata[]
@@ -847,6 +1953,9 @@ function loadState(): State {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as State
+      parsed.orgCatalog = Array.isArray(parsed.orgCatalog) && parsed.orgCatalog.length
+        ? parsed.orgCatalog
+        : clone(seed.orgCatalog)
       parsed.suppliers = (parsed.suppliers || []).map((s) => ({
         ...s,
         appkey: s.appkey || genAppkey(s.code || 'x'),
@@ -858,12 +1967,16 @@ function loadState(): State {
             : o.standardId
               ? [o.standardId]
               : []
+        const seedOrg = seed.orgs.find((x) => x.id === o.id)
         return {
           ...o,
           code: o.code || `ORG_${String(o.id || idx).toUpperCase()}`,
           status: (o.status === 'disabled' ? 'disabled' : 'enabled') as Status,
           standardIds,
           standardId: standardIds[0] || '',
+          remark: o.remark || '',
+          statUnit: o.statUnit || seedOrg?.statUnit || '',
+          salesName: o.salesName || seedOrg?.salesName || '',
         }
       })
       parsed.schemes = (parsed.schemes || []).map((s) => {
@@ -883,35 +1996,59 @@ function loadState(): State {
           requireIpWhitelist: !!s.requireIpWhitelist,
         }
       })
-      parsed.standards = (parsed.standards || []).map((st) => {
+      parsed.standards = (parsed.standards || []).map((st, idx) => {
         const fieldIds = st.fieldIds?.length ? st.fieldIds : st.metadataId ? [st.metadataId] : []
-        const apiAccess = { ...defaultApiAccess(), ...(st.apiAccess || {}) }
+        const apiAccess = normalizeApiAccess(st.apiAccess)
+        const accessMethod = (st.accessMethod || 'http_post') as AccessMethodType
+        const seedSt = seed.standards.find((x) => x.id === st.id)
         return {
           ...st,
           name: stripParenInName(st.name),
-          scope: st.scope || 'global',
+          schemeNo: Number(st.schemeNo) || seedSt?.schemeNo || 10001 + idx,
+          scope: 'org' as StandardScope,
+          orgId: st.orgId || 'o1',
+          supplierId: st.supplierId || 's1',
           fieldIds,
+          fieldMaps: Array.isArray(st.fieldMaps) ? st.fieldMaps : [],
           metadataId: st.metadataId || fieldIds[0] || '',
           requireIpWhitelist: !!st.requireIpWhitelist,
           remark: st.remark || '',
+          accessMethod,
           apiAccess,
+          mqAccess: normalizeMqAccess(st.mqAccess),
+          fileAccess: normalizeFileAccess(st.fileAccess),
           apiDocMarkdown: st.apiDocMarkdown || '',
           fileName: st.fileName?.replace(/\.md$/i, '.pdf') || `${stripParenInName(st.name)}-接口文档.pdf`,
+          accessStats: normalizeAccessStats(st.accessStats || seedSt?.accessStats),
+          lastAccessAt: st.lastAccessAt || seedSt?.lastAccessAt || '',
+          accessActiveDaysW1:
+            Number(st.accessActiveDaysW1) ||
+            Number(seedSt?.accessActiveDaysW1) ||
+            0,
         }
       })
-      parsed.ipWhitelist = parsed.ipWhitelist || []
+      parsed.ipWhitelist = (parsed.ipWhitelist || []).map((item) => ({
+        ...item,
+        supplierId: item.supplierId || '',
+        remark: item.remark || '',
+        status: (item.status === 'disabled' ? 'disabled' : 'enabled') as Status,
+        createdAt: item.createdAt || nowText(),
+      }))
       const savedTpls = Array.isArray(parsed.fieldTemplates) ? parsed.fieldTemplates : []
       const customTpls = savedTpls.filter((t) => t.type === 'custom')
       const systemFromSaved = savedTpls.filter((t) => t.type === 'system')
       parsed.fieldTemplates = [
         ...builtinFieldTemplates.map((b) => {
           const hit = systemFromSaved.find((s) => s.id === b.id)
-          return hit ? { ...b, ...hit, type: 'system' as const, fieldIds: b.fieldIds } : { ...b }
+          return hit
+            ? { ...b, ...hit, type: 'system' as const, fieldIds: b.fieldIds, fieldMaps: hit.fieldMaps || b.fieldMaps || [] }
+            : { ...b, fieldMaps: b.fieldMaps || [] }
         }),
         ...customTpls.map((t) => ({
           ...t,
           type: 'custom' as const,
           fieldIds: Array.isArray(t.fieldIds) ? t.fieldIds : [],
+          fieldMaps: Array.isArray(t.fieldMaps) ? t.fieldMaps : [],
           desc: t.desc || '',
           updatedAt: t.updatedAt || '2026-09-08 10:00:00',
         })),
@@ -989,39 +2126,71 @@ function hydrateScheme(scheme: Scheme | null) {
 function hydrateStandard(item: Standard | null): Standard | null {
   if (!item) return null
   const fieldIds = item.fieldIds?.length ? item.fieldIds : item.metadataId ? [item.metadataId] : []
-  const fields = fieldIds.map((id) => findMeta(id)).filter(Boolean).map((f) => ({
-    ...f!,
-    bizCaliber: f!.description || f!.bizCaliber,
-  })) as Metadata[]
-  const apiAccess = { ...defaultApiAccess(), ...(item.apiAccess || {}) }
+  const fields = fieldIds.map((id) => findMeta(id)).filter(Boolean).map((f) => {
+    const map = (item.fieldMaps || []).find((m) => m.fieldId === f!.id)
+    return {
+      ...f!,
+      bizCaliber: f!.description || f!.bizCaliber,
+      supplierFieldName: map?.supplierFieldName || f!.name,
+      supplierDataType: map?.supplierDataType || f!.dataType,
+    }
+  }) as (Metadata & { supplierFieldName?: string; supplierDataType?: string })[]
+  const fieldMaps = normalizeFieldMaps(fieldIds, item.fieldMaps, (id) => {
+    const m = findMeta(id)
+    return m ? { name: m.name, dataType: m.dataType } : null
+  })
+  const apiAccess = normalizeApiAccess(item.apiAccess)
+  const mqAccess = normalizeMqAccess(item.mqAccess)
+  const fileAccess = normalizeFileAccess(item.fileAccess)
+  const accessMethod = (item.accessMethod || 'http_post') as AccessMethodType
   const scheme = item.schemeId ? hydrateScheme(findScheme(item.schemeId)) : null
   const primary = fields[0] || null
+  const boundOrg = item.orgId ? state.orgs.find((o) => o.id === item.orgId) : null
+  const boundOrgName = orgName(item.orgId)
+  const boundSupplierName = item.supplierId ? supplierNameMap()[item.supplierId] || item.supplierName || '' : ''
   const apiDocMarkdown = buildApiDocMarkdown({
     name: stripParenInName(item.name),
-    scope: item.scope || 'global',
-    orgName: item.scope === 'org' ? orgName(item.orgId) : '',
+    scope: 'org',
+    orgName: boundOrgName,
     requireIpWhitelist: !!item.requireIpWhitelist,
     remark: item.remark || '',
     fields,
     api: apiAccess,
+    accessMethod,
+    mq: mqAccess,
+    file: fileAccess,
   })
   return {
     ...item,
     name: stripParenInName(item.name),
+    schemeNo: Number(item.schemeNo) || 0,
+    scope: 'org',
     fieldIds,
+    fieldMaps,
     metadataId: item.metadataId || fieldIds[0] || '',
     metadataName: fields.map((f) => f.name).join('、') || '—',
     fieldNames: fields.map((f) => f.name).join('、') || '—',
     fieldSummary: fields.map((f) => f.name).join('、') || '—',
-    schemeName: '接口推送',
-    orgName: item.scope === 'org' ? orgName(item.orgId) : '',
+    schemeName: accessMethodLabel(accessMethod),
+    orgName: boundOrgName,
+    orgStatUnit: boundOrg?.statUnit || '',
+    orgSalesName: boundOrg?.salesName || '',
+    supplierId: item.supplierId || '',
+    supplierName: boundSupplierName,
     type: 'API',
     publishedAt: item.uploadedAt,
+    updatedAt: item.updatedAt || item.uploadedAt,
     requireIpWhitelist: !!item.requireIpWhitelist,
     remark: item.remark || '',
+    accessMethod,
     apiAccess,
+    mqAccess,
+    fileAccess,
     apiDocMarkdown,
     fileName: `${stripParenInName(item.name)}-接口文档.pdf`,
+    accessStats: normalizeAccessStats(item.accessStats),
+    lastAccessAt: item.lastAccessAt || '',
+    accessActiveDaysW1: Number(item.accessActiveDaysW1) || 0,
     fields,
     metadata: primary,
     scheme,
@@ -1042,10 +2211,8 @@ function resolveEffectiveList(orgId: string): Standard[] {
     .filter(Boolean)
     .map((s) => hydrateStandard(s!)!)
   if (bound.length) return bound
-  const orgEnabled = state.standards.filter((s) => s.status === 'enabled' && s.scope === 'org' && s.orgId === orgId)
-  if (orgEnabled.length) return orgEnabled.map((s) => hydrateStandard(s)!)
-  const globalEnabled = state.standards.filter((s) => s.status === 'enabled' && s.scope === 'global')
-  return globalEnabled.map((s) => hydrateStandard(s)!)
+  const orgEnabled = state.standards.filter((s) => s.status === 'enabled' && s.orgId === orgId)
+  return orgEnabled.map((s) => hydrateStandard(s)!)
 }
 
 function resolveEffective(orgId: string): Standard | null {
@@ -1068,13 +2235,49 @@ function syncEnabledBridge() {
   localStorage.setItem(BRIDGE_KEY, JSON.stringify(list[0] || null))
 }
 
-function ensureSingleEnabled(exceptId: string, nextStatus: Status, scope: StandardScope, orgId?: string) {
-  if (nextStatus !== 'enabled') return
-  state.standards.forEach((s) => {
-    if (s.id === exceptId) return
-    if (scope === 'global' && s.scope === 'global') s.status = 'disabled'
-    if (scope === 'org' && s.scope === 'org' && s.orgId === orgId) s.status = 'disabled'
-  })
+function findOrgSupplierConflict(exceptId: string, orgId?: string, supplierId?: string) {
+  if (!orgId || !supplierId) return null
+  return (
+    state.standards.find(
+      (s) =>
+        s.id !== exceptId &&
+        s.status === 'enabled' &&
+        s.orgId === orgId &&
+        s.supplierId === supplierId,
+    ) || null
+  )
+}
+
+function nextSchemeNo() {
+  const max = state.standards.reduce((m, s) => Math.max(m, Number(s.schemeNo) || 0), 10000)
+  return max + 1
+}
+
+function buildAccessSampleRows(item: Standard, range: AccessVolumeRange, limit: number) {
+  const stats = normalizeAccessStats(item.accessStats)
+  const previewCap = Math.min(Math.max(stats[range] || 0, 0), 100)
+  const fieldIds = item.fieldIds?.length ? item.fieldIds : item.metadataId ? [item.metadataId] : []
+  const fields = fieldIds.map((id) => findMeta(id)).filter(Boolean) as Metadata[]
+  const showFields = fields.slice(0, 6)
+  const columns = showFields.map((f) => ({
+    title: f.name,
+    dataIndex: f.id,
+    ellipsis: true,
+    tooltip: true,
+  }))
+  const list: Record<string, string>[] = []
+  const count = Math.min(limit, previewCap)
+  for (let i = 0; i < count; i++) {
+    const row: Record<string, string> = { _key: `${item.id}-${range}-${i}` }
+    showFields.forEach((f, fi) => {
+      if (f.id === 'supplier_code') row[f.id] = item.supplierId || 'QB001'
+      else if (f.id === 'org_id') row[f.id] = item.orgId || 'ORG_001'
+      else if (f.dataType === 'Int') row[f.id] = String(10 + i * 3 + fi)
+      else row[f.id] = `${f.name}_${i + 1}`
+    })
+    list.push(row)
+  }
+  return { total: stats[range] || 0, columns, list }
 }
 
 export function paginate<T>(list: T[], page: number, pageSize: number) {
@@ -1158,6 +2361,183 @@ export const mtMock = {
       }
     })
   },
+  /** 列表按「接入方案 × 供数方」展开（同一方案 3 个供数方 → 3 行） */
+  getOrgBindings(): OrgBindingRow[] {
+    const rows: OrgBindingRow[] = []
+    for (const org of this.getOrgs()) {
+      const standardIds = resolveOrgStandardIds(org)
+      const supplierIds = org.supplierIds || []
+      if (!standardIds.length || !supplierIds.length) continue
+      for (const standardId of standardIds) {
+        const st = state.standards.find((s) => s.id === standardId)
+        for (const supplierId of supplierIds) {
+          const sp = state.suppliers.find((s) => s.id === supplierId)
+          rows.push({
+            id: `${org.id}__${standardId}__${supplierId}`,
+            orgId: org.id,
+            orgName: org.name,
+            orgCode: org.code || '',
+            orgStatUnit: org.statUnit || '',
+            orgSalesName: org.salesName || '',
+            status: org.status,
+            standardId,
+            standardName: st?.name || '—',
+            supplierId,
+            supplierName: sp?.name || '—',
+            remark: org.remark || '',
+            orgStandardIds: standardIds.slice(),
+            orgSupplierIds: supplierIds.slice(),
+          })
+        }
+      }
+    }
+    return rows
+  },
+  getOrgCatalog: () => state.orgCatalog.slice(),
+  /** 尚未配置机构供数的主数据（新增下拉用） */
+  availableOrgCatalog(exceptOrgId?: string) {
+    const usedCodes = new Set(
+      state.orgs.filter((o) => o.id !== exceptOrgId).map((o) => (o.code || '').trim()).filter(Boolean),
+    )
+    return state.orgCatalog.filter((c) => !usedCodes.has(c.code.trim()))
+  },
+  getSupplyFilterOptions() {
+    return {
+      orgs: this.getOrgs().map((o) => ({ label: o.name, value: o.id })),
+      standards: state.standards.map((s) => ({ label: s.name, value: s.id })),
+      suppliers: state.suppliers.map((s) => ({ label: s.name, value: s.id })),
+    }
+  },
+  /** 组合明细（支持三维多选交叉筛选 + 时间跨度） */
+  getSupplyDetailRows(filter: SupplyStatsFilter = {}): SupplyStatsRow[] {
+    const hash = (s: string) => {
+      let h = 0
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+      return h
+    }
+    const orgSet = filter.orgIds?.length ? new Set(filter.orgIds) : null
+    const stSet = filter.standardIds?.length ? new Set(filter.standardIds) : null
+    const spSet = filter.supplierIds?.length ? new Set(filter.supplierIds) : null
+    const range: SupplyTimeRange = filter.timeRange || 'today'
+    const scale = TIME_RANGE_SCALE[range]
+
+    let bindings = this.getOrgBindings()
+    if (orgSet) bindings = bindings.filter((b) => orgSet.has(b.orgId))
+    if (stSet) bindings = bindings.filter((b) => stSet.has(b.standardId))
+    if (spSet) bindings = bindings.filter((b) => spSet.has(b.supplierId))
+
+    return bindings.map((b) => {
+      const h = hash(b.id + range)
+      const inboundCount = Math.max(1, Math.round((1200 + (h % 18000)) * scale))
+      const backlogCount = Math.max(0, Math.round((40 + (h % 900)) * Math.min(1, scale * 2.2)))
+      return {
+        id: b.id,
+        orgId: b.orgId,
+        orgName: b.orgName,
+        orgStatUnit: b.orgStatUnit || '',
+        orgSalesName: b.orgSalesName || '',
+        standardId: b.standardId,
+        standardName: b.standardName,
+        supplierId: b.supplierId,
+        supplierName: b.supplierName,
+        inboundCount,
+        backlogCount,
+        lastInboundAt: nowText(),
+      }
+    })
+  },
+  /** 总量 + 按机构/方案/供数方分类汇总 + 组合明细 */
+  getSupplyStats(filter: SupplyStatsFilter = {}): SupplyStatsOverview {
+    const details = this.getSupplyDetailRows(filter)
+    const sumBy = (key: 'orgId' | 'standardId' | 'supplierId', nameKey: 'orgName' | 'standardName' | 'supplierName') => {
+      const map = new Map<string, SupplyDimRow>()
+      for (const row of details) {
+        const id = row[key]
+        const hit = map.get(id)
+        if (hit) {
+          hit.inboundCount += row.inboundCount
+          hit.backlogCount += row.backlogCount
+        } else {
+          map.set(id, {
+            id,
+            name: row[nameKey],
+            inboundCount: row.inboundCount,
+            backlogCount: row.backlogCount,
+          })
+        }
+      }
+      return [...map.values()].sort((a, b) => b.inboundCount - a.inboundCount)
+    }
+    const totalInbound = details.reduce((s, r) => s + r.inboundCount, 0)
+    const totalBacklog = details.reduce((s, r) => s + r.backlogCount, 0)
+    return {
+      totalInbound,
+      totalBacklog,
+      byOrg: sumBy('orgId', 'orgName'),
+      byStandard: sumBy('standardId', 'standardName'),
+      bySupplier: sumBy('supplierId', 'supplierName'),
+      details: details.slice().sort((a, b) => b.inboundCount - a.inboundCount),
+    }
+  },
+  /** 按时间跨度生成聚合趋势：仅「接入量」「堆积量」两条线 */
+  getSupplyTrend(filter: SupplyStatsFilter = {}): SupplyAggregateTrend {
+    const details = this.getSupplyDetailRows(filter)
+    const totalInbound = details.reduce((s, r) => s + r.inboundCount, 0) || 1
+    const totalBacklog = details.reduce((s, r) => s + r.backlogCount, 0) || 1
+    const range: SupplyTimeRange = filter.timeRange || 'today'
+    const today = new Date()
+    const dates: string[] = []
+    const inbound: number[] = []
+    const backlog: number[] = []
+
+    const pushPoint = (label: string, idx: number, pointCount: number, baseIn: number, baseBack: number) => {
+      const wave = Math.sin(idx / 2.4) * 0.16 + 1
+      const drift = 1 + (idx / Math.max(1, pointCount - 1)) * 0.12
+      dates.push(label)
+      inbound.push(Math.max(1, Math.round(baseIn * wave * drift)))
+      backlog.push(Math.max(0, Math.round(baseBack * (1.15 - Math.sin((idx + 1) / 3.2) * 0.28))))
+    }
+
+    if (range === 'today') {
+      const hourNow = Math.max(1, today.getHours() || 1)
+      const baseIn = Math.max(2, Math.round(totalInbound / hourNow))
+      const baseBack = Math.max(1, Math.round(totalBacklog / hourNow))
+      for (let h = 0; h <= hourNow; h++) {
+        pushPoint(`${String(h).padStart(2, '0')}:00`, h, hourNow + 1, baseIn, baseBack)
+      }
+    } else if (range === '3d') {
+      const baseIn = Math.max(4, Math.round(totalInbound / 3))
+      const baseBack = Math.max(1, Math.round(totalBacklog / 3))
+      for (let i = 2; i >= 0; i--) {
+        const d = new Date(today)
+        d.setDate(today.getDate() - i)
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        pushPoint(`${m}-${day}`, 2 - i, 3, baseIn, baseBack)
+      }
+    } else if (range === '1w') {
+      const baseIn = Math.max(8, Math.round(totalInbound / 7))
+      const baseBack = Math.max(2, Math.round(totalBacklog / 7))
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today)
+        d.setDate(today.getDate() - i)
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        pushPoint(`${m}-${day}`, 6 - i, 7, baseIn, baseBack)
+      }
+    } else {
+      const baseIn = Math.max(8, Math.round(totalInbound / 30))
+      const baseBack = Math.max(2, Math.round(totalBacklog / 30))
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(today)
+        d.setDate(today.getDate() - i)
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        pushPoint(`${m}-${day}`, 29 - i, 30, baseIn, baseBack)
+      }
+    }
+    return { dates, inbound, backlog }
+  },
   orgOptions: () => state.orgs.map((o) => ({ label: `${o.name}（${o.code}）`, value: o.id })),
   orgNameExists: (name: string, exceptId?: string) =>
     state.orgs.some((o) => o.name === name.trim() && o.id !== exceptId),
@@ -1171,6 +2551,7 @@ export const mtMock = {
       standardIds?: string[]
       code?: string
       name?: string
+      remark?: string
     },
   ) {
     const org = state.orgs.find((o) => o.id === orgId)
@@ -1190,6 +2571,7 @@ export const mtMock = {
           : []
     org.standardIds = standardIds
     org.standardId = standardIds[0] || ''
+    if (payload.remark !== undefined) org.remark = String(payload.remark || '').trim()
     save()
     return { ok: true as const, item: org }
   },
@@ -1203,6 +2585,7 @@ export const mtMock = {
     supplierIds: string[]
     standardId?: string
     standardIds?: string[]
+    remark?: string
     status?: Status
   }) {
     const name = payload.name.trim()
@@ -1225,6 +2608,7 @@ export const mtMock = {
       supplierIds: (payload.supplierIds || []).slice(),
       standardIds,
       standardId: standardIds[0] || '',
+      remark: String(payload.remark || '').trim(),
     }
     state.orgs.unshift(item)
     save()
@@ -1332,6 +2716,10 @@ export const mtMock = {
     return state.fieldTemplates.map((t) => ({
       ...t,
       fieldIds: [...(t.fieldIds || [])],
+      fieldMaps: normalizeFieldMaps(t.fieldIds || [], t.fieldMaps, (id) => {
+        const m = findMeta(id)
+        return m ? { name: m.name, dataType: m.dataType } : null
+      }),
       fieldCount: (t.fieldIds || []).length,
       typeLabel: t.type === 'system' ? '系统内置' : '用户自定义',
       fieldNames: (t.fieldIds || [])
@@ -1357,6 +2745,7 @@ export const mtMock = {
     name: string
     desc?: string
     fieldIds: string[]
+    fieldMaps?: FieldMapItem[]
     type?: FieldTemplateType
   }) {
     const name = payload.name.trim()
@@ -1366,6 +2755,10 @@ export const mtMock = {
     if (!fieldIds.length) return { ok: false as const, reason: 'fields' }
     if (this.fieldTemplateNameExists(name, payload.id)) return { ok: false as const, reason: 'dupName' }
     if (this.fieldTemplateSetExists(fieldIds, payload.id)) return { ok: false as const, reason: 'dupSet' }
+    const fieldMaps = normalizeFieldMaps(fieldIds, payload.fieldMaps, (id) => {
+      const m = findMeta(id)
+      return m ? { name: m.name, dataType: m.dataType } : null
+    })
     const now = nowText()
     if (payload.id) {
       const item = state.fieldTemplates.find((t) => t.id === payload.id)
@@ -1374,6 +2767,7 @@ export const mtMock = {
       item.name = name
       item.desc = desc
       item.fieldIds = fieldIds
+      item.fieldMaps = fieldMaps
       item.updatedAt = now
       save()
       return { ok: true as const, item: { ...item } }
@@ -1383,6 +2777,7 @@ export const mtMock = {
       name,
       desc,
       fieldIds,
+      fieldMaps,
       type: 'custom',
       updatedAt: now,
     }
@@ -1466,15 +2861,22 @@ export const mtMock = {
   findStandard: (id: string) => hydrateStandard(state.standards.find((s) => s.id === id) || null),
   getEffectiveStandard: (orgId = DEMO_ORG_ID) => resolveEffective(orgId),
   getEffectiveStandards: (orgId = DEMO_ORG_ID) => resolveEffectiveList(orgId),
-  standardNameExists: (name: string, exceptId?: string) =>
-    state.standards.some((s) => s.name === name.trim() && s.id !== exceptId),
+  standardNameExists: (name: string, exceptId?: string) => {
+    const n = stripParenInName(name)
+    if (!n) return false
+    return state.standards.some((s) => stripParenInName(s.name) === n && s.id !== exceptId)
+  },
   saveStandard(
     payload: Partial<Standard> & {
       name: string
       fieldIds?: string[]
+      fieldMaps?: FieldMapItem[]
       metadataId?: string
       scope?: StandardScope
       apiAccess?: ApiAccessConfig
+      accessMethod?: AccessMethodType
+      mqAccess?: MqAccessConfig
+      fileAccess?: FileAccessConfig
       requireIpWhitelist?: boolean
       remark?: string
     },
@@ -1487,12 +2889,24 @@ export const mtMock = {
     if (!fieldIds.length) return { ok: false as const, reason: 'meta' }
     const enabledFields = fieldIds.map((id) => findMeta(id)).filter((m) => m && m.status === 'enabled')
     if (enabledFields.length !== fieldIds.length) return { ok: false as const, reason: 'meta' }
-    const apiAccess = { ...defaultApiAccess(), ...(payload.apiAccess || {}) }
-    if (!apiAccess.baseUrl?.trim() || !apiAccess.path?.trim()) {
+    const fieldMaps = normalizeFieldMaps(fieldIds, payload.fieldMaps, (id) => {
+      const m = findMeta(id)
+      return m ? { name: m.name, dataType: m.dataType } : null
+    })
+    const accessMethod = (payload.accessMethod || 'http_post') as AccessMethodType
+    let apiAccess = syncEndpointParts(normalizeApiAccess(payload.apiAccess))
+    if (accessMethod === 'http_post') {
+      if (!apiAccess.appKey?.trim()) apiAccess.appKey = genSchemeAppKey()
+      if (!apiAccess.appSecret?.trim()) apiAccess.appSecret = genSchemeAppSecret()
+    }
+    const mqAccess = normalizeMqAccess(payload.mqAccess)
+    const fileAccess = normalizeFileAccess(payload.fileAccess)
+    if (!isAccessConfigReady(accessMethod, apiAccess, mqAccess, fileAccess)) {
       return { ok: false as const, reason: 'api' }
     }
-    const scope: StandardScope = payload.scope || 'global'
-    if (scope === 'org' && !payload.orgId) return { ok: false as const, reason: 'org' }
+    const scope: StandardScope = 'org'
+    if (!payload.orgId) return { ok: false as const, reason: 'org' }
+    if (!payload.supplierId) return { ok: false as const, reason: 'supplier' }
     const now = nowText()
     const name = stripParenInName(payload.name)
     const requireIpWhitelist = !!payload.requireIpWhitelist
@@ -1501,22 +2915,30 @@ export const mtMock = {
     const apiDocMarkdown = buildApiDocMarkdown({
       name,
       scope,
-      orgName: scope === 'org' ? orgName(payload.orgId) : '',
+      orgName: orgName(payload.orgId),
       requireIpWhitelist,
       remark,
       fields: metaFields,
       api: apiAccess,
+      accessMethod,
+      mq: mqAccess,
+      file: fileAccess,
     })
     const fields = {
       name,
       scope,
-      orgId: scope === 'org' ? payload.orgId : undefined,
+      orgId: payload.orgId,
+      supplierId: payload.supplierId,
       fieldIds,
+      fieldMaps,
       metadataId: fieldIds[0],
       schemeId: undefined as string | undefined,
       requireIpWhitelist,
       remark,
+      accessMethod,
       apiAccess,
+      mqAccess,
+      fileAccess,
       apiDocMarkdown,
       fileName: `${name}-接口文档.pdf`,
       fileSize: `${Math.max(4, Math.round(apiDocMarkdown.length / 1024))} KB`,
@@ -1524,20 +2946,94 @@ export const mtMock = {
       status: (payload.status || 'enabled') as Status,
       uploader: '平台运营',
       uploadedAt: now,
+      updatedAt: now,
+    }
+    if (fields.status === 'enabled') {
+      const conflict = findOrgSupplierConflict(payload.id || '', fields.orgId, fields.supplierId)
+      if (conflict) {
+        return { ok: false as const, reason: 'conflict' as const, conflictName: conflict.name }
+      }
     }
     if (payload.id) {
       const item = state.standards.find((s) => s.id === payload.id)
       if (!item) return { ok: false as const, reason: 'missing' }
-      ensureSingleEnabled(item.id, fields.status, scope, fields.orgId)
-      Object.assign(item, fields)
+      Object.assign(item, {
+        ...fields,
+        schemeNo: item.schemeNo || nextSchemeNo(),
+        accessStats: normalizeAccessStats(item.accessStats),
+        lastAccessAt: item.lastAccessAt || '',
+        accessActiveDaysW1: Number(item.accessActiveDaysW1) || 0,
+        uploadedAt: item.uploadedAt || now,
+        updatedAt: now,
+      })
       save()
       return { ok: true as const, item: hydrateStandard(item)! }
     }
-    const item = { id: 'st' + Date.now(), ...fields } as Standard
-    ensureSingleEnabled(item.id, item.status, scope, item.orgId)
+    const item = {
+      id: 'st' + Date.now(),
+      schemeNo: nextSchemeNo(),
+      accessStats: emptyAccessStats(),
+      lastAccessAt: '',
+      accessActiveDaysW1: 0,
+      ...fields,
+    } as Standard
     state.standards.unshift(item)
     save()
     return { ok: true as const, item: hydrateStandard(item)! }
+  },
+  testAccessConnectivity(payload: {
+    accessMethod?: AccessMethodType
+    apiAccess?: ApiAccessConfig
+    mqAccess?: MqAccessConfig
+    fileAccess?: FileAccessConfig
+  }) {
+    const accessMethod = (payload.accessMethod || 'http_post') as AccessMethodType
+    const apiAccess = syncEndpointParts(normalizeApiAccess(payload.apiAccess))
+    const mqAccess = normalizeMqAccess(payload.mqAccess)
+    const fileAccess = normalizeFileAccess(payload.fileAccess)
+    const successCode = successCodeOfAccess(accessMethod, apiAccess, mqAccess, fileAccess)
+    const ready = isAccessConfigReady(accessMethod, apiAccess, mqAccess, fileAccess)
+    const latencyMs = 120 + Math.floor(Math.random() * 280)
+    if (!ready) {
+      return {
+        ok: false as const,
+        successCode,
+        latencyMs,
+        responseText: JSON.stringify(
+          {
+            code: 'CONN_FAIL',
+            message: '连通性测试失败：请先完善必填接入配置后再试',
+            accessMethod: accessMethodLabel(accessMethod),
+            expectSuccessCode: successCode,
+          },
+          null,
+          2,
+        ),
+      }
+    }
+    const target =
+      accessMethod === 'mq'
+        ? `${mqAccess.mqType}://${(mqAccess.mqType === 'rocketmq' ? mqAccess.nameServer : mqAccess.brokers) || ''}/${mqAccess.topic}`
+        : accessMethod === 'file'
+          ? `${fileAccess.protocol.toLowerCase()}://${fileAccess.host}:${fileAccess.port}${fileAccess.remoteDir}`
+          : buildApiEndpoint(apiAccess)
+    return {
+      ok: true as const,
+      successCode,
+      latencyMs,
+      responseText: JSON.stringify(
+        {
+          code: successCode,
+          message: '连通性测试成功',
+          accessMethod: accessMethodLabel(accessMethod),
+          target,
+          latencyMs,
+          checkedAt: nowText(),
+        },
+        null,
+        2,
+      ),
+    }
   },
   setStandardStatus(id: string, status: Status) {
     const item = state.standards.find((s) => s.id === id)
@@ -1549,12 +3045,58 @@ export const mtMock = {
         return m && m.status === 'enabled'
       })
       if (!okFields) return { ok: false as const, reason: 'meta' }
-      if (!item.apiAccess?.baseUrl || !item.apiAccess?.path) return { ok: false as const, reason: 'api' }
-      ensureSingleEnabled(id, 'enabled', item.scope || 'global', item.orgId)
+      const accessMethod = (item.accessMethod || 'http_post') as AccessMethodType
+      const apiAccess = normalizeApiAccess(item.apiAccess)
+      const mqAccess = normalizeMqAccess(item.mqAccess)
+      const fileAccess = normalizeFileAccess(item.fileAccess)
+      if (!isAccessConfigReady(accessMethod, apiAccess, mqAccess, fileAccess)) {
+        return { ok: false as const, reason: 'api' }
+      }
+      const conflict = findOrgSupplierConflict(id, item.orgId, item.supplierId)
+      if (conflict) {
+        return { ok: false as const, reason: 'conflict' as const, conflictName: conflict.name }
+      }
     }
     item.status = status
+    item.updatedAt = nowText()
     save()
     return { ok: true as const, item: hydrateStandard(item)! }
+  },
+  getStandardListKpis() {
+    const list = state.standards.map((s) => hydrateStandard(s)!).filter(Boolean)
+    const enabled = list.filter((s) => s.status === 'enabled').length
+    const disabled = list.filter((s) => s.status === 'disabled').length
+    const orgIds = new Set(list.map((s) => s.orgId).filter(Boolean))
+    const supplierIds = new Set(list.map((s) => s.supplierId).filter(Boolean))
+    const activeList = list.filter((s) => isStandardActive(s))
+    const activeOrgIds = new Set(activeList.map((s) => s.orgId).filter(Boolean))
+    const activeSupplierIds = new Set(activeList.map((s) => s.supplierId).filter(Boolean))
+    return {
+      total: list.length,
+      enabled,
+      disabled,
+      orgCount: orgIds.size,
+      supplierCount: supplierIds.size,
+      activeSchemeCount: activeList.length,
+      activeOrgCount: activeOrgIds.size,
+      activeSupplierCount: activeSupplierIds.size,
+    }
+  },
+  listAccessVolumePreview(standardId: string, range: AccessVolumeRange, page = 1, pageSize = 20) {
+    const raw = state.standards.find((s) => s.id === standardId)
+    const item = hydrateStandard(raw || null)
+    if (!item) {
+      return { total: 0, columns: [] as { title: string; dataIndex: string }[], list: [] as Record<string, string>[], page, pageSize }
+    }
+    const built = buildAccessSampleRows(item, range, 100)
+    const start = (page - 1) * pageSize
+    return {
+      total: built.total,
+      columns: built.columns,
+      list: built.list.slice(start, start + pageSize),
+      page,
+      pageSize,
+    }
   },
   removeStandard(id: string) {
     const before = state.standards.length
@@ -1569,9 +3111,24 @@ export const mtMock = {
       supplierName: item.supplierId
         ? state.suppliers.find((s) => s.id === item.supplierId)?.name || item.supplierName || '—'
         : item.supplierName || '—',
+      status: (item.status === 'disabled' ? 'disabled' : 'enabled') as Status,
     }))
   },
-  addIpWhitelist(ip: string, remark = '', supplierId = '') {
+  /** 仅启用状态白名单（接入校验用） */
+  getEnabledIpWhitelist(supplierId?: string) {
+    return this.getIpWhitelist().filter((item) => {
+      if (item.status !== 'enabled') return false
+      if (supplierId && item.supplierId !== supplierId) return false
+      return true
+    })
+  },
+  /** 校验来源 IP 是否在启用白名单中 */
+  isSourceIpAllowed(ip: string, supplierId?: string) {
+    const value = (ip || '').trim()
+    if (!value) return false
+    return this.getEnabledIpWhitelist(supplierId).some((item) => item.ip === value)
+  },
+  addIpWhitelist(ip: string, remark = '', supplierId = '', status: Status = 'enabled') {
     const value = ip.trim()
     if (!value) return { ok: false as const, reason: 'empty' as const }
     if (state.ipWhitelist.some((i) => i.ip === value)) return { ok: false as const, reason: 'dup' as const }
@@ -1582,6 +3139,7 @@ export const mtMock = {
       supplierId: supplierId || '',
       supplierName: supplier?.name,
       remark: remark.trim(),
+      status: status === 'disabled' ? 'disabled' : 'enabled',
       createdAt: nowText(),
     }
     state.ipWhitelist.unshift(item)
@@ -1589,10 +3147,11 @@ export const mtMock = {
     return { ok: true as const, item }
   },
   /** 按厂商批量添加；返回成功数与失败明细 */
-  addIpWhitelistBatch(payload: { supplierId: string; ips: string[]; remark?: string }) {
+  addIpWhitelistBatch(payload: { supplierId: string; ips: string[]; remark?: string; status?: Status }) {
     const supplier = state.suppliers.find((s) => s.id === payload.supplierId)
     if (!supplier) return { ok: false as const, reason: 'supplier' as const }
     const remark = (payload.remark || '').trim()
+    const status: Status = payload.status === 'disabled' ? 'disabled' : 'enabled'
     const added: IpWhitelistItem[] = []
     const skipped: { ip: string; reason: string }[] = []
     const ipv4 =
@@ -1616,6 +3175,7 @@ export const mtMock = {
         supplierId: supplier.id,
         supplierName: supplier.name,
         remark,
+        status,
         createdAt: nowText(),
       }
       state.ipWhitelist.unshift(item)
@@ -1623,6 +3183,13 @@ export const mtMock = {
     })
     if (added.length) save()
     return { ok: true as const, added, skipped, supplierName: supplier.name }
+  },
+  toggleIpWhitelist(id: string, status: Status) {
+    const item = state.ipWhitelist.find((i) => i.id === id)
+    if (!item) return { ok: false as const }
+    item.status = status === 'disabled' ? 'disabled' : 'enabled'
+    save()
+    return { ok: true as const, item: { ...item } }
   },
   removeIpWhitelist(id: string) {
     const before = state.ipWhitelist.length

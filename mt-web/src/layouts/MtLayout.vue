@@ -12,16 +12,17 @@
             <IconNotification :size="18" />
           </a-badge>
         </span>
-        <a-dropdown trigger="click">
-          <div class="mt-user">
-            <a-avatar :size="30" style="background: var(--mt-menu-selected, #1e3765)">{{ userInitial }}</a-avatar>
-            <div class="mt-user-meta">
-              <span class="mt-user-name">{{ userStore.userInfo?.name || '运营' }}</span>
-              <span class="mt-user-role">{{ userStore.userInfo?.role || '平台运营' }}</span>
-            </div>
-            <IconDown style="color: #5a7394; font-size: 12px" />
+        <div class="mt-user">
+          <a-avatar :size="30" style="background: var(--mt-primary, #165dff)">{{ userInitial }}</a-avatar>
+          <div class="mt-user-meta">
+            <span class="mt-user-name">{{ userStore.userInfo?.name || '运营' }}</span>
+            <span class="mt-user-role">{{ userStore.userInfo?.role || '平台运营' }}</span>
           </div>
-        </a-dropdown>
+        </div>
+        <button type="button" class="mt-topbar-logout" title="退出登录" @click="onLogout">
+          <IconExport :size="16" />
+          <span>退出</span>
+        </button>
       </div>
     </header>
 
@@ -32,31 +33,32 @@
           v-model:open-keys="openKeys"
           @menu-item-click="onMenu"
         >
-          <a-menu-item key="/suppliers">
-            <template #icon><IconUserGroup /></template>
-            供数方管理
-          </a-menu-item>
-          <a-menu-item key="/org-config">
-            <template #icon><IconSettings /></template>
-            机构供数配置
+          <a-menu-item key="/stats">
+            <template #icon><IconBarChart /></template>
+            综合看板
           </a-menu-item>
           <a-sub-menu key="standardGroup">
             <template #icon><IconFile /></template>
             <template #title>数据接入管理</template>
             <a-menu-item key="/standard">接入方案管理</a-menu-item>
+            <a-menu-item key="/standard/access-data">接入数据明细</a-menu-item>
             <a-menu-item key="/metadata">字段库管理</a-menu-item>
             <a-menu-item key="/whitelist">IP 白名单</a-menu-item>
+            <a-menu-item key="/suppliers">供数方管理</a-menu-item>
           </a-sub-menu>
-          <a-menu-item key="/push">
+          <a-sub-menu key="pushGroup">
             <template #icon><IconSend /></template>
-            数据推送管理
-          </a-menu-item>
+            <template #title>数据推送管理</template>
+            <a-menu-item key="/push/schemes">推送方案管理</a-menu-item>
+            <a-menu-item key="/push/push-data">推送数据明细</a-menu-item>
+            <a-menu-item key="/push/receivers">接收方管理</a-menu-item>
+          </a-sub-menu>
         </a-menu>
       </aside>
 
       <div class="mt-main">
         <main class="mt-content">
-          <div class="crumb">
+          <div v-if="!embedPageCrumb" class="crumb">
             运营工作台<span class="crumb-sep">/</span><span class="crumb-current">{{ currentTitle }}</span>
           </div>
           <router-view />
@@ -70,13 +72,12 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  IconDown,
+  IconBarChart,
+  IconExport,
   IconFile,
   IconNotification,
   IconSend,
-  IconSettings,
   IconThunderbolt,
-  IconUserGroup,
 } from '@arco-design/web-vue/es/icon'
 import { useUserStore } from '@/store/user'
 
@@ -84,17 +85,23 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const currentTitle = computed(() => (route.meta.title as string) || '')
+const embedPageCrumb = computed(() => route.path.startsWith('/stats'))
 const userInitial = computed(() => (userStore.userInfo?.name || '运').slice(0, 1))
 const selectedKeys = computed(() => {
+  if (route.path.startsWith('/standard/access-data')) return ['/standard/access-data']
   if (route.path.startsWith('/standard')) return ['/standard']
   if (route.path.startsWith('/metadata')) return ['/metadata']
   if (route.path.startsWith('/scheme')) return ['/scheme']
   if (route.path.startsWith('/whitelist')) return ['/whitelist']
-  if (route.path.startsWith('/push')) return ['/push']
-  if (route.path.startsWith('/org-config')) return ['/org-config']
+  if (route.path.startsWith('/suppliers')) return ['/suppliers']
+  if (route.path.startsWith('/push/push-data')) return ['/push/push-data']
+  if (route.path.startsWith('/push/receivers')) return ['/push/receivers']
+  if (route.path.startsWith('/push/schemes')) return ['/push/schemes']
+  if (route.path.startsWith('/push')) return ['/push/schemes']
+  if (route.path.startsWith('/stats')) return ['/stats']
   return [route.path]
 })
-const openKeys = ref<string[]>(route.meta.group ? [String(route.meta.group)] : ['standardGroup'])
+const openKeys = ref<string[]>(['standardGroup', 'pushGroup'])
 
 watch(
   () => route.meta.group,
@@ -105,6 +112,11 @@ watch(
 
 function onMenu(key: string) {
   router.push(key)
+}
+
+function onLogout() {
+  userStore.logout()
+  router.push('/login')
 }
 
 </script>

@@ -21,6 +21,7 @@
         />
         <a-select v-model="form.status" :options="statusOptions" allow-clear placeholder="状态" style="width: 140px" />
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
+        <a-button @click="onReset">重置</a-button>
       </div>
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" :bordered="false" stripe>
         <template #whitelist="{ record }">
@@ -373,6 +374,12 @@ async function fetchData(page = pagination.current) {
 }
 function onPageSize(size: number) {
   pagination.pageSize = size
+  fetchData(1)
+}
+function onReset() {
+  form.name = ''
+  form.status = ''
+  form.dataSourceType = undefined
   fetchData(1)
 }
 function openCreate() {
