@@ -27,3 +27,9 @@ mobile/
 
 # 系统
 desktop.ini
+
+# 本地测试 / 截图产物（不推送）
+.playwright-cli/
+.pw-probe/
+/*.png
+mt-web/*.zip
