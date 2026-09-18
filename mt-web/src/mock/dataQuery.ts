@@ -7,6 +7,7 @@ import {
   type Standard,
 } from '@/mock/mt'
 import { pushMock } from '@/mock/push'
+import { dictMock } from '@/mock/dict'
 
 export type DataFlow = 'inbound' | 'outbound'
 export type DataQueryRange = 'total' | 'today' | 'd3' | 'w1' | 'm1' | 'custom'
@@ -45,6 +46,11 @@ export interface DataQueryFilter {
   /** custom 时用，格式 YYYY-MM-DD HH:mm:ss */
   dateFrom?: string
   dateTo?: string
+  /** 平台类型或名称 */
+  platform?: string
+  /** 内容发布时间区间 */
+  publishDateFrom?: string
+  publishDateTo?: string
   /** 推送结果：成功 / 失败（仅 outbound） */
   pushResult?: 'success' | 'fail' | ''
   /** 表头字段模糊筛选（仅字符型） */
@@ -67,28 +73,40 @@ export const dataQueryRangeOptions: { label: string; value: DataQueryRange }[] =
 ]
 
 const INBOUND_FIELDS: DataQueryFieldMeta[] = [
-  { key: 'supplier_code', title: 'supplier_code', dataType: 'String' },
-  { key: 'org_id', title: 'org_id', dataType: 'String' },
-  { key: 'platform', title: 'platform', dataType: 'String' },
-  { key: 'platform_name', title: 'platform_name', dataType: 'String' },
-  { key: 'news_uuid', title: 'news_uuid', dataType: 'String' },
-  { key: 'news_title', title: 'news_title', dataType: 'String' },
-  { key: 'news_content', title: 'news_content', dataType: 'String' },
-  { key: 'news_read_count', title: 'news_read_count', dataType: 'Int' },
+  { key: 'supplier_code', title: '供数方编码', dataType: 'String' },
+  { key: 'org_id', title: '机构编码', dataType: 'String' },
+  { key: 'platform', title: '平台类型', dataType: 'String' },
+  { key: 'platform_name', title: '平台名称', dataType: 'String' },
+  { key: 'news_uuid', title: '内容唯一ID', dataType: 'String' },
+  { key: 'news_title', title: '内容标题', dataType: 'String' },
+  { key: 'news_posttime', title: '发布时间', dataType: 'String' },
+  { key: 'media_name', title: '作者昵称', dataType: 'String' },
+  { key: 'media_id', title: '发布者ID', dataType: 'String' },
+  { key: 'news_url', title: '信息链接', dataType: 'String' },
+  { key: 'news_digest', title: '信息摘要', dataType: 'String' },
+  { key: 'news_content', title: '信息正文', dataType: 'String' },
+  { key: 'news_author', title: '作者', dataType: 'String' },
+  { key: 'news_read_count', title: '阅读数', dataType: 'Int' },
+  { key: 'news_like_count', title: '点赞数', dataType: 'Int' },
 ]
 
 const OUTBOUND_FIELDS: DataQueryFieldMeta[] = [
-  { key: 'supplier_code', title: 'supplier_code', dataType: 'String' },
-  { key: 'org_id', title: 'org_id', dataType: 'String' },
-  { key: 'platform', title: 'platform', dataType: 'String' },
-  { key: 'news_uuid', title: 'news_uuid', dataType: 'String' },
-  { key: 'news_title', title: 'news_title', dataType: 'String' },
-  { key: 'push_batch_id', title: 'push_batch_id', dataType: 'String' },
-  { key: 'push_status', title: 'push_status', dataType: 'String' },
+  { key: 'org_id', title: '机构编码', dataType: 'String' },
+  { key: 'platform', title: '平台类型', dataType: 'String' },
+  { key: 'platform_name', title: '平台名称', dataType: 'String' },
+  { key: 'news_uuid', title: '内容唯一ID', dataType: 'String' },
+  { key: 'news_title', title: '内容标题', dataType: 'String' },
+  { key: 'news_posttime', title: '发布时间', dataType: 'String' },
+  { key: 'media_name', title: '作者昵称', dataType: 'String' },
+  { key: 'news_url', title: '信息链接', dataType: 'String' },
+  { key: 'news_content', title: '信息正文', dataType: 'String' },
+  { key: 'push_batch_id', title: '推送批次', dataType: 'String' },
+  { key: 'push_status', title: '推送结果', dataType: 'String' },
 ]
 
 const PLATFORMS = ['weibo', 'wechat', 'toutiao', 'douyin', 'web']
 const PLATFORM_NAMES = ['微博', '微信公众号', '今日头条', '抖音', '网站']
+const AUTHORS = ['记者张三', '政务号小编', '舆情观察员', '地方融媒', '官方发布']
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -139,6 +157,7 @@ type SchemeBucket = {
   flow: DataFlow
   id: string
   name: string
+  schemeNo: string
   orgId: string
   orgName: string
   orgStatUnit: string
@@ -177,6 +196,7 @@ function listInboundBuckets(): SchemeBucket[] {
       flow: 'inbound' as const,
       id: st.id,
       name: st.name,
+      schemeNo: String(st.schemeNo || ''),
       orgId: st.orgId || '',
       orgName: st.orgName || meta.orgName,
       orgStatUnit: st.orgStatUnit || meta.orgStatUnit,
@@ -191,18 +211,18 @@ function listInboundBuckets(): SchemeBucket[] {
 
 function listOutboundBuckets(): SchemeBucket[] {
   return pushMock.listSchemes({}).map((ps) => {
-    const supplierId = ps.supplierIds?.[0] || ''
     const meta = orgMeta(ps.orgId || '')
     return {
       flow: 'outbound' as const,
       id: ps.id,
       name: ps.name,
+      schemeNo: String(ps.schemeNo || ''),
       orgId: ps.orgId || '',
       orgName: ps.orgName || meta.orgName,
       orgStatUnit: ps.orgStatUnit || meta.orgStatUnit,
       orgSalesName: ps.orgSalesName || meta.orgSalesName,
-      supplierId,
-      supplierName: supplierNameOf(supplierId),
+      supplierId: '',
+      supplierName: '',
       fallbackCount: Math.max(40, Number(ps.stats?.successTotal) || 80),
     }
   })
@@ -272,6 +292,7 @@ function makeRow(
     flow: b.flow,
     schemeId: b.id,
     schemeName: b.name,
+    schemeNo: b.schemeNo,
     orgId: b.orgId,
     orgName: b.orgName,
     orgStatUnit: b.orgStatUnit,
@@ -285,11 +306,69 @@ function makeRow(
     platform_name: PLATFORM_NAMES[pi],
     news_uuid: `uuid-${b.id}-${10000 + index}`,
     news_title: `${b.flow === 'inbound' ? '接入' : '推送'}样例标题_${index + 1}`,
+    news_posttime: accessAtForIndex(index + 3, range, params.dateFrom, params.dateTo),
+    media_name: AUTHORS[index % AUTHORS.length],
+    media_id: `media-${2000 + (index % 80)}`,
+    news_url: `https://example.com/news/${b.id}/${10000 + index}`,
+    news_digest: `摘要_${index + 1}`,
     news_content: `正文摘要_${index + 1}`,
+    news_author: AUTHORS[index % AUTHORS.length],
     news_read_count: String(100 + (index % 900)),
+    news_like_count: String(index % 80),
     push_batch_id: b.flow === 'outbound' ? `batch-${Math.floor(index / 10)}` : '',
     push_status: b.flow === 'outbound' ? (index % 7 === 0 ? 'fail' : 'success') : '',
   }
+}
+
+export function getDataQueryOrgOptions(flow: DataFlow | '') {
+  const buckets =
+    flow === 'outbound'
+      ? listOutboundBuckets()
+      : flow === 'inbound'
+        ? listInboundBuckets()
+        : [...listInboundBuckets(), ...listOutboundBuckets()]
+  const map = new Map<string, string>()
+  buckets.forEach((b) => {
+    if (b.orgId) map.set(b.orgId, b.orgName || b.orgId)
+  })
+  return Array.from(map.entries()).map(([value, label]) => ({ label, value }))
+}
+
+export function getDataQuerySupplierOptions() {
+  const map = new Map<string, string>()
+  listInboundBuckets().forEach((b) => {
+    if (b.supplierId) map.set(b.supplierId, b.supplierName || b.supplierId)
+  })
+  return Array.from(map.entries()).map(([value, label]) => ({ label, value }))
+}
+
+export function dataQueryPlatformOptions() {
+  return dictMock.enabledOptions('content_platform')
+}
+
+function matchPlatform(row: DataQueryRow, platform?: string) {
+  const q = String(platform || '').trim().toLowerCase()
+  if (!q) return true
+  return (
+    String(row.platform || '').toLowerCase() === q ||
+    String(row.platform_name || '').toLowerCase() === q ||
+    String(row.platform_name || '').toLowerCase().includes(q)
+  )
+}
+
+function inPublishRange(row: DataQueryRow, from?: string, to?: string) {
+  if (!from && !to) return true
+  const t = new Date(String(row.news_posttime || '')).getTime()
+  if (Number.isNaN(t)) return false
+  if (from) {
+    const start = new Date(from).getTime()
+    if (!Number.isNaN(start) && t < start) return false
+  }
+  if (to) {
+    const end = new Date(to).getTime()
+    if (!Number.isNaN(end) && t > end) return false
+  }
+  return true
 }
 
 export function getDataQueryFieldMeta(flow: DataFlow | ''): DataQueryFieldMeta[] {
@@ -315,6 +394,7 @@ export function queryDataRecords(params: DataQueryFilter) {
     fieldFilters.push_status = params.pushResult
   }
   const hasFieldFilter = Object.values(fieldFilters).some((v) => String(v || '').trim())
+  const hasRowFilter = hasFieldFilter || Boolean(params.platform?.trim()) || Boolean(params.publishDateFrom || params.publishDateTo)
 
   let buckets =
     params.flow === 'outbound'
@@ -329,7 +409,7 @@ export function queryDataRecords(params: DataQueryFilter) {
   const pageSize = Math.max(1, params.pageSize || 20)
   const from = (page - 1) * pageSize
 
-  if (hasFieldFilter) {
+  if (hasRowFilter) {
     const SAMPLE_CAP = 400
     let rows: DataQueryRow[] = []
     for (const b of buckets) {
@@ -343,6 +423,9 @@ export function queryDataRecords(params: DataQueryFilter) {
       if (!meta || meta.dataType === 'Int') return
       rows = rows.filter((r) => String(r[key] || '').toLowerCase().includes(q))
     })
+    rows = rows.filter(
+      (r) => matchPlatform(r, params.platform) && inPublishRange(r, params.publishDateFrom, params.publishDateTo),
+    )
     return {
       total: rows.length,
       list: rows.slice(from, from + pageSize),

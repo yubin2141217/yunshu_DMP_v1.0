@@ -21,7 +21,7 @@
       </a-col>
       <a-col :xs="24" :sm="12" :lg="6">
         <div class="kpi-card">
-          <span class="kpi-card__label">待推积压 / 启用方案</span>
+          <span class="kpi-card__label">待推积压 / 开启方案</span>
           <div class="kpi-card__value">
             {{ data.backlogSum.toLocaleString() }}
             <span class="kpi-card__sub">/ {{ data.enabledSchemeCount }}</span>
@@ -133,7 +133,7 @@ const rateText = computed(() => (props.data.successRate == null ? '—' : `${pro
 const columns = [
   { title: '推送方案', dataIndex: 'schemeName', slotName: 'scheme', ellipsis: true },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
-  { title: '通道', dataIndex: 'channelType', slotName: 'channel', width: 160, ellipsis: true, tooltip: true },
+  { title: '推送方式', dataIndex: 'channelType', slotName: 'channel', width: 160, ellipsis: true, tooltip: true },
   { title: '成功', dataIndex: 'successCount', width: 90 },
   { title: '失败', dataIndex: 'failCount', width: 80 },
   { title: '积压', dataIndex: 'backlogCount', width: 80 },

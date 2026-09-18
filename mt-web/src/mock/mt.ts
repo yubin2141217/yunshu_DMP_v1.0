@@ -1,3 +1,11 @@
+import {
+  ensureSchemeOpLogs,
+  makeOpLog,
+  prependOpLog,
+  type SchemeOpLog,
+} from '@/utils/schemeOpLog'
+import { dictMock } from './dict'
+
 export type Status = 'enabled' | 'disabled'
 export type StandardScope = 'global' | 'org'
 
@@ -9,6 +17,9 @@ export interface Supplier {
   appkey: string
   updatedAt: string
 }
+
+export type OrgOpenVersion = 'formal' | 'trial'
+export type OrgAuthStatus = 'running' | 'expired' | 'closed' | 'disabled'
 
 export interface Org {
   id: string
@@ -29,6 +40,57 @@ export interface Org {
   supplierNames?: string[]
   standardName?: string
   standardNames?: string[]
+  /** 机构全称 */
+  fullName?: string
+  /** 统一社会信用代码 */
+  creditCode?: string
+  /** 统计单元副文案，如 西安市/雁塔区 */
+  region?: string
+  /** 开通版本 */
+  openVersion?: OrgOpenVersion
+  /** 授权状态 */
+  authStatus?: OrgAuthStatus
+  /** 授权到期日 YYYY-MM-DD */
+  expireAt?: string
+}
+
+function orgRecord(p: {
+  id: string
+  name: string
+  code: string
+  supplierIds?: string[]
+  standardIds?: string[]
+  remark?: string
+  statUnit?: string
+  salesName?: string
+  fullName?: string
+  creditCode?: string
+  region?: string
+  openVersion?: OrgOpenVersion
+  authStatus?: OrgAuthStatus
+  expireAt?: string
+  status?: Status
+}): Org {
+  const standardIds = p.standardIds || []
+  const authStatus = p.authStatus || 'running'
+  return {
+    id: p.id,
+    name: p.name,
+    code: p.code,
+    fullName: p.fullName || p.name,
+    creditCode: p.creditCode || p.code,
+    region: p.region || '',
+    statUnit: p.statUnit || '陕西大区',
+    salesName: p.salesName || '',
+    openVersion: p.openVersion || 'formal',
+    authStatus,
+    expireAt: p.expireAt || '2027-12-31',
+    status: p.status ?? (authStatus === 'closed' || authStatus === 'disabled' ? 'disabled' : 'enabled'),
+    supplierIds: p.supplierIds || [],
+    standardIds,
+    standardId: standardIds[0] || '',
+    remark: p.remark || '',
+  }
 }
 
 /** 业务分类（数据标准字段） */
@@ -165,6 +227,8 @@ export interface Standard {
   lastAccessAt?: string
   /** 近 1 周有接入数据的天数（用于活跃判定） */
   accessActiveDaysW1?: number
+  /** 操作审计记录（新建 / 修改 / 开启 / 停用） */
+  opLogs?: SchemeOpLog[]
 }
 
 /** 接入数据量时间跨度 */
@@ -274,6 +338,25 @@ export interface ApiAccessConfig {
   /** HTTP 推送鉴权凭证（方案级，可手动改） */
   appKey: string
   appSecret: string
+  /** AppKey 鉴权时配置的鉴权 Header 键值对列表（与推送方案页一致） */
+  authHeaders?: AccessAuthHeader[]
+  /** 接口响应码列表 */
+  responseCodes: { code: string; desc: string }[]
+}
+
+/** 鉴权 Header 行：AppKey 鉴权时以键值对列表方式配置请求头 */
+export interface AccessAuthHeader {
+  /** 是否启用该 Header（默认启用） */
+  enabled?: boolean
+  name: string
+  value: string
+  /** 参数说明（可选，仅配置侧备注） */
+  remark?: string
+}
+
+/** 选中 AppKey 鉴权时的默认行：参数名 AppKey，参数值为系统生成的 32 位字母数字组合 */
+export function defaultAccessAppKeyHeader(): AccessAuthHeader {
+  return { enabled: true, name: 'AppKey', value: genSchemeAppKey(), remark: '' }
 }
 
 export type MqType = 'bmq' | 'kafka' | 'rocketmq'
@@ -366,17 +449,30 @@ export function defaultApiAccess(): ApiAccessConfig {
     alertFailThreshold: 3,
     appKey: '',
     appSecret: '',
+    authHeaders: [],
+    responseCodes: [] as { code: string; desc: string }[],
   }
 }
 
+/** 接口响应码默认示例（新增方案时预填） */
+export const DEFAULT_RESPONSE_CODES: { code: string; desc: string }[] = [
+  { code: '200', desc: '成功' },
+  { code: '400', desc: '请求参数错误' },
+  { code: '401', desc: '鉴权失败' },
+  { code: '403', desc: '禁止访问' },
+  { code: '500', desc: '服务端错误' },
+]
+
 /** 新增接入方案表单用：不预填接口地址 / 限流重试 / 成功码等 */
 export function emptyApiAccess(): ApiAccessConfig {
+  const route = genDefaultRoute()
+  const defaultHeader = defaultAccessAppKeyHeader()
   return {
     ...defaultApiAccess(),
-    endpointUrl: '',
-    baseUrl: '',
-    path: '',
-    authType: 'none',
+    endpointUrl: `${SYSTEM_GATEWAY}${route}`,
+    baseUrl: SYSTEM_GATEWAY,
+    path: route,
+    authType: 'appkey',
     customHeaders: 'Content-Type: application/json',
     contentType: 'application/json',
     rateLimitQps: undefined as unknown as number,
@@ -385,8 +481,10 @@ export function emptyApiAccess(): ApiAccessConfig {
     successHttpCode: '',
     payloadRootPath: '',
     idempotencyHeader: '',
-    appKey: '',
+    appKey: defaultHeader.value,
     appSecret: '',
+    authHeaders: [defaultHeader],
+    responseCodes: DEFAULT_RESPONSE_CODES.map((r) => ({ ...r })),
   }
 }
 
@@ -448,7 +546,7 @@ export function defaultFileAccess(): FileAccessConfig {
 
 export const apiAuthTypeOptions = [
   { label: '无鉴权', value: 'none' },
-  { label: 'AppKey+AppSecret', value: 'appkey' },
+  { label: 'AppKey', value: 'appkey' },
 ]
 
 /** HTTP 请求头预设（下拉） */
@@ -481,8 +579,22 @@ export function normalizeApiAccess(raw?: Partial<ApiAccessConfig> | null): ApiAc
   }
   const ctMatch = api.customHeaders.match(/content-type\s*:\s*(.+)/i)
   if (ctMatch?.[1]) api.contentType = ctMatch[1].trim()
+  api.authHeaders = Array.isArray(raw?.authHeaders)
+    ? raw.authHeaders.map((h) => ({
+        enabled: h?.enabled ?? true,
+        name: h?.name || '',
+        value: h?.value || '',
+        remark: h?.remark || '',
+      }))
+    : normalizeAuthType(raw?.authType) === 'appkey' && raw?.appKey?.trim()
+      ? // 历史方案：由 AppKey 凭证 + 请求头名迁移为鉴权 Header 列表
+        [{ enabled: true, name: raw.authHeaderName || 'AppKey', value: raw.appKey, remark: '' }]
+      : []
   if (!api.endpointUrl?.trim() && (api.baseUrl || api.path)) {
     api.endpointUrl = buildApiEndpoint(api)
+  }
+  if (!Array.isArray(api.responseCodes) || api.responseCodes.length === 0) {
+    api.responseCodes = DEFAULT_RESPONSE_CODES.map((r) => ({ ...r }))
   }
   return api
 }
@@ -639,7 +751,11 @@ function buildSampleJsonBody(fields: DocField[]): string {
 function apiAuthDesc(api: ApiAccessConfig): string {
   const t = normalizeAuthType(api.authType)
   if (t === 'none') return '无鉴权'
-  return `AppKey+AppSecret（Header：${api.authHeaderName || 'X-App-Key'}）`
+  const headerNames = (api.authHeaders || [])
+    .filter((h) => h.enabled !== false && h.name?.trim())
+    .map((h) => h.name.trim())
+  if (headerNames.length) return `AppKey（Header：${headerNames.join('、')}）`
+  return `AppKey（Header：${api.authHeaderName || 'X-App-Key'}）`
 }
 
 function dash(v: string | number | undefined | null) {
@@ -673,7 +789,7 @@ function buildSecurityNotice(
     }，凭证与接口地址请勿通过公开渠道传播。`
   }
   const contact =
-    scope === 'org' ? '请联系机构负责人获取 AppKey / AppSecret' : '请联系康奈公司对接人获取 AppKey / AppSecret'
+    scope === 'org' ? '请联系机构负责人获取 AppKey' : '请联系康奈公司对接人获取 AppKey'
   return `${scopePart}：${contact}，请妥善保管，勿通过公开渠道传播。`
 }
 
@@ -697,8 +813,14 @@ export function buildRequestExample(api: ApiAccessConfig, fields: DocField[]): s
     `Content-Type: ${synced.contentType || 'application/json'}; charset=${synced.charset || 'UTF-8'}`,
   ]
   if (authType === 'appkey') {
-    headers.push(`${synced.authHeaderName || 'X-App-Key'}: <your-appkey>`)
-    headers.push(`X-App-Secret: <your-appsecret>`)
+    const customHeaders = (synced.authHeaders || []).filter((h) => h.enabled !== false && h.name?.trim())
+    if (customHeaders.length) {
+      customHeaders.forEach((h) => {
+        headers.push(`${h.name.trim()}: ${h.value?.trim() || '<your-appkey>'}`)
+      })
+    } else {
+      headers.push(`${synced.authHeaderName || 'X-App-Key'}: <your-appkey>`)
+    }
   }
   if (synced.customHeaders?.trim()) {
     synced.customHeaders
@@ -821,8 +943,21 @@ export function buildApiDocMarkdown(input: {
         }。`
 
   let accessSection = ''
+  const responseNotice =
+    method === 'http_post'
+      ? (api.responseCodes || []).some((r) => r.code)
+        ? '接口响应码以「3.1 接口响应码」所列为准。'
+        : '未配置接口响应码时，默认 `200` 视为接入成功。'
+      : `连通性测试成功响应码为 \`${successCode}\`。`
   if (method === 'mq') {
     const addr = mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
+    // 鉴权凭证行：SASL 展示用户名/密码（脱敏），SSL 展示证书路径（与新增/详情页一致）
+    const mqAuthCredRows =
+      mq.authType === 'sasl'
+        ? `\n| 用户名 | ${dash(mq.username)} |\n| 密码 | ${mq.password ? '******' : '—'} |`
+        : mq.authType === 'ssl'
+          ? `\n| 证书路径 | ${dash(mq.certPath)} |`
+          : ''
     accessSection = `## 3. 消息队列配置
 | 项 | 说明 |
 | --- | --- |
@@ -830,7 +965,7 @@ export function buildApiDocMarkdown(input: {
 | 接入地址 | ${dash(addr)} |
 | Topic | ${dash(mq.topic)} |
 | 消费组 | ${dash(mq.consumerGroup)} |
-| 鉴权方式 | ${mqAuthLabel(mq.authType)} |
+| 鉴权方式 | ${mqAuthLabel(mq.authType)} |${mqAuthCredRows}
 | 起始消费位点 | ${mqOffsetLabel(mq.startOffset)} |
 | 消费并发数 | ${dash(mq.concurrency)} |
 | 单次拉取最大条数 | ${dash(mq.maxPullSize)} |
@@ -859,31 +994,56 @@ export function buildApiDocMarkdown(input: {
 | 服务器地址 | ${dash(file.host)} |
 | 端口号 | ${dash(file.port)} |
 | 登录方式 | ${file.loginType === 'key' ? '密钥登录' : '用户名密码'} |
+| 用户名 | ${dash(file.username)} |
+| ${file.loginType === 'key' ? '私钥路径' : '密码'} | ${file.loginType === 'key' ? dash(file.privateKeyPath) : file.password ? '******' : '—'} |
 | 文件目录路径 | ${dash(file.remoteDir)} |
 | 文件命名匹配规则 | ${dash(file.fileNamePattern)} |
-| 文件格式 / 编码 | ${file.fileFormat} / ${file.encoding} |
+| 文件编码 | ${dash(file.encoding)} |
+| 文件格式 | ${dash(file.fileFormat)} |
 | 单次拉取最大文件数 | ${dash(file.maxFilesPerPull)} |
 | 轮询扫描周期 | ${dash(file.pollInterval)} |
-| 处理完成动作 | ${file.afterProcess === 'delete' ? '删除远程文件' : file.afterProcess === 'archive' ? '移动到归档目录' : '保留'} |
+| 文件处理完成动作 | ${file.afterProcess === 'delete' ? '删除远程文件' : file.afterProcess === 'archive' ? '移动到归档目录' : '保留'} |
 | 断点续传 | ${file.resumeEnabled ? '开启' : '关闭'} |
 | 字段校验 | ${file.enableFieldValidate ? '开启' : '关闭'} |
 | 去重主键 | ${dash(file.dedupeField)} |
+| 文件超时告警 | ${file.fileTimeoutAlert ? '开启' : '关闭'} |
+| 文件解析失败告警 | ${file.parseFailAlert ? '开启' : '关闭'} |
 | 成功响应码 | ${dash(file.successCode)} |`
   } else {
+    const responseCodesRows = (api.responseCodes || [])
+      .map((r) => `| \`${dash(r.code)}\` | ${dash(r.desc)} |`)
+      .join('\n')
     accessSection = `## 3. 接口信息
 | 项 | 说明 |
 | --- | --- |
 | 接口地址 | \`${dash(buildApiEndpoint(api))}\` |
-| 请求协议 | ${dash(api.protocol)} |
 | 请求方法 | ${dash(api.method || 'POST')} |
 | 鉴权方式 | ${apiAuthDesc(api)} |
-| 请求头 | ${dash(api.customHeaders || `Content-Type: ${api.contentType}`)} |
 | 最大 QPS 上限 | ${dash(api.rateLimitQps)} |
-| 重试次数 | ${dash(api.retry)} |
-| 重试间隔（ms） | ${dash(api.retryIntervalMs)} |
-| 成功响应码 | ${dash(api.successHttpCode || '200')} |
-| 数据编码 | ${dash(api.charset)} |
-| 字段校验 | ${api.enableFieldValidate ? '开启' : '关闭'} |`
+
+## 3.1 接口响应码
+| 响应码 | 说明 |
+| --- | --- |
+${responseCodesRows || '| — | — |'}`
+    // 鉴权方式为 AppKey 时展示鉴权 Header 明细（与新增/详情页一致）
+    if (normalizeAuthType(api.authType) === 'appkey') {
+      const authHeaderRows = (api.authHeaders || [])
+        .filter((h) => h.name?.trim())
+        .map(
+          (h) =>
+            `| \`${h.name.trim()}${h.enabled === false ? '（停用）' : ''}\` | ${h.value?.trim() || '—'} | ${dash(h.remark)} |`,
+        )
+        .join('\n')
+      if (authHeaderRows) {
+        accessSection += `
+
+## 3.2 鉴权 Header
+以键值对列表配置请求头，接入时将随报文一并校验。
+| 参数名 | 参数值 | 说明 |
+| --- | --- | --- |
+${authHeaderRows}`
+      }
+    }
   }
 
   return `# ${input.name} · 接入文档
@@ -917,7 +1077,7 @@ ${requestExample}
 \`\`\`
 
 ## 6. 响应约定
-连通性测试成功响应码为 \`${successCode}\`。
+${responseNotice}
 失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。
 `
 }
@@ -1001,6 +1161,16 @@ export function buildApiDocHtml(input: {
       ['Topic', escapeHtml(dash(mq.topic))],
       ['消费组', escapeHtml(dash(mq.consumerGroup))],
       ['鉴权方式', escapeHtml(mqAuthLabel(mq.authType))],
+      // 鉴权凭证行：SASL 展示用户名/密码（脱敏），SSL 展示证书路径（与新增/详情页一致）
+      ...(mq.authType === 'sasl'
+        ? ([
+            ['用户名', escapeHtml(dash(mq.username))],
+            ['密码', mq.password ? '******' : '—'],
+          ] as [string, string][])
+        : []),
+      ...(mq.authType === 'ssl'
+        ? ([['证书路径', escapeHtml(dash(mq.certPath))]] as [string, string][])
+        : []),
       ['起始消费位点', escapeHtml(mqOffsetLabel(mq.startOffset))],
       ['消费并发数', escapeHtml(dash(mq.concurrency))],
       ['单次拉取最大条数', escapeHtml(dash(mq.maxPullSize))],
@@ -1030,13 +1200,19 @@ export function buildApiDocHtml(input: {
       ['服务器地址', escapeHtml(dash(file.host))],
       ['端口号', escapeHtml(dash(file.port))],
       ['登录方式', file.loginType === 'key' ? '密钥登录' : '用户名密码'],
+      ['用户名', escapeHtml(dash(file.username))],
+      [
+        file.loginType === 'key' ? '私钥路径' : '密码',
+        file.loginType === 'key' ? escapeHtml(dash(file.privateKeyPath)) : file.password ? '******' : '—',
+      ],
       ['文件目录路径', escapeHtml(dash(file.remoteDir))],
       ['文件命名匹配规则', escapeHtml(dash(file.fileNamePattern))],
-      ['文件格式 / 编码', escapeHtml(`${file.fileFormat} / ${file.encoding}`)],
+      ['文件编码', escapeHtml(dash(file.encoding))],
+      ['文件格式', escapeHtml(dash(file.fileFormat))],
       ['单次拉取最大文件数', escapeHtml(dash(file.maxFilesPerPull))],
       ['轮询扫描周期', escapeHtml(dash(file.pollInterval))],
       [
-        '处理完成动作',
+        '文件处理完成动作',
         file.afterProcess === 'delete'
           ? '删除远程文件'
           : file.afterProcess === 'archive'
@@ -1046,22 +1222,38 @@ export function buildApiDocHtml(input: {
       ['断点续传', file.resumeEnabled ? '开启' : '关闭'],
       ['字段校验', file.enableFieldValidate ? '开启' : '关闭'],
       ['去重主键', escapeHtml(dash(file.dedupeField))],
+      ['文件超时告警', file.fileTimeoutAlert ? '开启' : '关闭'],
+      ['文件解析失败告警', file.parseFailAlert ? '开启' : '关闭'],
       ['成功响应码', escapeHtml(dash(file.successCode))],
     ])}</tbody></table>`
   } else {
+    const responseCodesRows = (api.responseCodes || [])
+      .filter((r) => r.code || r.desc)
+      .map((r) => `<tr><td><code>${escapeHtml(dash(r.code))}</code></td><td>${escapeHtml(dash(r.desc))}</td></tr>`)
+      .join('')
+    const responseCodesTable = `<h2>3.1 接口响应码</h2><table><thead><tr><th>响应码</th><th>说明</th></tr></thead><tbody>${
+      responseCodesRows || '<tr><td>—</td><td>—</td></tr>'
+    }</tbody></table>`
+    // 鉴权方式为 AppKey 时展示鉴权 Header 明细（与新增/详情页一致）
+    let authHeadersTable = ''
+    if (normalizeAuthType(api.authType) === 'appkey') {
+      const authHeaderRowsHtml = (api.authHeaders || [])
+        .filter((h) => h.name?.trim())
+        .map(
+          (h) =>
+            `<tr><td><code>${escapeHtml(h.name.trim())}${h.enabled === false ? '（停用）' : ''}</code></td><td>${escapeHtml(h.value?.trim() || '—')}</td><td>${escapeHtml(dash(h.remark))}</td></tr>`,
+        )
+        .join('')
+      if (authHeaderRowsHtml) {
+        authHeadersTable = `<h2>3.2 鉴权 Header</h2><p class="security">以键值对列表配置请求头，接入时将随报文一并校验。</p><table><thead><tr><th>参数名</th><th>参数值</th><th>说明</th></tr></thead><tbody>${authHeaderRowsHtml}</tbody></table>`
+      }
+    }
     accessHtml = `<h2>3. 接口信息</h2><table><tbody>${kv([
       ['接口地址', `<code>${escapeHtml(dash(buildApiEndpoint(api)))}</code>`],
-      ['请求协议', escapeHtml(dash(api.protocol))],
       ['请求方法', escapeHtml(dash(api.method || 'POST'))],
       ['鉴权方式', escapeHtml(apiAuthDesc(api))],
-      ['请求头', escapeHtml(dash(api.customHeaders || `Content-Type: ${api.contentType}`))],
       ['最大 QPS 上限', escapeHtml(dash(api.rateLimitQps))],
-      ['重试次数', escapeHtml(dash(api.retry))],
-      ['重试间隔（ms）', escapeHtml(dash(api.retryIntervalMs))],
-      ['成功响应码', escapeHtml(dash(api.successHttpCode || '200'))],
-      ['数据编码', escapeHtml(dash(api.charset))],
-      ['字段校验', api.enableFieldValidate ? '开启' : '关闭'],
-    ])}</tbody></table>`
+    ])}</tbody></table>${responseCodesTable}${authHeadersTable}`
   }
 
   return `<div class="api-doc-pdf">
@@ -1084,7 +1276,13 @@ export function buildApiDocHtml(input: {
   <h2>5. 请求示例</h2>
   <pre>${example}</pre>
   <h2>6. 响应约定</h2>
-  <p>连通性测试成功响应码为 <code>${escapeHtml(successCode)}</code>。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。</p>
+  <p>${escapeHtml(
+    method === 'http_post'
+      ? (api.responseCodes || []).some((r) => r.code)
+        ? '接口响应码以「3.1 接口响应码」所列为准。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。'
+        : '未配置接口响应码时，默认 200 视为接入成功。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。'
+      : `连通性测试成功响应码为 ${successCode}。失败时返回可读错误信息；需白名单时来源 IP 未登记将拒收。`,
+  )}</p>
 </div>`
 }
 
@@ -1134,7 +1332,7 @@ export interface IpWhitelistItem {
   createdAt: string
 }
 
-const STORAGE_KEY = 'yunshu-mt-mock-v31'
+const STORAGE_KEY = 'yunshu-mt-mock-v33'
 const BRIDGE_KEY = 'yunshu-enabled-standard-v1'
 const BRIDGE_LIST_KEY = 'yunshu-enabled-standards-v2'
 
@@ -1148,14 +1346,9 @@ function stripParenInName(name: string) {
 /** V8 演示机构 */
 export const DEMO_ORG_ID = 'o1'
 
-export const bizCategoryOptions: { label: string; value: BizCategory }[] = [
-  { label: '运维管理', value: '运维管理' },
-  { label: '文章', value: '文章' },
-  { label: '作者', value: '作者' },
-  { label: '平台', value: '平台' },
-  { label: '标注', value: '标注' },
-  { label: '其它', value: '其它' },
-]
+export const bizCategoryOptions: { label: string; value: BizCategory }[] = dictMock.enabledOptions(
+  'field_biz_category',
+) as { label: string; value: BizCategory }[]
 
 /** @deprecated 运维管理字段已改为可选手动勾选，不再强制锁定 */
 export const LOCKED_BIZ_CATEGORY: BizCategory = '运维管理'
@@ -1310,10 +1503,7 @@ export function sameFieldMaps(a: FieldMapItem[], b: FieldMapItem[]) {
   })
 }
 
-export const dataTypeOptions = [
-  { label: 'String', value: 'String' },
-  { label: 'Int', value: 'Int' },
-]
+export const dataTypeOptions = dictMock.enabledOptions('field_data_type')
 
 export const dataSourceTypeLabels: Record<DataSourceType, string> = {
   table: '库表数据集',
@@ -1408,8 +1598,11 @@ function genAppkey(code: string) {
   return `ak_${code}_${Math.random().toString(36).slice(2, 10)}`
 }
 
-export const SCHEME_APP_KEY_LEN = 8
+export const SCHEME_APP_KEY_LEN = 32
 export const SCHEME_APP_SECRET_LEN = 16
+
+/** 系统级网关（接口地址前缀，只读） */
+export const SYSTEM_GATEWAY = 'https://ingress.yunshu.example.com'
 
 function randomAlnum(len: number) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghjkmnpqrstuvwxyz'
@@ -1420,6 +1613,11 @@ function randomAlnum(len: number) {
 
 export function genSchemeAppKey() {
   return randomAlnum(SCHEME_APP_KEY_LEN)
+}
+
+/** 生成默认路由：/api/v1/push/ + 8 位字母数字（可手动修改） */
+export function genDefaultRoute() {
+  return `/api/v1/push/${randomAlnum(8)}`
 }
 
 export function genSchemeAppSecret() {
@@ -1524,6 +1722,66 @@ export interface SupplyTrendSeries {
   points: SupplyTrendPoint[]
 }
 
+/**
+ * 综合看板「接入异常」演示数据：
+ * 追加 10 个零接入 / 高堆积方案，使接入异常模块的零接入、高堆积列表各能展示 11 条。
+ */
+function buildAlertDemoStandards(): Standard[] {
+  const demo = [
+    { orgId: 'o5', name: '西安高新教育舆情接入方案' },
+    { orgId: 'o6', name: '韩川教体舆情接入方案' },
+    { orgId: 'o7', name: '渭南农物联数据接入方案' },
+    { orgId: 'o8', name: '西安经济智联接入方案' },
+    { orgId: 'o9', name: '银川教科舆情接入方案' },
+    { orgId: 'o10', name: '延安红网接入方案' },
+    { orgId: 'o11', name: '华山云巴生态接入方案' },
+    { orgId: 'o12', name: '商洛康养物联接入方案' },
+    { orgId: 'o13', name: '咸阳工门联数据接入方案' },
+    { orgId: 'o14', name: '汉中新型政务接入方案' },
+  ]
+  return demo.map((item, idx) => {
+    const n = idx + 1
+    const suffix = String(n).padStart(2, '0')
+    return {
+      id: `stA${n}`,
+      schemeNo: 10100 + n,
+      name: item.name,
+      scope: 'org' as StandardScope,
+      orgId: item.orgId,
+      supplierId: 's1',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '综合看板接入异常演示数据',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        appKey: `AkAlert${suffix}`,
+        appSecret: `SecAlertDemoKey${suffix}`,
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: `接入异常演示方案${suffix}-接口文档.pdf`,
+      fileSize: '6 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-09-10 10:00:00',
+      accessStats: {
+        total: 1800 + n * 260,
+        today: 0,
+        // 前5个近3天无接入（零接入演示），其余近3天有少量接入
+        d3: n <= 5 ? 0 : 90 + n * 12,
+        w1: 420 + n * 36,
+        m1: 1600 + n * 120,
+      },
+      lastAccessAt: `2026-09-${String((n % 9) + 1).padStart(2, '0')} 0${n % 9}:30:00`,
+      accessActiveDaysW1: n % 4,
+    }
+  })
+}
+
 const seed = {
   orgCatalog: [
     { id: 'oc1', name: '陕西省网信办', code: 'ORG_WXB_001' },
@@ -1531,6 +1789,10 @@ const seed = {
     { id: 'oc3', name: '西安市雁塔区融媒体中心', code: 'ORG_RMT_003' },
     { id: 'oc4', name: '咸阳市网信办', code: 'ORG_SWXB_004' },
     { id: 'oc5', name: '礼泉县融媒体中心', code: 'ORG_XRMT_005' },
+    { id: 'oc6', name: '西安高新教育', code: 'CUST-SN-XA-007' },
+    { id: 'oc7', name: '韩川教体', code: 'CUST-SN-HC-008' },
+    { id: 'oc8', name: '渭南农物联', code: 'CUST-SN-WN-009' },
+    { id: 'oc9', name: '银川教科', code: 'CUST-NX-YC-010' },
   ] as OrgCatalogItem[],
   suppliers: [
     { id: 's1', name: '清博智能', code: 'QB001', status: 'enabled' as Status, appkey: 'ak_QB001_demo01', updatedAt: '2026-09-01 14:20:00' },
@@ -1539,54 +1801,160 @@ const seed = {
     { id: 's4', name: '百度舆情', code: 'BD001', status: 'enabled' as Status, appkey: 'ak_BD001_demo04', updatedAt: '2026-08-15 11:00:00' },
   ] as Supplier[],
   orgs: [
-    {
+    orgRecord({
       id: 'o1',
       name: '陕西省网信办',
       code: 'ORG_WXB_001',
-      status: 'enabled' as Status,
       supplierIds: ['s1', 's2', 's3'],
       standardIds: ['st1'],
-      standardId: 'st1',
       remark: '',
-      statUnit: '陕西大区',
+      region: '西安市/新城区',
       salesName: '张三三',
-    },
-    {
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2028-04-09',
+    }),
+    orgRecord({
       id: 'o2',
       name: '西安市委宣传部',
       code: 'ORG_XCB_002',
-      status: 'enabled' as Status,
       supplierIds: ['s1'],
       standardIds: ['st1'],
-      standardId: 'st1',
       remark: '宣传口径供数',
-      statUnit: '陕西大区',
+      region: '西安市/莲湖区',
       salesName: '李四五',
-    },
-    {
+      openVersion: 'trial',
+      authStatus: 'expired',
+      expireAt: '2026-07-01',
+    }),
+    orgRecord({
       id: 'o3',
       name: '西安市雁塔区融媒体中心',
       code: 'ORG_RMT_003',
-      status: 'enabled' as Status,
       supplierIds: ['s2', 's4'],
       standardIds: ['st3'],
-      standardId: 'st3',
       remark: '',
-      statUnit: '陕西大区',
+      region: '西安市/雁塔区',
       salesName: '王小明',
-    },
-    {
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2027-12-31',
+    }),
+    orgRecord({
       id: 'o4',
       name: '咸阳市网信办',
       code: 'ORG_SWXB_004',
-      status: 'enabled' as Status,
       supplierIds: ['s1', 's4'],
       standardIds: ['st1', 'st5'],
-      standardId: 'st1',
       remark: '市级双方案接入',
-      statUnit: '陕西大区',
+      region: '咸阳市/秦都区',
       salesName: '赵六',
-    },
+      openVersion: 'formal',
+      authStatus: 'closed',
+      expireAt: '2025-08-01',
+    }),
+    orgRecord({
+      id: 'o5',
+      name: '西安高新教育',
+      code: 'CUST-SN-XA-007',
+      creditCode: '91610131MA7CXA07',
+      region: '咸阳市/秦都区',
+      salesName: '吕小诺',
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2027-12-31',
+    }),
+    orgRecord({
+      id: 'o6',
+      name: '韩川教体',
+      code: 'CUST-SN-HC-008',
+      region: '韩城市/金城区',
+      salesName: '唐磊',
+      openVersion: 'trial',
+      authStatus: 'expired',
+      expireAt: '2026-05-14',
+    }),
+    orgRecord({
+      id: 'o7',
+      name: '渭南农物联',
+      code: 'CUST-SN-WN-009',
+      region: '渭南市/临渭区',
+      salesName: '徐德荣',
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2026-05-31',
+    }),
+    orgRecord({
+      id: 'o8',
+      name: '西安经济智联',
+      code: 'CUST-SN-XA-011',
+      region: '西安市/经开区',
+      salesName: '谢纪光',
+      openVersion: 'trial',
+      authStatus: 'expired',
+      expireAt: '2026-07-01',
+    }),
+    orgRecord({
+      id: 'o9',
+      name: '银川教科',
+      code: 'CUST-NX-YC-010',
+      statUnit: '宁夏大区',
+      region: '银川市/兴庆区',
+      salesName: '周主管',
+      openVersion: 'formal',
+      authStatus: 'closed',
+      expireAt: '2025-08-01',
+    }),
+    orgRecord({
+      id: 'o10',
+      name: '延安红网',
+      code: 'CUST-SN-YA-012',
+      region: '延安市/宝塔区',
+      salesName: '李明',
+      openVersion: 'formal',
+      authStatus: 'expired',
+      expireAt: '2027-01-31',
+    }),
+    orgRecord({
+      id: 'o11',
+      name: '华山云巴生态',
+      code: 'CUST-SN-HS-013',
+      region: '渭南市/华阴市',
+      salesName: '吴萍',
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2028-04-09',
+    }),
+    orgRecord({
+      id: 'o12',
+      name: '商洛康养物联',
+      code: 'CUST-SN-SL-014',
+      region: '商洛市/商州区',
+      salesName: '张伟',
+      openVersion: 'formal',
+      authStatus: 'running',
+      expireAt: '2027-01-14',
+    }),
+    orgRecord({
+      id: 'o13',
+      name: '咸阳工门联',
+      code: 'CUST-SN-XY-015',
+      region: '咸阳市/渭城区',
+      salesName: '刘洋',
+      openVersion: 'trial',
+      authStatus: 'expired',
+      expireAt: '2025-11-01',
+    }),
+    orgRecord({
+      id: 'o14',
+      name: '汉中新型政务',
+      code: 'CUST-SN-HZ-016',
+      region: '汉中市/汉台区',
+      salesName: '赵敏',
+      openVersion: 'formal',
+      authStatus: 'disabled',
+      expireAt: '2026-02-20',
+    }),
   ] as Org[],
   metadata: [
     fieldSeed('supplier_code', 'String', '供数方编码，对应供数方管理中的编码；库表路径据此识别来源厂商', '运维管理', true, '32'),
@@ -1903,6 +2271,7 @@ const seed = {
       lastAccessAt: '2026-09-10 18:06:12',
       accessActiveDaysW1: 2,
     },
+    ...buildAlertDemoStandards(),
   ] as Standard[],
   ipWhitelist: [
     {
@@ -1931,6 +2300,15 @@ const seed = {
     },
   ] as IpWhitelistItem[],
   fieldTemplates: JSON.parse(JSON.stringify(builtinFieldTemplates)) as FieldTemplate[],
+}
+
+// 把「接入异常」演示方案绑定到对应机构，保证方案级高堆积列表能展示 11 条数据
+for (const st of seed.standards) {
+  if (!st.id.startsWith('stA')) continue
+  const org = seed.orgs.find((o) => o.id === st.orgId)
+  if (!org) continue
+  org.supplierIds = Array.from(new Set([...org.supplierIds, st.supplierId || 's1']))
+  org.standardIds = Array.from(new Set([...org.standardIds, st.id]))
 }
 
 interface State {
@@ -1977,6 +2355,15 @@ function loadState(): State {
           remark: o.remark || '',
           statUnit: o.statUnit || seedOrg?.statUnit || '',
           salesName: o.salesName || seedOrg?.salesName || '',
+          fullName: o.fullName || seedOrg?.fullName || o.name,
+          creditCode: o.creditCode || seedOrg?.creditCode || o.code || '',
+          region: o.region || seedOrg?.region || '',
+          openVersion: o.openVersion || seedOrg?.openVersion || 'formal',
+          authStatus:
+            o.authStatus ||
+            seedOrg?.authStatus ||
+            (o.status === 'disabled' ? 'disabled' : 'running'),
+          expireAt: o.expireAt || seedOrg?.expireAt || '',
         }
       })
       parsed.schemes = (parsed.schemes || []).map((s) => {
@@ -2148,6 +2535,15 @@ function hydrateStandard(item: Standard | null): Standard | null {
   const boundOrg = item.orgId ? state.orgs.find((o) => o.id === item.orgId) : null
   const boundOrgName = orgName(item.orgId)
   const boundSupplierName = item.supplierId ? supplierNameMap()[item.supplierId] || item.supplierName || '' : ''
+  if (!item.opLogs?.length) {
+    item.opLogs = ensureSchemeOpLogs(undefined, {
+      kind: 'access',
+      status: item.status === 'disabled' ? 'disabled' : 'enabled',
+      createdAt: item.uploadedAt,
+      updatedAt: item.updatedAt || item.uploadedAt,
+      creator: item.uploader || '平台运营',
+    })
+  }
   const apiDocMarkdown = buildApiDocMarkdown({
     name: stripParenInName(item.name),
     scope: 'org',
@@ -2194,6 +2590,7 @@ function hydrateStandard(item: Standard | null): Standard | null {
     fields,
     metadata: primary,
     scheme,
+    opLogs: item.opLogs || [],
   }
 }
 
@@ -2429,7 +2826,8 @@ export const mtMock = {
     return bindings.map((b) => {
       const h = hash(b.id + range)
       const inboundCount = Math.max(1, Math.round((1200 + (h % 18000)) * scale))
-      const backlogCount = Math.max(0, Math.round((40 + (h % 900)) * Math.min(1, scale * 2.2)))
+      // 堆积为当前瞬时值，不随时间跨度缩放
+      const backlogCount = 40 + (h % 900)
       return {
         id: b.id,
         orgId: b.orgId,
@@ -2587,6 +2985,14 @@ export const mtMock = {
     standardIds?: string[]
     remark?: string
     status?: Status
+    statUnit?: string
+    salesName?: string
+    fullName?: string
+    creditCode?: string
+    region?: string
+    openVersion?: OrgOpenVersion
+    authStatus?: OrgAuthStatus
+    expireAt?: string
   }) {
     const name = payload.name.trim()
     const code = payload.code.trim()
@@ -2600,16 +3006,23 @@ export const mtMock = {
         : payload.standardId
           ? [payload.standardId]
           : []
-    const item: Org = {
+    const item = orgRecord({
       id: 'o' + Date.now(),
       name,
       code,
-      status: payload.status || 'enabled',
+      status: payload.status,
       supplierIds: (payload.supplierIds || []).slice(),
       standardIds,
-      standardId: standardIds[0] || '',
       remark: String(payload.remark || '').trim(),
-    }
+      statUnit: payload.statUnit,
+      salesName: payload.salesName,
+      fullName: payload.fullName,
+      creditCode: payload.creditCode,
+      region: payload.region,
+      openVersion: payload.openVersion,
+      authStatus: payload.authStatus || 'running',
+      expireAt: payload.expireAt,
+    })
     state.orgs.unshift(item)
     save()
     return { ok: true as const, item }
@@ -2866,6 +3279,17 @@ export const mtMock = {
     if (!n) return false
     return state.standards.some((s) => stripParenInName(s.name) === n && s.id !== exceptId)
   },
+  /** 接口地址全局唯一性校验（与所有接入方案的完整 endpointUrl 比对） */
+  endpointUrlExists: (url: string, exceptId?: string) => {
+    const u = (url || '').trim().replace(/\/$/, '')
+    if (!u) return false
+    return state.standards.some((s) => {
+      if (s.id === exceptId) return false
+      const api = normalizeApiAccess(s.apiAccess)
+      const cur = (api.endpointUrl || '').trim().replace(/\/$/, '')
+      return cur === u
+    })
+  },
   saveStandard(
     payload: Partial<Standard> & {
       name: string
@@ -2896,8 +3320,18 @@ export const mtMock = {
     const accessMethod = (payload.accessMethod || 'http_post') as AccessMethodType
     let apiAccess = syncEndpointParts(normalizeApiAccess(payload.apiAccess))
     if (accessMethod === 'http_post') {
-      if (!apiAccess.appKey?.trim()) apiAccess.appKey = genSchemeAppKey()
-      if (!apiAccess.appSecret?.trim()) apiAccess.appSecret = genSchemeAppSecret()
+      if (normalizeAuthType(apiAccess.authType) === 'appkey') {
+        // 防御性兜底：AppKey 鉴权至少保留一行默认 AppKey Header
+        if (!apiAccess.authHeaders?.some((h) => h.name?.trim())) {
+          apiAccess.authHeaders = [defaultAccessAppKeyHeader()]
+        }
+        // 同步首个 AppKey 行到 appKey，供历史凭证/文档逻辑复用
+        const appKeyHeader = apiAccess.authHeaders.find(
+          (h) => h.enabled !== false && h.name.trim() === 'AppKey' && h.value.trim(),
+        )
+        apiAccess.appKey = appKeyHeader?.value || apiAccess.authHeaders.find((h) => h.enabled !== false)?.value || ''
+        if (!apiAccess.appKey.trim()) apiAccess.appKey = genSchemeAppKey()
+      }
     }
     const mqAccess = normalizeMqAccess(payload.mqAccess)
     const fileAccess = normalizeFileAccess(payload.fileAccess)
@@ -2957,6 +3391,25 @@ export const mtMock = {
     if (payload.id) {
       const item = state.standards.find((s) => s.id === payload.id)
       if (!item) return { ok: false as const, reason: 'missing' }
+      const prevStatus = item.status
+      const baseLogs = ensureSchemeOpLogs(item.opLogs, {
+        kind: 'access',
+        status: prevStatus === 'disabled' ? 'disabled' : 'enabled',
+        createdAt: item.uploadedAt,
+        updatedAt: item.updatedAt || item.uploadedAt,
+        creator: item.uploader || '平台运营',
+      })
+      const nextLogs = prependOpLog(baseLogs, makeOpLog('update', '修改接入方案配置'))
+      let opLogs = nextLogs
+      if (fields.status !== prevStatus) {
+        opLogs = prependOpLog(
+          opLogs,
+          makeOpLog(
+            fields.status === 'enabled' ? 'enable' : 'disable',
+            fields.status === 'enabled' ? '开启接入方案' : '停用接入方案',
+          ),
+        )
+      }
       Object.assign(item, {
         ...fields,
         schemeNo: item.schemeNo || nextSchemeNo(),
@@ -2965,6 +3418,7 @@ export const mtMock = {
         accessActiveDaysW1: Number(item.accessActiveDaysW1) || 0,
         uploadedAt: item.uploadedAt || now,
         updatedAt: now,
+        opLogs,
       })
       save()
       return { ok: true as const, item: hydrateStandard(item)! }
@@ -2976,6 +3430,14 @@ export const mtMock = {
       lastAccessAt: '',
       accessActiveDaysW1: 0,
       ...fields,
+      opLogs: [
+        makeOpLog(
+          fields.status === 'enabled' ? 'enable' : 'disable',
+          fields.status === 'enabled' ? '开启接入方案' : '停用接入方案',
+          { operatedAt: now },
+        ),
+        makeOpLog('create', '新建接入方案', { operatedAt: now }),
+      ],
     } as Standard
     state.standards.unshift(item)
     save()
@@ -3057,8 +3519,20 @@ export const mtMock = {
         return { ok: false as const, reason: 'conflict' as const, conflictName: conflict.name }
       }
     }
+    const prevStatus = item.status
     item.status = status
     item.updatedAt = nowText()
+    const baseLogs = ensureSchemeOpLogs(item.opLogs, {
+      kind: 'access',
+      status: prevStatus === 'disabled' ? 'disabled' : 'enabled',
+      createdAt: item.uploadedAt,
+      updatedAt: item.updatedAt,
+      creator: item.uploader || '平台运营',
+    })
+    item.opLogs = prependOpLog(
+      baseLogs,
+      makeOpLog(status === 'enabled' ? 'enable' : 'disable', status === 'enabled' ? '开启接入方案' : '停用接入方案'),
+    )
     save()
     return { ok: true as const, item: hydrateStandard(item)! }
   },
@@ -3099,6 +3573,9 @@ export const mtMock = {
     }
   },
   removeStandard(id: string) {
+    const item = state.standards.find((s) => s.id === id)
+    if (!item) return { ok: false, reason: 'not_found' as const }
+    if (item.status === 'enabled') return { ok: false, reason: 'enabled' as const }
     const before = state.standards.length
     state.standards = state.standards.filter((s) => s.id !== id)
     save()

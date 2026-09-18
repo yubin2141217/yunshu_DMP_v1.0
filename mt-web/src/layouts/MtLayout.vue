@@ -37,6 +37,12 @@
             <template #icon><IconBarChart /></template>
             综合看板
           </a-menu-item>
+          <a-sub-menu key="orgGroup">
+            <template #icon><IconUserGroup /></template>
+            <template #title>机构管理</template>
+            <a-menu-item key="/org/open">机构管理</a-menu-item>
+            <a-menu-item key="/org/users">机构用户管理</a-menu-item>
+          </a-sub-menu>
           <a-sub-menu key="standardGroup">
             <template #icon><IconFile /></template>
             <template #title>数据接入管理</template>
@@ -51,7 +57,11 @@
             <template #title>数据推送管理</template>
             <a-menu-item key="/push/schemes">推送方案管理</a-menu-item>
             <a-menu-item key="/push/push-data">推送数据明细</a-menu-item>
-            <a-menu-item key="/push/receivers">接收方管理</a-menu-item>
+          </a-sub-menu>
+          <a-sub-menu key="settingsGroup">
+            <template #icon><IconSettings /></template>
+            <template #title>系统设置</template>
+            <a-menu-item key="/dict">数据字典</a-menu-item>
           </a-sub-menu>
         </a-menu>
       </aside>
@@ -77,7 +87,9 @@ import {
   IconFile,
   IconNotification,
   IconSend,
+  IconSettings,
   IconThunderbolt,
+  IconUserGroup,
 } from '@arco-design/web-vue/es/icon'
 import { useUserStore } from '@/store/user'
 
@@ -88,20 +100,23 @@ const currentTitle = computed(() => (route.meta.title as string) || '')
 const embedPageCrumb = computed(() => route.path.startsWith('/stats'))
 const userInitial = computed(() => (userStore.userInfo?.name || '运').slice(0, 1))
 const selectedKeys = computed(() => {
+  if (route.path.startsWith('/org/open')) return ['/org/open']
+  if (route.path.startsWith('/org/users')) return ['/org/users']
+  if (route.path.startsWith('/org')) return ['/org/open']
   if (route.path.startsWith('/standard/access-data')) return ['/standard/access-data']
   if (route.path.startsWith('/standard')) return ['/standard']
   if (route.path.startsWith('/metadata')) return ['/metadata']
+  if (route.path.startsWith('/dict')) return ['/dict']
   if (route.path.startsWith('/scheme')) return ['/scheme']
   if (route.path.startsWith('/whitelist')) return ['/whitelist']
   if (route.path.startsWith('/suppliers')) return ['/suppliers']
   if (route.path.startsWith('/push/push-data')) return ['/push/push-data']
-  if (route.path.startsWith('/push/receivers')) return ['/push/receivers']
   if (route.path.startsWith('/push/schemes')) return ['/push/schemes']
   if (route.path.startsWith('/push')) return ['/push/schemes']
   if (route.path.startsWith('/stats')) return ['/stats']
   return [route.path]
 })
-const openKeys = ref<string[]>(['standardGroup', 'pushGroup'])
+const openKeys = ref<string[]>(['orgGroup', 'standardGroup', 'pushGroup', 'settingsGroup'])
 
 watch(
   () => route.meta.group,

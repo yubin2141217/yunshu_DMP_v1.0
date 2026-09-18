@@ -329,6 +329,36 @@ body,
   flex-wrap: wrap;
 }
 
+/* 筛选项：字段名称 + 控件 */
+.search-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-field__label {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #4e5969;
+  white-space: nowrap;
+}
+
+.list-result-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: -4px 0 14px;
+  min-height: 28px;
+  font-size: 13px;
+  color: #4e5969;
+}
+
+.list-result-bar__label {
+  color: #86909c;
+  flex-shrink: 0;
+}
+
 .table-footer {
   margin-top: 16px;
   display: flex;
@@ -447,6 +477,31 @@ body,
 
 .arco-modal-body {
   padding-top: 16px;
+}
+
+.arco-modal-simple {
+  max-width: min(520px, calc(100vw - 32px));
+}
+
+.arco-modal-simple .arco-modal-body {
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  min-width: 0;
+}
+
+.arco-modal-simple .arco-modal-body > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.modal-confirm-wrap {
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.6;
 }
 
 .arco-modal-footer {
@@ -661,3 +716,30 @@ body,
   z-index: 2;
   box-sizing: border-box;
 }
+
+/* 详情页 Descriptions：各模块标签列固定宽度，跨卡片对齐 */
+.detail-page .arco-descriptions-body .arco-descriptions-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.detail-page .arco-descriptions-item-label {
+  width: 148px !important;
+  min-width: 148px !important;
+  max-width: 148px !important;
+  box-sizing: border-box;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.detail-page .arco-descriptions-item-value {
+  word-break: break-word;
+  vertical-align: middle;
+}
+
+.detail-page .arco-descriptions-layout-inline-horizontal .arco-descriptions-item-label,
+.detail-page .arco-descriptions-layout-horizontal .arco-descriptions-item-label {
+  width: 148px !important;
+  min-width: 148px !important;
+}
+

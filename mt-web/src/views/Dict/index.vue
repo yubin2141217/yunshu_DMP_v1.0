@@ -2,16 +2,19 @@
   <div class="page-shell">
     <div class="page-head">
       <div>
-        <h2 class="page-title">供数方管理</h2>
-        <p class="page-desc">维护平台侧供数方档案（名称、编码、状态），接口鉴权凭证在接入方案中按方案生成与下发</p>
+        <h2 class="page-title">数据字典</h2>
+        <p class="page-desc">维护字段业务分类、内容平台、字段数据类型；停用后新配置不可选，已落库数据仍按原码展示。</p>
       </div>
-      <a-button type="primary" @click="openCreate">新增供数方</a-button>
+      <a-button type="primary" @click="openCreate">新增字典项</a-button>
     </div>
     <a-card class="content-card" :bordered="false">
+      <a-tabs v-model:active-key="form.type" @change="fetchData(1)">
+        <a-tab-pane v-for="t in typeOptions" :key="t.value" :title="t.label" />
+      </a-tabs>
       <div class="page-search">
         <div class="search-field">
-          <span class="search-field__label">供数方名称</span>
-          <a-input v-model="form.name" allow-clear style="width: 200px" />
+          <span class="search-field__label">名称 / 编码</span>
+          <a-input v-model="form.keyword" allow-clear style="width: 200px" />
         </div>
         <div class="search-field">
           <span class="search-field__label">状态</span>
@@ -22,10 +25,7 @@
       </div>
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" :bordered="false" stripe>
         <template #code="{ record }">
-          <a-space>
-            <span class="mono">{{ record.code }}</span>
-            <a-button type="text" size="mini" @click="copyCode(record.code)">复制</a-button>
-          </a-space>
+          <span class="mono">{{ record.code }}</span>
         </template>
         <template #status="{ record }">
           <a-switch
@@ -39,7 +39,12 @@
         <template #operations="{ record }">
           <a-space class="arco-table-ops" :size="2">
             <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
-            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的供数方不可删除，请先停用">
+            <a-tooltip v-if="record.builtin" content="预置字典项不可删除">
+              <span class="del-disabled-wrap">
+                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+              </span>
+            </a-tooltip>
+            <a-tooltip v-else-if="record.status === 'enabled'" content="开启状态的字典项不可删除，请先停用">
               <span class="del-disabled-wrap">
                 <a-button type="text" status="danger" size="small" disabled>删除</a-button>
               </span>
@@ -60,20 +65,31 @@
           @page-size-change="onPageSize"
         />
       </div>
-      <a-modal v-model:visible="visible" :title="mode === 'create' ? '新增供数方' : '编辑供数方'" :on-before-ok="onSubmit" @cancel="visible = false">
+      <a-modal
+        v-model:visible="visible"
+        :title="mode === 'create' ? '新增字典项' : '编辑字典项'"
+        :on-before-ok="onSubmit"
+        @cancel="visible = false"
+      >
         <a-form ref="formRef" :model="editor" :rules="rules" layout="vertical">
-          <a-form-item field="name" label="供数方名称" required>
-            <a-input v-model="editor.name" :max-length="50" placeholder="请输入" />
+          <a-form-item field="type" label="字典类型" required>
+            <a-select v-model="editor.type" :options="typeOptions" :disabled="mode === 'edit'" />
           </a-form-item>
           <a-form-item field="code" required>
             <template #label>
-              <FormFieldLabel title="供数方编码" desc="唯一编码；库表送数时 supplier_code 须填此值" />
+              <FormFieldLabel title="编码" desc="同一类型下唯一；预置项编码不可改" />
             </template>
-            <a-input v-model="editor.code" :max-length="32" placeholder="请输入" />
+            <a-input v-model="editor.code" :max-length="32" :disabled="editor.builtin" placeholder="请输入编码" />
+          </a-form-item>
+          <a-form-item field="name" label="名称" required>
+            <a-input v-model="editor.name" :max-length="50" placeholder="请输入名称" />
+          </a-form-item>
+          <a-form-item field="sort" label="排序" required>
+            <a-input-number v-model="editor.sort" :min="0" :max="9999" hide-button style="width: 100%" />
           </a-form-item>
           <a-form-item field="status" required>
             <template #label>
-              <FormFieldLabel title="状态" desc="开启后可被接入方案勾选；停用后不可被新方案勾选" />
+              <FormFieldLabel title="状态" desc="开启后可被配置页下拉选用；停用后新配置不可选" />
             </template>
             <a-switch
               :model-value="editor.status === 'enabled'"
@@ -92,53 +108,66 @@
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import { Message, Modal, type FormInstance } from '@arco-design/web-vue'
 import FormFieldLabel from '@/components/FormFieldLabel.vue'
-import { deleteSupplier, listSuppliers, saveSupplier, toggleSupplier } from '@/api/mt'
-import type { Status, Supplier } from '@/mock/mt'
+import {
+  deleteDictItem,
+  dictTypeOptions,
+  listDictItems,
+  saveDictItem,
+  toggleDictItem,
+  type DictItem,
+  type DictItemStatus,
+  type DictTypeCode,
+} from '@/api/dict'
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
 
+const typeOptions = dictTypeOptions
 const statusOptions = [
   { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
-const form = reactive({ name: '', status: '' })
-const data = ref<Supplier[]>([])
+const form = reactive({ type: 'field_biz_category' as DictTypeCode, keyword: '', status: '' })
+const data = ref<DictItem[]>([])
 const loading = ref(false)
 const togglingId = ref('')
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
 const visible = ref(false)
 const mode = ref<'create' | 'edit'>('create')
 const formRef = ref<FormInstance>()
-const editor = reactive({ id: '', name: '', code: '', status: 'enabled' as Status })
+const editor = reactive({
+  id: '',
+  type: 'field_biz_category' as DictTypeCode,
+  code: '',
+  name: '',
+  sort: 10,
+  status: 'enabled' as DictItemStatus,
+  builtin: false,
+})
 const rules = {
-  name: [{ required: true, message: '请填写供数方名称' }],
-  code: [{ required: true, message: '请填写供数方编码' }],
+  type: [{ required: true, message: '请选择字典类型' }],
+  code: [{ required: true, message: '请填写编码' }],
+  name: [{ required: true, message: '请填写名称' }],
+  sort: [{ required: true, message: '请填写排序' }],
   status: [{ required: true, message: '请设置状态' }],
 }
 const columns = [
-  { title: '供数方名称', dataIndex: 'name', width: 180, ellipsis: true, tooltip: true },
-  { title: '供数方编码', dataIndex: 'code', slotName: 'code', width: 180 },
+  { title: '编码', dataIndex: 'code', slotName: 'code', width: 160 },
+  { title: '名称', dataIndex: 'name', ellipsis: true, tooltip: true },
+  { title: '排序', dataIndex: 'sort', width: 88 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
-  { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
+  { title: '更新时间', dataIndex: 'updatedAt', width: 168 },
   { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 120 },
 ]
-
-async function copyCode(code?: string) {
-  if (!code) {
-    Message.warning('暂无供数方编码')
-    return
-  }
-  try {
-    await navigator.clipboard.writeText(code)
-    Message.success('已复制供数方编码，可下发给厂商填入 supplier_code')
-  } catch {
-    Message.error('复制失败，请手动选择复制')
-  }
-}
 
 async function fetchData(page = pagination.current) {
   loading.value = true
   try {
-    const res = await listSuppliers({ name: form.name, status: form.status, page, pageSize: pagination.pageSize })
+    const res = await listDictItems({
+      type: form.type,
+      keyword: form.keyword,
+      status: form.status,
+      page,
+      pageSize: pagination.pageSize,
+    })
     data.value = res.list
     pagination.current = page
     pagination.total = res.total
@@ -153,21 +182,38 @@ function onPageSize(size: number) {
 }
 
 function onReset() {
-  form.name = ''
+  form.keyword = ''
   form.status = ''
   fetchData(1)
 }
 
 function openCreate() {
   mode.value = 'create'
-  Object.assign(editor, { id: '', name: '', code: '', status: 'enabled' as Status })
+  const maxSort = data.value.reduce((m, i) => Math.max(m, Number(i.sort) || 0), 0)
+  Object.assign(editor, {
+    id: '',
+    type: form.type,
+    code: '',
+    name: '',
+    sort: maxSort + 10,
+    status: 'enabled' as DictItemStatus,
+    builtin: false,
+  })
   visible.value = true
   nextTick(() => clearFormValidate(formRef.value))
 }
 
-function openEdit(record: Supplier) {
+function openEdit(record: DictItem) {
   mode.value = 'edit'
-  Object.assign(editor, { id: record.id, name: record.name, code: record.code, status: record.status })
+  Object.assign(editor, {
+    id: record.id,
+    type: record.type,
+    code: record.code,
+    name: record.name,
+    sort: record.sort,
+    status: record.status,
+    builtin: record.builtin,
+  })
   visible.value = true
   nextTick(() => clearFormValidate(formRef.value))
 }
@@ -175,10 +221,12 @@ function openEdit(record: Supplier) {
 async function onSubmit() {
   if (!(await validateForm(formRef.value))) return false
   try {
-    await saveSupplier({
+    await saveDictItem({
       id: mode.value === 'edit' ? editor.id : undefined,
-      name: editor.name,
+      type: editor.type,
       code: editor.code,
+      name: editor.name,
+      sort: Number(editor.sort),
       status: editor.status,
     })
     Message.success(mode.value === 'create' ? '新增成功' : '保存成功')
@@ -194,12 +242,12 @@ function onFormStatusSwitch(enabled: boolean) {
   editor.status = enabled ? 'enabled' : 'disabled'
 }
 
-async function applyToggle(record: Supplier, next: Status) {
+async function applyToggle(record: DictItem, next: DictItemStatus) {
   togglingId.value = record.id
   const prev = record.status
   record.status = next
   try {
-    await toggleSupplier(record.id, next)
+    await toggleDictItem(record.id, next)
     Message.success(next === 'enabled' ? '开启成功' : '已停用')
     await fetchData(pagination.current)
   } catch (e) {
@@ -210,13 +258,13 @@ async function applyToggle(record: Supplier, next: Status) {
   }
 }
 
-function onStatusSwitch(record: Supplier, enabled: boolean) {
-  const next: Status = enabled ? 'enabled' : 'disabled'
+function onStatusSwitch(record: DictItem, enabled: boolean) {
+  const next: DictItemStatus = enabled ? 'enabled' : 'disabled'
   if (next === record.status) return
   if (next === 'disabled') {
     Modal.confirm({
-      title: '停用供数方',
-      content: `确定停用「${record.name}」？停用后不可被新配置勾选。`,
+      title: '停用字典项',
+      content: `确定停用「${record.name}」？停用后新配置不可再选用该项。`,
       onOk: () => applyToggle(record, next),
     })
     return
@@ -224,21 +272,21 @@ function onStatusSwitch(record: Supplier, enabled: boolean) {
   void applyToggle(record, next)
 }
 
-function onDelete(record: Supplier) {
+function onDelete(record: DictItem) {
+  if (record.builtin) {
+    Message.warning('预置字典项不可删除')
+    return
+  }
   if (record.status === 'enabled') {
-    Message.warning('开启状态的供数方不可删除，请先停用')
+    Message.warning('开启状态的字典项不可删除，请先停用')
     return
   }
   Modal.confirm({
-    title: '删除供数方',
-    content: `确定删除「${record.name}」？已被机构引用时不可删除。`,
+    title: '删除字典项',
+    content: `确定删除「${record.name}」？删除后不可恢复。`,
     async onOk() {
       try {
-        const ok = await deleteSupplier(record.id)
-        if (!ok) {
-          Message.warning('已被机构引用，请停用')
-          return
-        }
+        await deleteDictItem(record.id)
         Message.success('已删除')
         fetchData(1)
       } catch (e) {
@@ -259,5 +307,8 @@ onMounted(() => fetchData(1))
 .del-disabled-wrap {
   display: inline-block;
   cursor: not-allowed;
+}
+.page-search {
+  margin-top: 4px;
 }
 </style>

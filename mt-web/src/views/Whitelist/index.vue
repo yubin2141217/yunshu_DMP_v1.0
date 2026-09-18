@@ -9,21 +9,28 @@
     </div>
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <a-select
-          v-model="form.supplierId"
-          :options="supplierOpts"
-          allow-clear
-          placeholder="供数方"
-          style="width: 200px"
-        />
-        <a-input v-model="form.ip" placeholder="IP" allow-clear style="width: 200px" />
-        <a-select
-          v-model="form.status"
-          :options="statusOptions"
-          allow-clear
-          placeholder="状态"
-          style="width: 120px"
-        />
+        <div class="search-field">
+          <span class="search-field__label">供数方</span>
+          <a-select
+            v-model="form.supplierId"
+            :options="supplierOpts"
+            allow-clear
+            style="width: 200px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">IP</span>
+          <a-input v-model="form.ip" allow-clear style="width: 200px" />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">状态</span>
+          <a-select
+            v-model="form.status"
+            :options="statusOptions"
+            allow-clear
+            style="width: 120px"
+          />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
       </div>
@@ -31,14 +38,19 @@
         <template #status="{ record }">
           <a-switch
             :model-value="record.status === 'enabled'"
-            :checked-text="'启用'"
+            :checked-text="'开启'"
             :unchecked-text="'停用'"
             :loading="togglingId === record.id"
             @change="(v: boolean | string | number) => onStatusSwitch(record, !!v)"
           />
         </template>
         <template #operations="{ record }">
-          <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
+          <a-tooltip v-if="record.status === 'enabled'" content="开启状态的白名单不可删除，请先停用">
+            <span class="del-disabled-wrap">
+              <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+            </span>
+          </a-tooltip>
+          <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
         </template>
       </a-table>
       <div class="table-footer">
@@ -80,13 +92,13 @@
             <template #label>
               <FormFieldLabel title="状态" desc="仅启用状态的 IP 参与接入校验" />
             </template>
-            <a-switch v-model="editor.enabled" checked-text="启用" unchecked-text="停用" />
+            <a-switch v-model="editor.enabled" checked-text="开启" unchecked-text="停用" />
           </a-form-item>
           <a-form-item>
             <template #label>
               <FormFieldLabel title="备注" desc="可选，将应用于本批全部 IP" />
             </template>
-            <a-input v-model="editor.remark" placeholder="请输入" />
+            <a-input v-model="editor.remark" placeholder="请输入" :max-length="200" show-word-limit allow-clear />
           </a-form-item>
         </a-form>
       </a-modal>
@@ -122,7 +134,7 @@ const formRef = ref<FormInstance>()
 const supplierOpts = ref<{ label: string; value: string }[]>([])
 const editor = reactive({ supplierId: '', ipsText: '', remark: '', enabled: true })
 const statusOptions = [
-  { label: '启用', value: 'enabled' },
+  { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
 const rules = {
@@ -220,6 +232,10 @@ async function onStatusSwitch(record: IpWhitelistItem, enabled: boolean) {
 }
 
 function onDelete(record: IpWhitelistItem) {
+  if (record.status === 'enabled') {
+    Message.warning('开启状态的白名单不可删除，请先停用')
+    return
+  }
   Modal.confirm({
     title: '删除白名单',
     content: `确定删除「${record.supplierName || '未归属'}」下的 IP「${record.ip}」？`,
@@ -233,3 +249,11 @@ function onDelete(record: IpWhitelistItem) {
 
 onMounted(() => fetchData(1))
 </script>
+
+<style scoped>
+.del-disabled-wrap {
+  display: inline-block;
+  cursor: not-allowed;
+}
+</style>
+

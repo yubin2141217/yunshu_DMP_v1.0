@@ -1,6 +1,6 @@
 /** 综合看板：接入 + 推送双流聚合（Mock） */
 import { mtMock, type SupplyTimeRange } from '@/mock/mt'
-import { pushMock, type PushScheme } from '@/mock/push'
+import { pushMock, pushVolumeOf, type PushScheme } from '@/mock/push'
 
 export type DashboardTimeRange = SupplyTimeRange
 
@@ -14,7 +14,12 @@ const TIME_SCALE: Record<DashboardTimeRange, number> = {
 export interface DashboardTopRow {
   id: string
   name: string
+  /** failTopN 为失败率(%)；backlogTopN 为当前堆积量(条) */
   value: number
+  /** 所属机构（推送异常列表展示用） */
+  orgName?: string
+  orgStatUnit?: string
+  orgSalesName?: string
 }
 
 export interface DashboardFlowTrend {
@@ -51,11 +56,28 @@ export interface DashboardOverview {
     backlogCount: number
     schemeCount: number
   }[]
-  inboundByStandard: { id: string; name: string; inboundCount: number; backlogCount: number }[]
-  inboundBySupplier: { id: string; name: string; inboundCount: number; backlogCount: number }[]
+  inboundByStandard: {
+    id: string
+    name: string
+    inboundCount: number
+    backlogCount: number
+    /** 所属机构 */
+    orgName?: string
+    orgStatUnit?: string
+    orgSalesName?: string
+  }[]
+  inboundBySupplier: {
+    id: string
+    name: string
+    inboundCount: number
+    backlogCount: number
+    /** 该供数方关联的接入方案数 */
+    schemeCount: number
+  }[]
   pushByScheme: {
     id: string
     name: string
+    orgId: string
     orgName: string
     orgStatUnit?: string
     orgSalesName?: string
@@ -73,6 +95,8 @@ export interface DashboardOverview {
     failCount: number
     backlogCount: number
     successRate: number | null
+    /** 该机构下的推送方案数 */
+    schemeCount: number
   }[]
 }
 
@@ -123,7 +147,8 @@ function scaleStats(scheme: PushScheme, range: DashboardTimeRange) {
   const s = TIME_SCALE[range] ?? 1
   const success = Math.max(0, Math.round((scheme.stats?.successTotal || 0) * s))
   const fail = Math.max(0, Math.round((scheme.stats?.failTotal || 0) * Math.min(1, s * 1.2)))
-  const backlog = Math.max(0, Math.round((scheme.stats?.backlog || 0) * Math.min(1.4, s * 1.5 + 0.2)))
+  // 堆积为当前瞬时值，不随时间跨度缩放
+  const backlog = Math.max(0, Math.round(scheme.stats?.backlog || 0))
   return { success, fail, backlog }
 }
 
@@ -203,11 +228,29 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
     pushSuccess += scaled.success
     pushFail += scaled.fail
     backlogSum += scaled.backlog
-    failRows.push({ id: s.id, name: s.name, value: scaled.fail })
-    backlogRows.push({ id: s.id, name: s.name, value: scaled.backlog })
+    // 高失败率口径：近3天（d3）推送总失败率 = 失败 / (成功 + 失败)，保留一位小数
+    const d3Success = pushVolumeOf(s.stats?.successByRange, 'd3')
+    const d3Fail = pushVolumeOf(s.stats?.failByRange, 'd3')
+    const d3Den = d3Success + d3Fail
+    const failRate = d3Den > 0 ? Math.round((d3Fail / d3Den) * 1000) / 10 : 0
+    failRows.push({
+      id: s.id,
+      name: s.name,
+      value: failRate,
+      orgName: s.orgName || '—',
+      ...resolveOrgMeta(s.orgId),
+    })
+    backlogRows.push({
+      id: s.id,
+      name: s.name,
+      value: scaled.backlog,
+      orgName: s.orgName || '—',
+      ...resolveOrgMeta(s.orgId),
+    })
     pushByScheme.push({
       id: s.id,
       name: s.name,
+      orgId: s.orgId,
       orgName: s.orgName || '—',
       ...resolveOrgMeta(s.orgId),
       successCount: scaled.success,
@@ -221,6 +264,7 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
       hit.successCount += scaled.success
       hit.failCount += scaled.fail
       hit.backlogCount += scaled.backlog
+      hit.schemeCount += 1
       hit.successRate = rateOf(hit.successCount, hit.failCount)
     } else {
       pushByOrgMap.set(orgId, {
@@ -231,6 +275,7 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
         failCount: scaled.fail,
         backlogCount: scaled.backlog,
         successRate: rateOf(scaled.success, scaled.fail),
+        schemeCount: 1,
       })
     }
   }
@@ -245,11 +290,21 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
     if (!orgId) return '—'
     return mtMock.getOrgs().find((o) => o.id === orgId)?.name || '—'
   }
+  // 零接入：按最近接入时间降序（无记录排最后）
+  const byLastAccessDesc = (
+    a: { lastAccessAt: string },
+    b: { lastAccessAt: string },
+  ) => {
+    if (a.lastAccessAt === '—') return 1
+    if (b.lastAccessAt === '—') return -1
+    return b.lastAccessAt.localeCompare(a.lastAccessAt)
+  }
+
   let zeroInboundAlerts = standards
     .filter((st) => st.status === 'enabled')
     .filter((st) => !orgSet || orgSet.has(st.orgId || ''))
-    .filter((st) => !st.accessStats || Number(st.accessStats.today) === 0)
-    .slice(0, 8)
+    .filter((st) => !st.accessStats || Number(st.accessStats.d3) === 0)
+    .slice(0, 11)
     .map((st) => ({
       id: st.id,
       name: st.name,
@@ -257,6 +312,7 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
       ...resolveOrgMeta(st.orgId),
       lastAccessAt: st.lastAccessAt || '—',
     }))
+    .sort(byLastAccessDesc)
 
   const enabledInbound = standards.filter((st) => {
     if (st.status !== 'enabled') return false
@@ -277,6 +333,7 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
         ...resolveOrgMeta(st.orgId),
         lastAccessAt: st.lastAccessAt || '—',
       }))
+      .sort(byLastAccessDesc)
   }
 
   const fieldIdSet = new Set<string>()
@@ -286,11 +343,28 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
   }
 
   const schemeCountByOrg = new Map<string, number>()
-  for (const st of enabledInbound) {
-    const oid = st.orgId || ''
-    if (!oid) continue
-    schemeCountByOrg.set(oid, (schemeCountByOrg.get(oid) || 0) + 1)
+  const schemeCountBySupplier = new Map<string, number>()
+  // 依据当前筛选范围内实际产生接入量的方案明细统计方案数，
+  // 保证有接入量的机构 / 供数方方案数必 ≥ 1
+  const standardSetByOrg = new Map<string, Set<string>>()
+  const standardSetBySupplier = new Map<string, Set<string>>()
+  for (const row of inbound.details) {
+    if (row.orgId) {
+      const set = standardSetByOrg.get(row.orgId) || new Set<string>()
+      set.add(row.standardId)
+      standardSetByOrg.set(row.orgId, set)
+    }
+    if (row.supplierId) {
+      const set = standardSetBySupplier.get(row.supplierId) || new Set<string>()
+      set.add(row.standardId)
+      standardSetBySupplier.set(row.supplierId, set)
+    }
   }
+  standardSetByOrg.forEach((set, oid) => schemeCountByOrg.set(oid, set.size))
+  standardSetBySupplier.forEach((set, sid) => schemeCountBySupplier.set(sid, set.size))
+
+  /** 方案 id -> 方案（用于给方案级统计行补机构信息） */
+  const standardById = new Map(standards.map((st) => [st.id, st]))
 
   const pushOrgIds = new Set(schemes.map((s) => s.orgId).filter(Boolean))
   const pushByOrg = [...pushByOrgMap.values()].sort((a, b) => b.successCount - a.successCount)
@@ -309,8 +383,10 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
     pushOrgCount: pushOrgIds.size,
     backlogSum,
     flowTrend: buildFlowTrend(inbound.totalInbound, pushSuccess, range),
-    failTopN: failRows.filter((r) => r.value > 0).slice(0, 8),
-    backlogTopN: backlogRows.filter((r) => r.value > 0).slice(0, 8),
+    // 高失败率：近3天推送总失败率超过 10% 的方案，按失败率从大到小
+    failTopN: failRows.filter((r) => r.value > 10).slice(0, 8),
+    // 高堆积：当前推送堆积数据量超过 100 条的方案，按堆积量从大到小
+    backlogTopN: backlogRows.filter((r) => r.value > 100).slice(0, 8),
     zeroInboundAlerts,
     inboundByOrg: inbound.byOrg.slice(0, 12).map((r) => ({
       id: r.id,
@@ -318,19 +394,27 @@ export function getDashboardOverview(filter: DashboardFilter = {}): DashboardOve
       ...resolveOrgMeta(r.id),
       inboundCount: r.inboundCount,
       backlogCount: r.backlogCount,
-      schemeCount: schemeCountByOrg.get(r.id) || 0,
+      // 有接入量则方案数不可能为 0，缺失统计时兜底为 1
+      schemeCount: schemeCountByOrg.get(r.id) || (r.inboundCount > 0 ? 1 : 0),
     })),
-    inboundByStandard: inbound.byStandard.slice(0, 12).map((r) => ({
-      id: r.id,
-      name: r.name,
-      inboundCount: r.inboundCount,
-      backlogCount: r.backlogCount,
-    })),
+    inboundByStandard: inbound.byStandard.slice(0, 12).map((r) => {
+      const st = standardById.get(r.id)
+      return {
+        id: r.id,
+        name: r.name,
+        inboundCount: r.inboundCount,
+        backlogCount: r.backlogCount,
+        orgName: st?.orgName || orgNameOf(st?.orgId),
+        ...resolveOrgMeta(st?.orgId),
+      }
+    }),
     inboundBySupplier: inbound.bySupplier.slice(0, 12).map((r) => ({
       id: r.id,
       name: r.name,
       inboundCount: r.inboundCount,
       backlogCount: r.backlogCount,
+      // 有接入量则方案数不可能为 0，缺失统计时兜底为 1
+      schemeCount: schemeCountBySupplier.get(r.id) || (r.inboundCount > 0 ? 1 : 0),
     })),
     pushByScheme: pushByScheme.slice(0, 12),
     pushByOrg: pushByOrg.slice(0, 12),

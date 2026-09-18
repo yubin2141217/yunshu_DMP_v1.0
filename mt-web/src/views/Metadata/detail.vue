@@ -1,14 +1,14 @@
 <template>
-  <div class="page-shell">
+  <div class="page-shell detail-page">
     <div class="page-head">
       <div>
         <h2 class="page-title">字段详情</h2>
         <p class="page-desc">查看数据标准字段的描述、类型与业务分类。</p>
       </div>
-      <a-button @click="$router.push('/metadata')">返回列表</a-button>
+      <a-button @click="goBack">返回</a-button>
     </div>
     <a-card v-if="record" class="content-card detail-block" :bordered="false" title="字段信息">
-      <a-descriptions :column="2" bordered size="large">
+      <a-descriptions :column="2" bordered size="large" :label-style="descLabelStyle">
         <a-descriptions-item label="字段名">{{ record.name }}</a-descriptions-item>
         <a-descriptions-item label="数据类型">{{ record.dataType || '—' }}</a-descriptions-item>
         <a-descriptions-item label="描述" :span="2">{{ record.description || record.bizCaliber || '—' }}</a-descriptions-item>
@@ -17,10 +17,9 @@
         <a-descriptions-item label="业务分类">{{ record.bizCategory || '—' }}</a-descriptions-item>
         <a-descriptions-item label="状态">
           <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
-            {{ record.status === 'enabled' ? '启用' : '停用' }}
+            {{ record.status === 'enabled' ? '开启' : '停用' }}
           </a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="更新时间">{{ record.updatedAt || '—' }}</a-descriptions-item>
         <a-descriptions-item label="备注" :span="2">{{ record.remark || '—' }}</a-descriptions-item>
       </a-descriptions>
     </a-card>
@@ -36,10 +35,13 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getMetadata } from '@/api/mt'
+import { usePageBack } from '@/composables/useUnsavedLeave'
 import type { Metadata } from '@/mock/mt'
 
 const route = useRoute()
+const { goBack } = usePageBack('/metadata')
 const record = ref<Metadata | null>(null)
+const descLabelStyle = { width: '148px', minWidth: '148px', maxWidth: '148px' }
 
 onMounted(async () => {
   record.value = await getMetadata(String(route.params.id || ''))

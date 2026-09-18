@@ -19,7 +19,7 @@
         <div class="kpi-scheme-break">
           <button type="button" class="kpi-chip kpi-chip--enabled" @click="filterByStatus('enabled')">
             <i class="kpi-chip__dot" aria-hidden="true" />
-            <span class="kpi-chip__label">启用</span>
+            <span class="kpi-chip__label">开启</span>
             <span class="kpi-chip__num">{{ kpis.enabled }}</span>
           </button>
           <button type="button" class="kpi-chip kpi-chip--disabled" @click="filterByStatus('disabled')">
@@ -50,7 +50,7 @@
       <div class="kpi-card">
         <span class="kpi-label">
           活跃方案
-          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有推送数据">
+          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有接入数据的方案数量">
             <IconInfoCircle class="kpi-tip" />
           </a-tooltip>
         </span>
@@ -59,7 +59,7 @@
       <div class="kpi-card">
         <span class="kpi-label">
           活跃机构
-          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有推送数据">
+          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有接入数据的机构数量">
             <IconInfoCircle class="kpi-tip" />
           </a-tooltip>
         </span>
@@ -68,7 +68,7 @@
       <div class="kpi-card">
         <span class="kpi-label">
           活跃供数方
-          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有推送数据">
+          <a-tooltip content="近 1 周累计接入数据量>10,000条或至少5天都有接入数据的供数方数量">
             <IconInfoCircle class="kpi-tip" />
           </a-tooltip>
         </span>
@@ -78,43 +78,45 @@
 
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <FuzzySuggestSelect
-          v-model="form.schemePickId"
-          v-model:keyword="form.name"
-          :options="schemeOptions"
-          placeholder="方案"
-          all-label="全部方案"
-          width="200px"
-        />
-        <FuzzySuggestSelect
-          v-model="form.orgId"
-          v-model:keyword="form.orgName"
-          :options="orgOptions"
-          placeholder="机构"
-          all-label="全部机构"
-          width="180px"
-        />
-        <FuzzySuggestSelect
-          v-model="form.supplierId"
-          v-model:keyword="form.supplierName"
-          :options="supplierOptions"
-          placeholder="供数方"
-          all-label="全部供数方"
-          width="180px"
-        />
-        <a-select
-          v-model="form.accessMethod"
-          :options="accessMethodFilterOptions"
-          allow-clear
-          placeholder="接入方式"
-          style="width: 180px"
-        />
-        <a-select v-model="form.status" :options="statusOptions" allow-clear placeholder="状态" style="width: 120px" />
+        <div class="search-field">
+          <span class="search-field__label">方案</span>
+          <FuzzySuggestSelect
+            v-model="form.schemePickId"
+            v-model:keyword="form.name"
+            :options="schemeOptions"
+            placeholder="方案"
+            all-label="全部方案"
+            width="200px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">机构</span>
+          <FuzzySuggestSelect
+            v-model="form.orgId"
+            v-model:keyword="form.orgName"
+            :options="orgOptions"
+            placeholder="机构"
+            all-label="全部机构"
+            width="180px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">供数方</span>
+          <FuzzySuggestSelect
+            v-model="form.supplierId"
+            v-model:keyword="form.supplierName"
+            :options="supplierOptions"
+            placeholder="供数方"
+            all-label="全部供数方"
+            width="180px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">状态</span>
+          <a-select v-model="form.status" :options="statusOptions" allow-clear style="width: 120px" />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
-        <div class="page-search-actions">
-          <a-button :loading="loading" @click="onRefresh">刷新</a-button>
-        </div>
       </div>
 
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" :bordered="false" stripe>
@@ -152,41 +154,14 @@
             {{ record.supplierName || '—' }}
           </button>
         </template>
-        <template #accessMethod="{ record }">
-          <button
-            type="button"
-            class="filter-cell filter-cell--inline"
-            :disabled="!record.accessMethod"
-            title="点击填入接入方式筛选"
-            @click="filterByAccessMethod(record)"
-          >
-            {{ record.schemeName || accessMethodLabel(record.accessMethod) }}
+        <template #accessVolumeTotal="{ record }">
+          <button type="button" class="num-link" @click="goAccessDataQuery(record, 'total')">
+            {{ formatVolume(record, 'total') }} 条
           </button>
         </template>
-        <template #accessVolumeTitle>
-          <a-dropdown trigger="click" position="bl" :popup-max-height="false">
-            <button type="button" class="vol-range-trigger" @click.stop>
-              接入数据量（{{ volumeRangeLabel }}）
-              <IconDown class="vol-range-trigger__icon" />
-            </button>
-            <template #content>
-              <div class="vol-range-menu">
-                <a-doption
-                  v-for="opt in rangeOptions"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :class="{ 'is-active': volumeRange === opt.value }"
-                  @click="onRangeChange(opt.value)"
-                >
-                  {{ opt.label }}
-                </a-doption>
-              </div>
-            </template>
-          </a-dropdown>
-        </template>
-        <template #accessVolume="{ record }">
-          <button type="button" class="num-link" @click="goAccessDataQuery(record)">
-            {{ formatVolume(record) }} 条
+        <template #accessVolumeToday="{ record }">
+          <button type="button" class="num-link" @click="goAccessDataQuery(record, 'today')">
+            {{ formatVolume(record, 'today') }} 条
           </button>
         </template>
         <template #lastAccess="{ record }">
@@ -195,8 +170,8 @@
         <template #status="{ record }">
           <a-switch
             :model-value="record.status === 'enabled'"
-            :checked-text="'启用'"
-            :unchecked-text="'停用'"
+            checked-text="开启"
+            unchecked-text="停用"
             :loading="togglingId === record.id"
             @change="(v: boolean | string | number) => onStatusSwitch(record, !!v)"
           />
@@ -207,7 +182,12 @@
             <a-button type="text" size="small" @click="openPreview(record)">预览文档</a-button>
             <a-button type="text" size="small" @click="$router.push('/standard/edit/' + record.id)">编辑</a-button>
             <a-button type="text" size="small" @click="onCopyCreate(record)">复制</a-button>
-            <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
+            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的方案不可删除，请先停用">
+              <span class="ops-disabled-wrap">
+                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+              </span>
+            </a-tooltip>
+            <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
           </a-space>
         </template>
       </a-table>
@@ -252,7 +232,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
-import { IconDown, IconInfoCircle } from '@arco-design/web-vue/es/icon'
+import { IconInfoCircle } from '@arco-design/web-vue/es/icon'
 import FuzzySuggestSelect from '@/components/FuzzySuggestSelect.vue'
 import {
   deleteStandard,
@@ -261,10 +241,7 @@ import {
   toggleStandard,
 } from '@/api/mt'
 import {
-  accessMethodLabel,
-  accessMethodOptions,
   accessVolumeOf,
-  accessVolumeRangeOptions,
   resolveStandardApiDoc,
   resolveStandardApiDocHtml,
   type AccessVolumeRange,
@@ -273,19 +250,12 @@ import {
 } from '@/mock/mt'
 import { downloadApiDocPdf } from '@/utils/downloadApiDocPdf'
 
-const RANGE_STORAGE_KEY = 'yunshu-mt-standard-volume-range'
-const rangeOptions = accessVolumeRangeOptions
-
 const route = useRoute()
 const router = useRouter()
 const statusOptions = [
   { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
-const accessMethodFilterOptions = accessMethodOptions.map((o) => ({
-  label: o.label,
-  value: o.value,
-}))
 const supplierOptions = ref<{ label: string; value: string }[]>([])
 const orgOptions = ref<{ label: string; value: string }[]>([])
 const schemeOptions = ref<{ label: string; value: string }[]>([])
@@ -297,7 +267,6 @@ const form = reactive({
   orgName: '',
   supplierId: '',
   supplierName: '',
-  accessMethod: '',
   status: '',
 })
 const data = ref<Standard[]>([])
@@ -314,15 +283,6 @@ const kpis = reactive({
   activeSupplierCount: 0,
 })
 
-function resolveDefaultRange(): AccessVolumeRange {
-  return 'total'
-}
-
-const volumeRange = ref<AccessVolumeRange>(resolveDefaultRange())
-const volumeRangeLabel = computed(
-  () => rangeOptions.find((o) => o.value === volumeRange.value)?.label || '累计',
-)
-
 const previewVisible = ref(false)
 const previewRecord = ref<Standard | null>(null)
 const downloading = ref(false)
@@ -333,14 +293,8 @@ const columns = computed(() => [
   { title: '方案名称', dataIndex: 'name', slotName: 'name', minWidth: 160 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', minWidth: 140 },
   { title: '供数方', dataIndex: 'supplierName', slotName: 'supplier', width: 100, ellipsis: true },
-  { title: '接入方式', dataIndex: 'schemeName', slotName: 'accessMethod', width: 128, ellipsis: true },
-  {
-    title: '接入数据量',
-    dataIndex: 'accessVolume',
-    slotName: 'accessVolume',
-    titleSlotName: 'accessVolumeTitle',
-    width: 168,
-  },
+  { title: '接入数据量（累计）', dataIndex: 'accessVolumeTotal', slotName: 'accessVolumeTotal', width: 150 },
+  { title: '接入数据量（今日）', dataIndex: 'accessVolumeToday', slotName: 'accessVolumeToday', width: 150 },
   { title: '最近接入', dataIndex: 'lastAccessAt', slotName: 'lastAccess', width: 148 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 148 },
@@ -362,15 +316,8 @@ function orgSubText(record: Standard) {
   return unit || sales
 }
 
-function formatVolume(record: Standard) {
-  return accessVolumeOf(record.accessStats, volumeRange.value).toLocaleString()
-}
-
-function onRangeChange(val: AccessVolumeRange | string) {
-  const next = String(val) as AccessVolumeRange
-  if (!rangeOptions.some((o) => o.value === next)) return
-  volumeRange.value = next
-  sessionStorage.setItem(RANGE_STORAGE_KEY, next)
+function formatVolume(record: Standard, range: AccessVolumeRange) {
+  return accessVolumeOf(record.accessStats, range).toLocaleString()
 }
 
 function applyKpis(raw?: Partial<typeof kpis>) {
@@ -410,12 +357,6 @@ function filterBySupplier(record: Standard) {
   fetchData(1)
 }
 
-function filterByAccessMethod(record: Standard) {
-  if (!record.accessMethod) return
-  form.accessMethod = record.accessMethod
-  fetchData(1)
-}
-
 async function fetchData(page = pagination.current) {
   loading.value = true
   try {
@@ -426,7 +367,6 @@ async function fetchData(page = pagination.current) {
       orgName: form.orgName,
       supplierId: form.supplierId,
       supplierName: form.supplierName,
-      accessMethod: form.accessMethod,
       status: form.status,
       page,
       pageSize: pagination.pageSize,
@@ -461,13 +401,8 @@ function onReset() {
   form.orgName = ''
   form.supplierId = ''
   form.supplierName = ''
-  form.accessMethod = ''
   form.status = ''
   fetchData(1)
-}
-
-function onRefresh() {
-  fetchData(pagination.current)
 }
 
 async function copySchemeNo(record: Standard) {
@@ -504,13 +439,30 @@ function onCopyCreate(record: Standard) {
   router.push({ path: '/standard/edit', query: { copyFrom: record.id } })
 }
 
+function applyQueryFilters() {
+  const q = route.query
+  if (q.orgId) {
+    form.orgId = String(q.orgId)
+    if (q.orgName) form.orgName = String(q.orgName)
+  }
+  if (q.supplierId) {
+    form.supplierId = String(q.supplierId)
+    if (q.supplierName) form.supplierName = String(q.supplierName)
+  }
+  if (q.schemeId) {
+    form.schemePickId = String(q.schemeId)
+    if (q.schemeName) form.name = String(q.schemeName)
+  }
+  if (q.status) form.status = String(q.status)
+}
+
 async function applyToggle(record: Standard, next: Status) {
   togglingId.value = record.id
   const prev = record.status
   record.status = next
   try {
     await toggleStandard(record.id, next)
-    Message.success(next === 'enabled' ? '已启用' : '已停用')
+    Message.success(next === 'enabled' ? '开启成功' : '已停用')
     await fetchData(pagination.current)
   } catch (e) {
     record.status = prev
@@ -526,7 +478,7 @@ function onStatusSwitch(record: Standard, enabled: boolean) {
   if (next === 'disabled') {
     Modal.confirm({
       title: '停用方案',
-      content: `确定停用「${record.name}」？`,
+      content: `确定停用「${record.name}」？停用后按此方案接入的数据，云数中台将拒绝接收，已接入数据不受影响。`,
       onOk: () => applyToggle(record, next),
     })
     return
@@ -534,7 +486,7 @@ function onStatusSwitch(record: Standard, enabled: boolean) {
   void applyToggle(record, next)
 }
 
-function goAccessDataQuery(record: Standard) {
+function goAccessDataQuery(record: Standard, range: AccessVolumeRange) {
   router.push({
     path: '/standard/access-data',
     query: {
@@ -542,30 +494,40 @@ function goAccessDataQuery(record: Standard) {
       schemeName: record.name,
       orgId: record.orgId || '',
       supplierId: record.supplierId || '',
-      range: volumeRange.value,
+      range,
     },
   })
 }
 
 function onDelete(record: Standard) {
+  if (record.status === 'enabled') {
+    Message.warning('开启状态的方案不可删除，请先停用')
+    return
+  }
   Modal.confirm({
     title: '删除接入方案',
-    content: `确定删除「${record.name}」？`,
+    content: `确定删除「${record.name}」？删除后不可恢复，请谨慎操作！`,
     async onOk() {
-      await deleteStandard(record.id)
-      Message.success('已删除')
-      fetchData(1)
+      try {
+        await deleteStandard(record.id)
+        Message.success('已删除')
+        fetchData(1)
+      } catch (e) {
+        Message.error((e as Error).message || '删除失败')
+      }
     },
   })
 }
 
 onMounted(async () => {
+  applyQueryFilters()
   await fetchData(1)
   const previewId = String(route.query.preview || '')
   if (previewId) {
     const item = await getStandard(previewId)
     if (item) openPreview(item)
-    router.replace({ path: '/standard' })
+    const { preview, ...rest } = route.query
+    router.replace({ path: '/standard', query: rest })
   }
 })
 </script>
@@ -738,35 +700,9 @@ onMounted(async () => {
 .id-copy:hover {
   text-decoration: underline;
 }
-.vol-range-trigger {
+.ops-disabled-wrap {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-.vol-range-trigger:hover {
-  color: var(--mt-primary, #165dff);
-}
-.vol-range-trigger__icon {
-  font-size: 12px;
-  color: #86909c;
-}
-.vol-range-menu {
-  min-width: 112px;
-  padding: 4px 0;
-}
-.vol-range-menu :deep(.arco-dropdown-option.is-active) {
-  color: var(--mt-primary, #165dff);
-  font-weight: 600;
-  background: var(--color-fill-2, #f2f3f5);
+  cursor: not-allowed;
 }
 .num-link {
   border: none;

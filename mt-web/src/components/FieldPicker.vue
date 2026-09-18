@@ -23,6 +23,7 @@
         placeholder="业务分类"
         style="width: 140px"
       />
+      <a-button v-if="!hideJsonImport" type="outline" size="mini" @click="openJsonImport">Json批量导入</a-button>
       <a-button type="outline" size="mini" @click="clearFilters">清空筛选条件</a-button>
       <span class="field-picker__count">已选 {{ modelValue.length }} / {{ fields.length }}</span>
       <a-button
@@ -35,13 +36,15 @@
       </a-button>
     </div>
 
-    <div v-if="sortedFilteredFields.length" class="field-picker__body">
-      <table class="field-map-table">
-        <thead>
+    <a-spin v-if="loading" class="field-picker__loading" tip="字段加载中…" />
+    <template v-else>
+      <div v-if="sortedFilteredFields.length" class="field-picker__body">
+        <table class="field-map-table">
+          <thead>
           <tr>
             <th class="col-check sticky-r1"></th>
-            <th colspan="4" class="group-head group-head--platform sticky-r1">平台字段库</th>
-            <th colspan="2" class="group-head group-head--supplier sticky-r1">供数方字段</th>
+            <th colspan="4" class="group-head group-head--platform sticky-r1">{{ groupTitles[0] }}</th>
+            <th colspan="2" class="group-head group-head--supplier sticky-r1">{{ groupTitles[1] }}</th>
           </tr>
           <tr>
             <th class="col-check sticky-r2">
@@ -55,7 +58,7 @@
             <th class="col-desc sticky-r2">字段描述</th>
             <th class="col-type sticky-r2">字段类型</th>
             <th class="col-biz sticky-r2">业务分类</th>
-            <th class="col-s-name sticky-r2">字段名称</th>
+            <th class="col-s-name sticky-r2">字段名</th>
             <th class="col-s-type sticky-r2">字段类型</th>
           </tr>
         </thead>
@@ -103,9 +106,10 @@
             </td>
           </tr>
         </tbody>
-      </table>
-    </div>
-    <a-empty v-else description="无匹配字段" />
+        </table>
+      </div>
+      <a-empty v-else :description="emptyText" />
+    </template>
 
     <a-modal
       v-model:visible="saveVisible"
@@ -132,16 +136,52 @@
         </a-alert>
       </a-form>
     </a-modal>
+
+    <!-- Json 批量导入弹窗 -->
+    <a-modal
+      v-model:visible="jsonImportVisible"
+      title="Json批量导入"
+      :width="640"
+      unmount-on-close
+      :mask-closible="false"
+    >
+      <a-textarea
+        v-model="jsonImportText"
+        :auto-size="{ minRows: 14, maxRows: 24 }"
+        class="json-import-textarea"
+        allow-clear
+        placeholder='示例：
+{ "name": "张三", "phone": "13800138000", "role": "商务对接人" },
+{ "name": "李四", "phone": "13900139000", "role": "技术负责人" }'
+      />
+      <template #footer>
+        <a-button @click="jsonImportVisible = false">取消</a-button>
+        <a-button type="primary" :loading="jsonParsing" @click="parseAndImport">解析导入</a-button>
+      </template>
+    </a-modal>
+
+    <!-- 缺失字段确认弹窗 -->
+    <a-modal
+      v-model:visible="missingConfirmVisible"
+      title="确认新增字段"
+      :width="480"
+      unmount-on-close
+      :mask-closible="false"
+      :on-before-ok="onConfirmAddMissing"
+    >
+      <a-alert type="warning">
+        所填写的字段[{{ missingKeys.join('、') }}]不在字段库中，请确认是否新增该字段到字段库中？
+      </a-alert>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Message, type FormInstance } from '@arco-design/web-vue'
-import { listFieldTemplates, saveFieldTemplate } from '@/api/mt'
+import { listFieldTemplates, saveFieldTemplate, saveMetadataBatch, listEnabledMetadata } from '@/api/mt'
+import { dictSelectOptions } from '@/api/dict'
 import {
-  bizCategoryOptions,
-  dataTypeOptions,
   normalizeFieldMaps,
   sameFieldIdSet,
   type FieldMapItem,
@@ -166,23 +206,47 @@ const props = withDefaults(
     hideSaveAsTemplate?: boolean
     /** 弹窗内嵌时降低高度，避免占满视口 */
     compact?: boolean
+    /** 自定义两列分组标题：[中台/平台列组名, 对端列组名] */
+    groupTitles?: [string, string]
+    /** 隐藏 Json 批量导入按钮（推送侧仅从字段库选择，不新增字段） */
+    hideJsonImport?: boolean
+    /** 字段列表加载中（由父组件按数据来源异步加载时传入） */
+    loading?: boolean
+    /** 无字段时的空态文案（如提示先选择数据来源） */
+    emptyText?: string
   }>(),
   {
     fieldMaps: () => [],
     hideTemplatePanel: false,
     hideSaveAsTemplate: false,
     compact: false,
+    groupTitles: () => ['平台字段库', '供数方字段'] as [string, string],
+    hideJsonImport: false,
+    loading: false,
+    emptyText: '无匹配字段',
   },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [string[]]
   'update:fieldMaps': [FieldMapItem[]]
+  'update:fields': [PickerField[]]
 }>()
+
+/** 本地渲染源：初始取 props.fields，导入新字段后组件内即时刷新并推送父组件同步 */
+const localFields = ref<PickerField[]>([...props.fields])
+watch(
+  () => props.fields,
+  (list) => {
+    localFields.value = [...list]
+  },
+  { deep: true },
+)
 
 const keyword = ref('')
 const category = ref<string | undefined>()
-const categoryOpts = [...bizCategoryOptions]
+const categoryOpts = computed(() => dictSelectOptions('field_biz_category'))
+const dataTypeOptions = computed(() => dictSelectOptions('field_data_type'))
 const categoryOrder = ['平台', '作者', '文章', '标注', '运维管理', '其它']
 const templates = ref<FieldTemplate[]>([])
 const activeTemplateId = ref<string | undefined>()
@@ -194,8 +258,8 @@ const saveRules = {
   name: [{ required: true, message: '请填写模板名称' }],
 }
 
-const availableIdSet = computed(() => new Set(props.fields.map((f) => f.id)))
-const fieldById = computed(() => new Map(props.fields.map((f) => [f.id, f])))
+const availableIdSet = computed(() => new Set(localFields.value.map((f) => f.id)))
+const fieldById = computed(() => new Map(localFields.value.map((f) => [f.id, f])))
 
 const templateOptions = computed(() =>
   templates.value.map((tpl) => ({
@@ -213,7 +277,7 @@ const canSaveAsTemplate = computed(() => {
 
 const filteredFields = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  return props.fields.filter((item) => {
+  return localFields.value.filter((item) => {
     if (category.value && item.bizCategory !== category.value) return false
     if (!kw) return true
     return item.name.toLowerCase().includes(kw) || item.description.toLowerCase().includes(kw)
@@ -225,7 +289,16 @@ const sortedFilteredFields = computed(() => {
     const i = categoryOrder.indexOf(name)
     return i >= 0 ? i : categoryOrder.length + 1
   }
+  // 本次 Json 导入的字段置顶（按导入顺序，作为首要排序键，保证新增字段展示在列表最前）
+  const importedIdx = (name: string) => lastImportedNames.value.indexOf(name)
   return [...filteredFields.value].sort((a, b) => {
+    const ia = importedIdx(a.name)
+    const ib = importedIdx(b.name)
+    if (ia !== ib) {
+      if (ia === -1) return 1
+      if (ib === -1) return -1
+      return ia - ib
+    }
     const ca = a.bizCategory || '未分类'
     const cb = b.bizCategory || '未分类'
     const d = orderIndex(ca) - orderIndex(cb)
@@ -404,10 +477,194 @@ onMounted(() => {
   }
 })
 
-defineExpose({ reloadTemplates: loadTemplates })
+// === Json 批量导入 ===
+const jsonImportVisible = ref(false)
+const jsonImportText = ref('')
+const jsonParsing = ref(false)
+const missingConfirmVisible = ref(false)
+const missingKeys = ref<string[]>([])
+/** 解析中间态：[key, 是否在字段库存在] */
+const parsedKeyInfo = ref<{ key: string; exists: boolean }[]>([])
+
+const JSON_IMPORT_MAX_FIELDS = 50
+
+function openJsonImport() {
+  jsonImportText.value = ''
+  lastImportedNames.value = []
+  jsonImportVisible.value = true
+}
+
+/** 解析 Json 文本，返回所有对象的 key 并集 */
+function parseJsonText(text: string): { keys: string[]; values: Record<string, unknown>[] } | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+
+  const objects: Record<string, unknown>[] = []
+
+  // 先尝试整体解析
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) {
+        if (item && typeof item === 'object' && !Array.isArray(item)) objects.push(item)
+      }
+    } else if (parsed && typeof parsed === 'object') {
+      objects.push(parsed)
+    }
+  } catch {
+    // 降级：正则提取所有顶层 {...} 块逐个解析
+    const blocks = trimmed.match(/\{[^{}]*\}/g)
+    if (!blocks || !blocks.length) return null
+    for (const block of blocks) {
+      try {
+        const obj = JSON.parse(block)
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) objects.push(obj)
+      } catch {
+        return null // 任一块解析失败
+      }
+    }
+  }
+
+  if (!objects.length) return null
+
+  // 取所有 key 的并集（去重，保序）
+  const seen = new Set<string>()
+  const keys: string[] = []
+  for (const obj of objects) {
+    for (const key of Object.keys(obj)) {
+      if (!seen.has(key)) {
+        seen.add(key)
+        keys.push(key)
+      }
+    }
+  }
+  return { keys, values: objects }
+}
+
+/** 按 Json 值推断数据类型 */
+function inferDataType(values: Record<string, unknown>[], key: string): string {
+  for (const obj of values) {
+    const v = obj[key]
+    if (v !== undefined && v !== null) {
+      if (typeof v === 'number') return 'Int'
+      return 'String'
+    }
+  }
+  return 'String'
+}
+
+async function parseAndImport() {
+  const parsed = parseJsonText(jsonImportText.value)
+  if (!parsed) {
+    Message.warning('请输入有效的 Json 内容')
+    return
+  }
+  if (parsed.keys.length > JSON_IMPORT_MAX_FIELDS) {
+    Message.error(`单次导入字段数不超过 ${JSON_IMPORT_MAX_FIELDS}`)
+    return
+  }
+
+  // 比对字段库
+  const existingNames = new Set(localFields.value.map((f) => f.name))
+  parsedKeyInfo.value = parsed.keys.map((key) => ({
+    key,
+    exists: existingNames.has(key),
+  }))
+  const missing = parsedKeyInfo.value.filter((info) => !info.exists).map((info) => info.key)
+
+  if (missing.length > 0) {
+    missingKeys.value = missing
+    missingConfirmVisible.value = true
+    // 存储解析结果供确认回调使用
+    pendingParsed.value = parsed
+    return
+  }
+
+  // 全部存在，直接勾选
+  applyParsedFields(parsed)
+}
+
+const pendingParsed = ref<{ keys: string[]; values: Record<string, unknown>[] } | null>(null)
+
+/** 本次 Json 导入的字段名（新增 + 已存在，用于导入后列表置顶展示） */
+const lastImportedNames = ref<string[]>([])
+
+/** 拉取最新启用字段并同步本地渲染源与父组件；可指定置顶字段名（数据层重排双保险） */
+async function refreshFieldsFromApi(preferTopNames: string[] = []) {
+  const latest = await listEnabledMetadata()
+  let latestFields: PickerField[] = latest.map((m) => ({
+    id: m.id,
+    name: m.name,
+    description: m.description || m.bizCaliber || '',
+    dataType: m.dataType,
+    bizCategory: m.bizCategory || '',
+  }))
+  if (preferTopNames.length) {
+    const top = preferTopNames
+      .map((n) => latestFields.find((f) => f.name === n))
+      .filter((f): f is PickerField => !!f)
+    const topIds = new Set(top.map((f) => f.id))
+    latestFields = [...top, ...latestFields.filter((f) => !topIds.has(f.id))]
+  }
+  // 组件内即时刷新（渲染/勾选映射直接可用，无跨组件时序问题）
+  localFields.value = latestFields
+  // 同步父组件数据源
+  emit('update:fields', latestFields)
+}
+
+async function onConfirmAddMissing() {
+  const parsed = pendingParsed.value
+  if (!parsed) return false
+  const missing = parsedKeyInfo.value.filter((info) => !info.exists).map((info) => info.key)
+
+  try {
+    // 将缺失字段写入字段库
+    const rows = missing.map((name) => ({
+      name,
+      description: name,
+      dataType: inferDataType(parsed.values, name),
+      bizCategory: '其它',
+    }))
+    await saveMetadataBatch(rows)
+    // 本次导入的全部字段置顶（含新增与已存在），并同步最新字段库
+    lastImportedNames.value = parsed.keys
+    await refreshFieldsFromApi(parsed.keys)
+    // 勾选全部解析字段（已存在 + 新增）
+    applyParsedFields(parsed)
+    jsonImportVisible.value = false
+    missingConfirmVisible.value = false
+    pendingParsed.value = null
+    Message.success(`已导入 ${parsed.keys.length} 个字段（其中新增 ${missing.length} 个）`)
+    return true
+  } catch (e) {
+    Message.error((e as Error).message)
+    return false
+  }
+}
+
+/** 将解析出的字段勾选进本方案 */
+function applyParsedFields(parsed: { keys: string[]; values: Record<string, unknown>[] }) {
+  // 本次导入的字段置顶（全已存在场景同样置顶，便于用户确认导入结果）
+  lastImportedNames.value = parsed.keys
+  const nameToId = new Map(localFields.value.map((f) => [f.name, f.id]))
+  const idsToCheck = parsed.keys
+    .map((key) => nameToId.get(key))
+    .filter((id): id is string => !!id)
+  setIds([...new Set([...props.modelValue, ...idsToCheck])])
+  jsonImportVisible.value = false
+}
+
+defineExpose({
+  reloadTemplates: loadTemplates,
+})
 </script>
 
 <style scoped>
+.json-import-textarea :deep(textarea) {
+  min-height: 300px !important;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+
 .field-picker {
   width: 100%;
   display: flex;
@@ -445,6 +702,14 @@ defineExpose({ reloadTemplates: loadTemplates })
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  background: #fff;
+}
+.field-picker__loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
   background: #fff;
 }
 .field-map-table {

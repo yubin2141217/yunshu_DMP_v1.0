@@ -10,16 +10,24 @@
 
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <a-input v-model="form.keyword" placeholder="名称 / 机构ID / 联系人" allow-clear style="width: 220px" />
-        <a-select v-model="form.status" :options="statusOptions" placeholder="状态" allow-clear style="width: 140px" />
-        <a-select
-          v-model="form.relatedMtOrgId"
-          :options="mtOrgOptions"
-          placeholder="关联 MT 机构"
-          allow-clear
-          allow-search
-          style="width: 220px"
-        />
+        <div class="search-field">
+          <span class="search-field__label">关键字</span>
+          <a-input v-model="form.keyword" allow-clear style="width: 220px" />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">状态</span>
+          <a-select v-model="form.status" :options="statusOptions" allow-clear style="width: 140px" />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">关联MT机构</span>
+          <a-select
+            v-model="form.relatedMtOrgId"
+            :options="mtOrgOptions"
+            allow-clear
+            allow-search
+            style="width: 220px"
+          />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
       </div>
@@ -30,16 +38,21 @@
         </template>
         <template #status="{ record }">
           <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
-            {{ record.status === 'enabled' ? '启用' : '停用' }}
+            {{ record.status === 'enabled' ? '开启' : '停用' }}
           </a-tag>
         </template>
         <template #operations="{ record }">
           <a-space class="arco-table-ops" :size="2">
             <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
             <a-button type="text" size="small" @click="onToggle(record)">
-              {{ record.status === 'enabled' ? '停用' : '启用' }}
+              {{ record.status === 'enabled' ? '停用' : '开启' }}
             </a-button>
-            <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
+            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的接收方不可删除，请先停用">
+              <span class="del-disabled-wrap">
+                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+              </span>
+            </a-tooltip>
+            <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
           </a-space>
         </template>
       </a-table>
@@ -106,7 +119,13 @@
           <a-select v-model="editor.status" :options="statusOptions.filter((o) => o.value)" />
         </a-form-item>
         <a-form-item field="remark" label="备注">
-          <a-textarea v-model="editor.remark" :auto-size="{ minRows: 2, maxRows: 4 }" placeholder="可选" />
+          <a-textarea
+            v-model="editor.remark"
+            :auto-size="{ minRows: 2, maxRows: 4 }"
+            placeholder="可选"
+            :max-length="200"
+            show-word-limit
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -130,7 +149,7 @@ import { clearFormValidate, validateForm } from '@/utils/formValidate'
 
 const statusOptions = [
   { label: '全部', value: '' },
-  { label: '启用', value: 'enabled' },
+  { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
 
@@ -273,7 +292,7 @@ async function onToggle(record: PushReceiverOrg) {
   const next = record.status === 'enabled' ? 'disabled' : 'enabled'
   try {
     await togglePushReceiver(record.id, next)
-    Message.success(next === 'enabled' ? '已启用' : '已停用')
+    Message.success(next === 'enabled' ? '开启成功' : '已停用')
     await fetchData()
   } catch (e) {
     Message.error(e instanceof Error ? e.message : '操作失败')
@@ -281,6 +300,10 @@ async function onToggle(record: PushReceiverOrg) {
 }
 
 function onDelete(record: PushReceiverOrg) {
+  if (record.status === 'enabled') {
+    Message.warning('开启状态的接收方不可删除，请先停用')
+    return
+  }
   Modal.warning({
     title: '确认删除',
     content: `确定删除接收方机构「${record.name}」？已被推送方案引用时不可删除。`,
@@ -304,5 +327,9 @@ onMounted(() => fetchData(1))
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
+}
+.del-disabled-wrap {
+  display: inline-block;
+  cursor: not-allowed;
 }
 </style>

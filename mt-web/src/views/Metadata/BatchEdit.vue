@@ -2,8 +2,8 @@
   <div class="page-shell edit-page">
     <div class="page-head">
       <div>
-        <h2 class="page-title">新增字段</h2>
-        <p class="page-desc">以表格方式一次新增 1 条或多条字段；提交时校验字段名不可与已有字段及本批内重复。</p>
+        <h2 class="page-title">批量编辑字段</h2>
+        <p class="page-desc">以表格方式一次编辑已选字段；字段名创建后不可修改，本批内字段名须唯一。</p>
       </div>
       <a-space>
         <a-button @click="goBack">返回</a-button>
@@ -14,8 +14,7 @@
       <div class="edit-card-inner">
         <div class="edit-main">
           <div class="batch-toolbar">
-            <a-button type="outline" @click="addRow">添加一行</a-button>
-            <span class="batch-toolbar__tip">共 {{ rows.length }} 条，字段名须唯一</span>
+            <span class="batch-toolbar__tip">共 {{ rows.length }} 条，字段名创建后不可修改</span>
           </div>
 
           <div class="batch-table-wrap">
@@ -38,14 +37,7 @@
                 <tr v-for="(row, index) in rows" :key="row.key">
                   <td class="col-idx">{{ index + 1 }}</td>
                   <td class="col-name">
-                    <a-input
-                      v-model="row.name"
-                      placeholder="字母/数字/下划线"
-                      :max-length="64"
-                      allow-clear
-                      :status="rowErrors[row.key]?.name ? 'error' : undefined"
-                    />
-                    <div v-if="rowErrors[row.key]?.name" class="cell-error">{{ rowErrors[row.key].name }}</div>
+                    <a-input v-model="row.name" disabled placeholder="字母/数字/下划线" />
                   </td>
                   <td class="col-desc">
                     <a-input
@@ -124,16 +116,20 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
-import { checkMetadataNameExists, saveMetadataBatch } from '@/api/mt'
+import { checkMetadataNameExists, listMetadataByIds, saveMetadataBatchUpdate } from '@/api/mt'
 import { dictSelectOptions } from '@/api/dict'
 import { type Status } from '@/mock/mt'
 import { useUnsavedLeave } from '@/composables/useUnsavedLeave'
+import { confirmReferencedFieldSubmit } from '@/utils/metadataEditConfirm'
+
+const BATCH_IDS_KEY = 'mt-metadata-batch-ids'
 
 const bizCategoryOptions = computed(() => dictSelectOptions('field_biz_category'))
 const dataTypeOptions = computed(() => dictSelectOptions('field_data_type'))
 
 type BatchRow = {
   key: string
+  id: string
   name: string
   description: string
   dataType: string
@@ -142,30 +138,15 @@ type BatchRow = {
   bizCategory: string
   remark: string
   status: Status
+  refSchemeCount: number
 }
-
-const NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 const router = useRouter()
 const saving = ref(false)
 let keySeq = 1
 
-function emptyRow(): BatchRow {
-  return {
-    key: `r${keySeq++}`,
-    name: '',
-    description: '',
-    dataType: 'String',
-    length: '',
-    defaultValue: '',
-    bizCategory: '',
-    remark: '',
-    status: 'enabled',
-  }
-}
-
-const rows = ref<BatchRow[]>([emptyRow()])
-const rowErrors = reactive<Record<string, Partial<Record<'name' | 'description' | 'dataType', string>>>>({})
+const rows = ref<BatchRow[]>([])
+const rowErrors = reactive<Record<string, Partial<Record<'description' | 'dataType', string>>>>({})
 const { markPristine, confirmLeave } = useUnsavedLeave(
   () => rows.value.map(({ key: _key, ...rest }) => rest),
   '/metadata',
@@ -173,10 +154,6 @@ const { markPristine, confirmLeave } = useUnsavedLeave(
 
 function goBack() {
   confirmLeave()
-}
-
-function addRow() {
-  rows.value.push(emptyRow())
 }
 
 function removeRow(index: number) {
@@ -189,9 +166,19 @@ function clearErrors() {
   Object.keys(rowErrors).forEach((k) => delete rowErrors[k])
 }
 
-function setError(key: string, field: 'name' | 'description' | 'dataType', msg: string) {
+function setError(key: string, field: 'description' | 'dataType', msg: string) {
   if (!rowErrors[key]) rowErrors[key] = {}
   rowErrors[key][field] = msg
+}
+
+function readIds(): string[] {
+  try {
+    const raw = sessionStorage.getItem(BATCH_IDS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : []
+  } catch {
+    return []
+  }
 }
 
 async function validateRows(): Promise<boolean> {
@@ -201,19 +188,12 @@ async function validateRows(): Promise<boolean> {
 
   for (const row of rows.value) {
     const name = row.name.trim()
-    if (!name) {
-      setError(row.key, 'name', '请填写字段名')
-      ok = false
-    } else if (!NAME_PATTERN.test(name)) {
-      setError(row.key, 'name', '仅支持字母、数字、下划线，且以字母或下划线开头')
-      ok = false
-    } else if (seen.has(name)) {
-      setError(row.key, 'name', '本批内字段名重复')
+    if (seen.has(name)) {
+      Message.warning(`字段名「${name}」在本批中重复`)
       ok = false
     } else {
       seen.set(name, row.key)
     }
-
     if (!row.description.trim()) {
       setError(row.key, 'description', '请填写描述')
       ok = false
@@ -231,9 +211,8 @@ async function validateRows(): Promise<boolean> {
   if (!ok) return false
 
   for (const row of rows.value) {
-    const name = row.name.trim()
-    if (await checkMetadataNameExists(name)) {
-      setError(row.key, 'name', '字段名已存在')
+    if (await checkMetadataNameExists(row.name.trim(), row.id)) {
+      Message.warning(`字段名「${row.name.trim()}」已存在`)
       ok = false
     }
   }
@@ -241,14 +220,26 @@ async function validateRows(): Promise<boolean> {
 }
 
 async function onSubmit() {
+  if (!rows.value.length) {
+    Message.warning('请至少保留一条字段')
+    return
+  }
   if (!(await validateRows())) {
     Message.error('请先修正表格中的校验问题')
     return
   }
+  const referencedNames = rows.value
+    .filter((row) => (row.refSchemeCount || 0) > 0)
+    .map((row) => row.name.trim())
+  if (referencedNames.length) {
+    const ok = await confirmReferencedFieldSubmit(referencedNames)
+    if (!ok) return
+  }
   saving.value = true
   try {
-    const saved = await saveMetadataBatch(
+    const saved = await saveMetadataBatchUpdate(
       rows.value.map((row) => ({
+        id: row.id,
         name: row.name.trim(),
         description: row.description.trim(),
         dataType: row.dataType.trim(),
@@ -259,8 +250,9 @@ async function onSubmit() {
         status: row.status,
       })),
     )
-    Message.success(`已新增 ${saved.length} 个字段`)
-    router.push('/metadata')
+    sessionStorage.removeItem(BATCH_IDS_KEY)
+    Message.success(`已保存 ${saved.length} 个字段`)
+    confirmLeave(true)
   } catch (e) {
     Message.error((e as Error).message || '提交失败')
   } finally {
@@ -269,8 +261,38 @@ async function onSubmit() {
 }
 
 onMounted(async () => {
-  await nextTick()
-  markPristine()
+  try {
+    const ids = readIds()
+    if (!ids.length) {
+      Message.warning('请先在列表勾选要编辑的字段')
+      router.replace('/metadata')
+      return
+    }
+    const list = await listMetadataByIds(ids)
+    if (!list.length) {
+      Message.warning('未找到已选字段')
+      router.replace('/metadata')
+      return
+    }
+    rows.value = list.map((item) => ({
+      key: `r${keySeq++}`,
+      id: item.id,
+      name: item.name,
+      description: item.description || item.bizCaliber || '',
+      dataType: item.dataType,
+      length: item.length || '',
+      defaultValue: item.defaultValue || '',
+      bizCategory: item.bizCategory || '',
+      remark: item.remark || '',
+      status: item.status || 'enabled',
+      refSchemeCount: item.refSchemeCount || 0,
+    }))
+    await nextTick()
+    markPristine()
+  } catch (e) {
+    Message.error((e as Error).message || '加载失败')
+    router.replace('/metadata')
+  }
 })
 </script>
 
@@ -395,5 +417,4 @@ onMounted(async () => {
   line-height: 1.3;
   color: rgb(var(--danger-6));
 }
-
 </style>

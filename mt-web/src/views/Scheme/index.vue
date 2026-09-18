@@ -11,15 +11,23 @@
     </div>
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <a-input v-model="form.name" placeholder="方案名称" allow-clear style="width: 200px" />
-        <a-select
-          v-model="form.dataSourceType"
-          :options="dataSourceTypeOptions"
-          allow-clear
-          placeholder="数据源类型"
-          style="width: 160px"
-        />
-        <a-select v-model="form.status" :options="statusOptions" allow-clear placeholder="状态" style="width: 140px" />
+        <div class="search-field">
+          <span class="search-field__label">方案名称</span>
+          <a-input v-model="form.name" allow-clear style="width: 200px" />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">数据源类型</span>
+          <a-select
+            v-model="form.dataSourceType"
+            :options="dataSourceTypeOptions"
+            allow-clear
+            style="width: 160px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">状态</span>
+          <a-select v-model="form.status" :options="statusOptions" allow-clear style="width: 140px" />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
       </div>
@@ -31,15 +39,20 @@
         </template>
         <template #status="{ record }">
           <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
-            {{ record.status === 'enabled' ? '启用' : '停用' }}
+            {{ record.status === 'enabled' ? '开启' : '停用' }}
           </a-tag>
         </template>
         <template #operations="{ record }">
           <a-space class="arco-table-ops" :size="2">
             <a-button type="text" size="small" @click="$router.push('/scheme/' + record.id)">详情</a-button>
             <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
-            <a-button type="text" size="small" @click="onToggle(record)">{{ record.status === 'enabled' ? '停用' : '启用' }}</a-button>
-            <a-button type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
+            <a-button type="text" size="small" @click="onToggle(record)">{{ record.status === 'enabled' ? '停用' : '开启' }}</a-button>
+            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的方案不可删除，请先停用">
+              <span class="del-disabled-wrap">
+                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+              </span>
+            </a-tooltip>
+            <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
           </a-space>
         </template>
       </a-table>
@@ -221,7 +234,13 @@
               <template #label>
                 <FormFieldLabel title="备注" desc="可选补充说明" />
               </template>
-              <a-textarea v-model="editor.remark" placeholder="请输入" :auto-size="{ minRows: 2, maxRows: 4 }" />
+              <a-textarea
+                v-model="editor.remark"
+                placeholder="请输入"
+                :auto-size="{ minRows: 2, maxRows: 4 }"
+                :max-length="200"
+                show-word-limit
+              />
             </a-form-item>
           </template>
 
@@ -243,7 +262,13 @@
               <template #label>
                 <FormFieldLabel title="备注" desc="可选，记录预留意图" />
               </template>
-              <a-textarea v-model="editor.remark" placeholder="请输入" :auto-size="{ minRows: 2, maxRows: 4 }" />
+              <a-textarea
+                v-model="editor.remark"
+                placeholder="请输入"
+                :auto-size="{ minRows: 2, maxRows: 4 }"
+                :max-length="200"
+                show-word-limit
+              />
             </a-form-item>
           </template>
         </a-form>
@@ -272,7 +297,7 @@ import {
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
 
 const statusOptions = [
-  { label: '启用', value: 'enabled' },
+  { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
 const freqOpts = Object.entries(frequencyLabels).map(([value, label]) => ({ value, label }))
@@ -429,7 +454,7 @@ function onToggle(record: Scheme) {
   }
   Modal.confirm({
     title: '变更状态',
-    content: `确定${next === 'enabled' ? '启用' : '停用'}「${record.name}」？`,
+    content: `确定${next === 'enabled' ? '开启' : '停用'}「${record.name}」？`,
     async onOk() {
       await toggleScheme(record.id, next)
       Message.success('已更新')
@@ -438,6 +463,10 @@ function onToggle(record: Scheme) {
   })
 }
 function onDelete(record: Scheme) {
+  if (record.status === 'enabled') {
+    Message.warning('开启状态的方案不可删除，请先停用')
+    return
+  }
   Modal.confirm({
     title: '删除接入方案',
     content: `确定删除「${record.name}」？已被接入标准引用时不可删除。`,
@@ -462,5 +491,9 @@ onMounted(() => fetchData(1))
 }
 .scheme-form :deep(.arco-form-item) {
   margin-bottom: 18px;
+}
+.del-disabled-wrap {
+  display: inline-block;
+  cursor: not-allowed;
 }
 </style>

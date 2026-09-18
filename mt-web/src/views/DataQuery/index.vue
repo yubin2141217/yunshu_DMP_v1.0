@@ -9,59 +9,70 @@
 
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <a-select
-          v-model="form.flow"
-          :options="flowOptions"
-          allow-clear
-          placeholder="数据流向"
-          style="width: 120px"
-          @change="onFlowChange"
-        />
-        <FuzzySuggestSelect
-          :key="`org-${filterEpoch}`"
-          v-model="form.orgId"
-          v-model:keyword="form.orgName"
-          :options="orgOptions"
-          placeholder="机构"
-          all-label="全部机构"
-          width="180px"
-        />
-        <FuzzySuggestSelect
-          :key="`supplier-${filterEpoch}`"
-          v-model="form.supplierId"
-          v-model:keyword="form.supplierName"
-          :options="supplierOptions"
-          placeholder="供数方"
-          all-label="全部供数方"
-          width="180px"
-        />
-        <FuzzySuggestSelect
-          :key="`scheme-${filterEpoch}`"
-          v-model="form.schemeId"
-          v-model:keyword="form.schemeName"
-          :options="schemeOptions"
-          placeholder="方案"
-          all-label="全部方案"
-          width="220px"
-        />
-        <a-range-picker
-          :key="`date-${filterEpoch}`"
-          v-model="dateRange"
-          show-time
-          format="YYYY-MM-DD HH:mm:ss"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          :placeholder="['开始时间', '结束时间']"
-          style="width: 380px"
-        />
+        <div class="search-field">
+          <span class="search-field__label">数据流向</span>
+          <a-select
+            v-model="form.flow"
+            :options="flowOptions"
+            allow-clear
+            style="width: 120px"
+            @change="onFlowChange"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">机构</span>
+          <FuzzySuggestSelect
+            :key="`org-${filterEpoch}`"
+            v-model="form.orgId"
+            v-model:keyword="form.orgName"
+            :options="orgOptions"
+            placeholder="机构"
+            all-label="全部机构"
+            width="180px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">供数方</span>
+          <FuzzySuggestSelect
+            :key="`supplier-${filterEpoch}`"
+            v-model="form.supplierId"
+            v-model:keyword="form.supplierName"
+            :options="supplierOptions"
+            placeholder="供数方"
+            all-label="全部供数方"
+            width="180px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">方案</span>
+          <FuzzySuggestSelect
+            :key="`scheme-${filterEpoch}`"
+            v-model="form.schemeId"
+            v-model:keyword="form.schemeName"
+            :options="schemeOptions"
+            placeholder="方案"
+            all-label="全部方案"
+            width="220px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">时间</span>
+          <a-range-picker
+            :key="`date-${filterEpoch}`"
+            v-model="dateRange"
+            show-time
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :placeholder="['开始时间', '结束时间']"
+            style="width: 380px"
+          />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
-        <div class="page-search-actions">
-          <a-button :loading="loading" @click="fetchData(pagination.current)">刷新</a-button>
-        </div>
       </div>
 
-      <div v-if="activeFieldFilterTips.length" class="field-filter-bar">
-        <span class="field-filter-bar__label">字段筛选：</span>
+      <div v-if="activeFieldFilterTips.length" class="list-result-bar">
+        <span class="list-result-bar__label">字段筛选：</span>
         <a-tag
           v-for="tip in activeFieldFilterTips"
           :key="tip.key"
@@ -405,17 +416,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.field-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.field-filter-bar__label {
-  font-size: 12px;
-  color: #86909c;
-}
 .col-filter-btn {
   display: inline-flex;
   align-items: center;

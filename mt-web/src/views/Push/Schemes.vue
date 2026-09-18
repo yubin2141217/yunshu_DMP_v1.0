@@ -3,7 +3,7 @@
     <div class="page-head">
       <div>
         <h2 class="page-title">推送方案管理</h2>
-        <p class="page-desc">配置数据范围与推送方式，方案可直接启停，并查看推送数据量统计。</p>
+        <p class="page-desc">配置数据来源与推送方式，方案可直接启停，并查看推送数据量统计。</p>
       </div>
       <a-button type="primary" @click="$router.push('/push/schemes/edit')">新增方案</a-button>
     </div>
@@ -17,7 +17,7 @@
         <div class="kpi-scheme-break">
           <button type="button" class="kpi-chip kpi-chip--enabled" @click="filterByStatus('enabled')">
             <i class="kpi-chip__dot" aria-hidden="true" />
-            <span class="kpi-chip__label">启用</span>
+            <span class="kpi-chip__label">开启</span>
             <span class="kpi-chip__num">{{ kpis.enabled }}</span>
           </button>
           <button type="button" class="kpi-chip kpi-chip--disabled" @click="filterByStatus('disabled')">
@@ -53,48 +53,48 @@
 
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <FuzzySuggestSelect
-          v-model="query.schemeId"
-          v-model:keyword="query.schemeName"
-          :options="schemeOptions"
-          placeholder="方案"
-          all-label="全部方案"
-          width="200px"
-        />
-        <FuzzySuggestSelect
-          v-model="query.orgId"
-          v-model:keyword="query.orgName"
-          :options="orgOptions"
-          placeholder="机构"
-          all-label="全部机构"
-          width="180px"
-        />
-        <a-select
-          v-model="query.channelType"
-          :options="channelFilterOpts"
-          allow-clear
-          placeholder="通道类型"
-          style="width: 140px"
-        />
-        <a-select
-          v-model="query.pushMode"
-          :options="modeOpts"
-          allow-clear
-          placeholder="推送模式"
-          style="width: 120px"
-        />
-        <a-select
-          v-model="query.status"
-          :options="statusOpts"
-          allow-clear
-          placeholder="状态"
-          style="width: 110px"
-        />
+        <div class="search-field">
+          <span class="search-field__label">方案</span>
+          <FuzzySuggestSelect
+            v-model="query.schemeId"
+            v-model:keyword="query.schemeName"
+            :options="schemeOptions"
+            placeholder="方案"
+            all-label="全部方案"
+            width="200px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">机构</span>
+          <FuzzySuggestSelect
+            v-model="query.orgId"
+            v-model:keyword="query.orgName"
+            :options="orgOptions"
+            placeholder="机构"
+            all-label="全部机构"
+            width="180px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">推送模式</span>
+          <a-select
+            v-model="query.pushMode"
+            :options="modeOpts"
+            allow-clear
+            style="width: 120px"
+          />
+        </div>
+        <div class="search-field">
+          <span class="search-field__label">状态</span>
+          <a-select
+            v-model="query.status"
+            :options="statusOpts"
+            allow-clear
+            style="width: 110px"
+          />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="onReset">重置</a-button>
-        <div class="page-search-actions">
-          <a-button :loading="loading" @click="fetchData(pagination.current)">刷新</a-button>
-        </div>
       </div>
       <a-table
         :columns="columns"
@@ -105,6 +105,11 @@
         :bordered="false"
         stripe
       >
+        <template #schemeNo="{ record }">
+          <button type="button" class="id-copy" :title="'点击复制 ' + record.schemeNo" @click="copySchemeNo(record)">
+            {{ record.schemeNo }}
+          </button>
+        </template>
         <template #name="{ record }">
           <button type="button" class="filter-cell" title="点击填入方案筛选" @click="filterByScheme(record)">
             <div class="cell-main">{{ record.name }}</div>
@@ -124,17 +129,10 @@
           </button>
         </template>
         <template #scope="{ record }">
-          <span class="scope-text">{{ dataScopeSummary(record) }}</span>
-        </template>
-        <template #channelType="{ record }">
-          <button
-            type="button"
-            class="filter-cell filter-cell--inline"
-            title="点击填入通道类型筛选"
-            @click="filterByChannel(record)"
-          >
-            {{ channelLabel(record.channelType) }}
-          </button>
+          <div class="org-cell">
+            <div class="cell-main" :title="dataSourceMainText(record)">{{ dataSourceMainText(record) }}</div>
+            <div class="cell-sub" :title="dataSourceSubText(record)">{{ dataSourceSubText(record) }}</div>
+          </div>
         </template>
         <template #pushMode="{ record }">
           <button
@@ -146,27 +144,34 @@
             {{ pushModeLabel(record.pushMode) }}
           </button>
         </template>
-        <template #success="{ record }">
-          <button type="button" class="num-link" title="查看该方案成功推送明细" @click="goPushData(record, 'success')">
-            {{ (record.stats?.successTotal || 0).toLocaleString() }}
+        <template #successTotal="{ record }">
+          <button type="button" class="num-link" title="查看该方案累计成功推送明细" @click="goPushData(record, 'success', 'total')">
+            {{ formatSuccess(record, 'total') }}
           </button>
         </template>
-        <template #fail="{ record }">
-          <button type="button" class="num-fail-link" title="查看该方案失败推送明细" @click="goPushData(record, 'fail')">
-            {{ (record.stats?.failTotal || 0).toLocaleString() }}
+        <template #successToday="{ record }">
+          <button type="button" class="num-link" title="查看该方案今日成功推送明细" @click="goPushData(record, 'success', 'today')">
+            {{ formatSuccess(record, 'today') }}
+          </button>
+        </template>
+        <template #failTotal="{ record }">
+          <button type="button" class="num-fail-link" title="查看该方案累计失败推送明细" @click="goPushData(record, 'fail', 'total')">
+            {{ formatFail(record, 'total') }}
+          </button>
+        </template>
+        <template #failToday="{ record }">
+          <button type="button" class="num-fail-link" title="查看该方案今日失败推送明细" @click="goPushData(record, 'fail', 'today')">
+            {{ formatFail(record, 'today') }}
           </button>
         </template>
         <template #status="{ record }">
-          <button
-            type="button"
-            class="filter-cell filter-cell--inline"
-            title="点击填入状态筛选"
-            @click="filterByStatus(record.status)"
-          >
-            <a-tag size="small" :color="record.status === 'enabled' ? 'green' : 'orangered'">
-              {{ record.status === 'enabled' ? '启用' : '停用' }}
-            </a-tag>
-          </button>
+          <a-switch
+            :model-value="record.status === 'enabled'"
+            checked-text="开启"
+            unchecked-text="停用"
+            :loading="togglingId === record.id"
+            @change="(v: boolean | string | number) => onStatusSwitch(record, !!v)"
+          />
         </template>
         <template #operations="{ record }">
           <a-space class="arco-table-ops" :size="2">
@@ -179,9 +184,12 @@
             >
               复制
             </a-button>
-            <a-button type="text" size="small" @click="onToggle(record)">
-              {{ record.status === 'enabled' ? '停用' : '启用' }}
-            </a-button>
+            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的方案不可删除，请先停用">
+              <span class="ops-disabled-wrap">
+                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
+              </span>
+            </a-tooltip>
+            <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
           </a-space>
         </template>
       </a-table>
@@ -202,39 +210,42 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import { IconInfoCircle } from '@arco-design/web-vue/es/icon'
 import FuzzySuggestSelect from '@/components/FuzzySuggestSelect.vue'
 import { listStandards } from '@/api/mt'
 import {
-  channelLabel,
-  dataScopeSummary,
+  dataSourceMainText,
+  dataSourceSubText,
+  deletePushScheme,
   getPushSchemeKpis,
-  listPushReceivers,
   listPushSchemes,
-  pushChannelOptions,
   pushModeLabel,
+  pushOrgOptions,
+  pushVolumeOf,
   togglePushScheme,
   type PushScheme,
   type PushStatus,
+  type PushVolumeRange,
 } from '@/api/push'
 import { formatOrgSub } from '@/utils/orgDisplay'
 
 const router = useRouter()
+const route = useRoute()
 
 const query = reactive({
   schemeId: '',
   schemeName: '',
   orgId: '',
   orgName: '',
-  channelType: undefined as string | undefined,
   pushMode: undefined as string | undefined,
   status: undefined as string | undefined,
 })
 const data = ref<PushScheme[]>([])
 const loading = ref(false)
+const togglingId = ref('')
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
 const kpis = reactive({
   total: 0,
@@ -247,30 +258,49 @@ const kpis = reactive({
 const orgOptions = ref<{ label: string; value: string }[]>([])
 const schemeOptions = ref<{ label: string; value: string }[]>([])
 
-const channelFilterOpts = [...pushChannelOptions]
 const modeOpts = [
   { label: '增量', value: 'incremental' },
   { label: '全量', value: 'full' },
 ]
 const statusOpts = [
-  { label: '启用', value: 'enabled' },
+  { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
 
-const columns = [
-  { title: '方案名称', dataIndex: 'name', slotName: 'name', ellipsis: true, tooltip: true, width: 160 },
-  { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
-  { title: '数据范围', dataIndex: 'scope', slotName: 'scope', ellipsis: true, tooltip: true },
-  { title: '通道', dataIndex: 'channelType', slotName: 'channelType', width: 160 },
-  { title: '模式', dataIndex: 'pushMode', slotName: 'pushMode', width: 80 },
-  { title: '成功量', dataIndex: 'success', slotName: 'success', width: 88 },
-  { title: '失败量', dataIndex: 'fail', slotName: 'fail', width: 80 },
-  { title: '状态', dataIndex: 'status', slotName: 'status', width: 80 },
+const columns = computed(() => [
+  { title: '方案 ID', dataIndex: 'schemeNo', slotName: 'schemeNo', width: 88 },
+  { title: '方案名称', dataIndex: 'name', slotName: 'name', ellipsis: true, tooltip: true, width: 220 },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 180 },
+  { title: '数据来源', dataIndex: 'scope', slotName: 'scope', width: 200 },
+  { title: '推送模式', dataIndex: 'pushMode', slotName: 'pushMode', width: 96 },
+  { title: '成功量（累计）', dataIndex: 'successTotal', slotName: 'successTotal', width: 120 },
+  { title: '成功量（今日）', dataIndex: 'successToday', slotName: 'successToday', width: 120 },
+  { title: '失败量（累计）', dataIndex: 'failTotal', slotName: 'failTotal', width: 120 },
+  { title: '失败量（今日）', dataIndex: 'failToday', slotName: 'failToday', width: 120 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 200 },
-]
+])
 
 function orgSubText(record: PushScheme) {
   return formatOrgSub(record.orgStatUnit, record.orgSalesName)
+}
+
+function formatSuccess(record: PushScheme, range: PushVolumeRange) {
+  return pushVolumeOf(record.stats?.successByRange, range).toLocaleString()
+}
+
+function formatFail(record: PushScheme, range: PushVolumeRange) {
+  return pushVolumeOf(record.stats?.failByRange, range).toLocaleString()
+}
+
+async function copySchemeNo(record: PushScheme) {
+  const text = String(record.schemeNo ?? '')
+  try {
+    await navigator.clipboard.writeText(text)
+    Message.success('已复制方案 ID')
+  } catch {
+    Message.error('复制失败')
+  }
 }
 
 async function refreshKpis() {
@@ -284,13 +314,10 @@ async function refreshKpis() {
 }
 
 async function loadFilterOptions() {
-  const [stRes, recvRes] = await Promise.all([
-    listStandards({ name: '', status: '', page: 1, pageSize: 1 }),
-    listPushReceivers({ page: 1, pageSize: 200 }),
-  ])
+  const stRes = await listStandards({ name: '', status: '', page: 1, pageSize: 1 })
   const map = new Map<string, string>()
   ;(stRes.orgs || []).forEach((o) => map.set(o.value, o.label))
-  ;(recvRes.list || []).forEach((r) => map.set(r.id, r.name))
+  pushOrgOptions().forEach((o) => map.set(o.value, o.label))
   orgOptions.value = Array.from(map.entries()).map(([value, label]) => ({ value, label }))
 }
 
@@ -312,25 +339,21 @@ function filterByOrg(record: PushScheme) {
   fetchData(1)
 }
 
-function filterByChannel(record: PushScheme) {
-  query.channelType = record.channelType
-  fetchData(1)
-}
-
 function filterByMode(record: PushScheme) {
   query.pushMode = record.pushMode
   fetchData(1)
 }
 
-function goPushData(record: PushScheme, result: 'success' | 'fail') {
-  router.push({
-    path: '/push/push-data',
-    query: {
-      schemeId: record.id,
-      schemeName: record.name,
-      pushResult: result,
-    },
-  })
+function goPushData(record: PushScheme, result: 'success' | 'fail', range: PushVolumeRange) {
+  // 累计（total）：不传 range，明细页「数据推送时间」筛选项为空，查询全量时间内推送数据
+  // 今日（today）：传 range=today，明细页「数据推送时间」筛选为今日
+  const nextQuery: Record<string, string> = {
+    schemeId: record.id,
+    schemeName: record.name,
+    pushResult: result,
+  }
+  if (range === 'today') nextQuery.range = 'today'
+  router.push({ path: '/push/push-data', query: nextQuery })
 }
 
 async function fetchData(page = pagination.current) {
@@ -341,7 +364,6 @@ async function fetchData(page = pagination.current) {
       schemeName: query.schemeId ? undefined : query.schemeName || undefined,
       orgId: query.orgId || undefined,
       orgName: query.orgId ? undefined : query.orgName || undefined,
-      channelType: query.channelType,
       pushMode: query.pushMode,
       status: query.status,
       page,
@@ -371,34 +393,78 @@ function onReset() {
   query.schemeName = ''
   query.orgId = ''
   query.orgName = ''
-  query.channelType = undefined
   query.pushMode = undefined
   query.status = undefined
   fetchData(1)
 }
 
-function onToggle(record: PushScheme) {
-  const next: PushStatus = record.status === 'enabled' ? 'disabled' : 'enabled'
-  const tip =
-    next === 'disabled'
-      ? `停用「${record.name}」后将停止调度推送，历史统计保留。确定停用？`
-      : `确定启用「${record.name}」？`
+async function applyToggle(record: PushScheme, next: PushStatus) {
+  togglingId.value = record.id
+  const prev = record.status
+  record.status = next
+  try {
+    await togglePushScheme(record.id, next)
+    Message.success(next === 'enabled' ? '开启成功' : '已停用')
+    await fetchData(pagination.current)
+  } catch (e) {
+    record.status = prev
+    Message.error(e instanceof Error ? e.message : '操作失败')
+  } finally {
+    togglingId.value = ''
+  }
+}
+
+function onStatusSwitch(record: PushScheme, enabled: boolean) {
+  const next: PushStatus = enabled ? 'enabled' : 'disabled'
+  if (next === record.status) return
+  if (next === 'disabled') {
+    Modal.confirm({
+      title: '停用方案',
+      content: `确定停用「${record.name}」？停用后将不再按此方案推送数据，已推送数据不受影响。`,
+      onOk: () => applyToggle(record, next),
+    })
+    return
+  }
+  void applyToggle(record, next)
+}
+
+function onDelete(record: PushScheme) {
+  if (record.status === 'enabled') {
+    Message.warning('开启状态的方案不可删除，请先停用')
+    return
+  }
   Modal.confirm({
-    title: next === 'disabled' ? '停用方案' : '启用方案',
-    content: tip,
-    onOk: async () => {
+    title: '删除推送方案',
+    content: `确定删除「${record.name}」？删除后不可恢复，请谨慎操作！`,
+    async onOk() {
       try {
-        await togglePushScheme(record.id, next)
-        Message.success(next === 'enabled' ? '已启用' : '已停用')
-        await fetchData()
+        await deletePushScheme(record.id)
+        Message.success('已删除')
+        await fetchData(1)
       } catch (e) {
-        Message.error(e instanceof Error ? e.message : '操作失败')
+        Message.error(e instanceof Error ? e.message : '删除失败')
       }
     },
   })
 }
 
+/** 从路由参数回填筛选条件（综合看板「方案数」跳转携带） */
+function applyQueryFilters() {
+  const q = route.query
+  if (q.orgId) {
+    query.orgId = String(q.orgId)
+    if (q.orgName) query.orgName = String(q.orgName)
+  }
+  if (q.schemeId) {
+    query.schemeId = String(q.schemeId)
+    if (q.schemeName) query.schemeName = String(q.schemeName)
+  }
+  if (q.pushMode) query.pushMode = String(q.pushMode)
+  if (q.status) query.status = String(q.status)
+}
+
 onMounted(async () => {
+  applyQueryFilters()
   await loadFilterOptions()
   await fetchData(1)
 })
@@ -523,6 +589,9 @@ onMounted(async () => {
   color: #4e5969;
   font-size: 12px;
 }
+.org-cell {
+  min-width: 0;
+}
 .num-link {
   padding: 0;
   border: none;
@@ -546,6 +615,22 @@ onMounted(async () => {
 }
 .num-fail-link:hover {
   text-decoration: underline;
+}
+.id-copy {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--mt-primary, #165dff);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.id-copy:hover {
+  text-decoration: underline;
+}
+.ops-disabled-wrap {
+  display: inline-flex;
+  cursor: not-allowed;
 }
 .cell-main {
   font-size: 13px;

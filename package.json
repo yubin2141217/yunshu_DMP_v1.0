@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "dev:mt": "npm run dev --prefix mt-web",
     "dev:v8": "npm run dev --prefix v8-web",
+    "dev:portal": "npm run dev --prefix portal-web",
     "build:v8": "npm run build --prefix v8-web",
-    "install:all": "npm install --prefix mt-web && npm install --prefix v8-web"
+    "build:portal": "npm run build --prefix portal-web",
+    "install:all": "npm install --prefix mt-web && npm install --prefix v8-web && npm install --prefix portal-web"
   },
   "dependencies": {
     "@arco-design/web-vue": "^2.57.0",

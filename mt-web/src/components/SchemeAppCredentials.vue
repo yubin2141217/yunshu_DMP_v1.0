@@ -19,19 +19,6 @@
             </div>
           </a-form-item>
         </a-col>
-        <a-col :xs="24" :sm="12">
-          <a-form-item :field="secretField" label="AppSecret" required>
-            <div class="scheme-creds__control">
-              <p class="scheme-creds__format">{{ secretFormatHint }}</p>
-              <a-input-password
-                v-model="appSecret"
-                placeholder="可手动输入，或点击自动生成"
-                allow-clear
-                :max-length="secretLen"
-              />
-            </div>
-          </a-form-item>
-        </a-col>
       </a-row>
     </template>
 
@@ -48,16 +35,6 @@
           <p class="scheme-creds__format">{{ keyFormatHint }}</p>
           <a-input v-model="appKey" placeholder="可手动输入，或点击自动生成" allow-clear :max-length="keyLen" />
         </div>
-        <div class="scheme-creds__detail-item">
-          <div class="scheme-creds__detail-label scheme-creds__detail-label--solo">AppSecret</div>
-          <p class="scheme-creds__format">{{ secretFormatHint }}</p>
-          <a-input-password
-            v-model="appSecret"
-            placeholder="可手动输入，或点击自动生成"
-            allow-clear
-            :max-length="secretLen"
-          />
-        </div>
       </div>
       <div v-if="showSave" class="scheme-creds__save-row">
         <a-button type="primary" size="small" :loading="saving" @click="emit('save')">保存凭证</a-button>
@@ -67,29 +44,21 @@
 </template>
 
 <script setup lang="ts">
-import {
-  SCHEME_APP_KEY_LEN,
-  SCHEME_APP_SECRET_LEN,
-  genSchemeAppKey,
-  genSchemeAppSecret,
-} from '@/mock/mt'
+import { SCHEME_APP_KEY_LEN, genSchemeAppKey } from '@/mock/mt'
 
 const appKey = defineModel<string>('appKey', { default: '' })
-const appSecret = defineModel<string>('appSecret', { default: '' })
 
 withDefaults(
   defineProps<{
     /** form：嵌入接入方式表单；detail：详情页可编辑 */
     variant?: 'form' | 'detail'
     keyField?: string
-    secretField?: string
     showSave?: boolean
     saving?: boolean
   }>(),
   {
     variant: 'form',
     keyField: 'apiAccess.appKey',
-    secretField: 'apiAccess.appSecret',
     showSave: false,
     saving: false,
   },
@@ -100,14 +69,11 @@ const emit = defineEmits<{
 }>()
 
 const keyLen = SCHEME_APP_KEY_LEN
-const secretLen = SCHEME_APP_SECRET_LEN
 const tipText = '系统自动按规则生成安全凭证，请妥善保管'
 const keyFormatHint = `长度限制 ${SCHEME_APP_KEY_LEN} 位，支持大小写字母与数字组合`
-const secretFormatHint = `长度限制 ${SCHEME_APP_SECRET_LEN} 位，支持大小写字母与数字组合`
 
 function autoGenerate() {
   appKey.value = genSchemeAppKey()
-  appSecret.value = genSchemeAppSecret()
 }
 
 defineExpose({ autoGenerate })

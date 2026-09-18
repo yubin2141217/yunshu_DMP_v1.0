@@ -11,7 +11,10 @@
     </div>
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
-        <a-input v-model="name" placeholder="机构 / 方案 / 供数方" allow-clear style="width: 240px" />
+        <div class="search-field">
+          <span class="search-field__label">关键字</span>
+          <a-input v-model="name" allow-clear style="width: 240px" />
+        </div>
         <a-button type="primary" @click="fetchData(1)">查询</a-button>
         <a-button @click="name = ''; fetchData(1)">重置</a-button>
       </div>
@@ -30,14 +33,14 @@
         </template>
         <template #status="{ record }">
           <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
-            {{ record.status === 'enabled' ? '启用' : '停用' }}
+            {{ record.status === 'enabled' ? '开启' : '停用' }}
           </a-tag>
         </template>
         <template #operations="{ record }">
           <a-space class="arco-table-ops" :size="2">
             <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
             <a-button type="text" size="small" @click="onToggle(record)">
-              {{ record.status === 'enabled' ? '停用' : '启用' }}
+              {{ record.status === 'enabled' ? '停用' : '开启' }}
             </a-button>
           </a-space>
         </template>
@@ -114,6 +117,7 @@
               placeholder="可选补充说明"
               :auto-size="{ minRows: 2, maxRows: 4 }"
               :max-length="200"
+              show-word-limit
               allow-clear
             />
           </a-form-item>
@@ -295,7 +299,7 @@ async function onSubmit() {
 function onToggle(record: OrgBindingRow) {
   const next: Status = record.status === 'enabled' ? 'disabled' : 'enabled'
   Modal.confirm({
-    title: next === 'enabled' ? '启用机构' : '停用机构',
+    title: next === 'enabled' ? '开启机构' : '停用机构',
     content:
       next === 'enabled'
         ? `确定启用「${record.orgName}」？启用后可按配置计入供数统计。`

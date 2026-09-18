@@ -116,7 +116,10 @@
       <div class="section-block__grid">
         <a-card class="content-card detail-card detail-card--tall" :bordered="false">
           <div class="detail-card__head detail-card__head--row">
-            <h3 class="detail-card__title">接入统计</h3>
+            <div>
+              <h3 class="detail-card__title">接入统计</h3>
+              <p class="detail-card__desc">按机构/方案/供数方维度查看历史全量数据接入情况</p>
+            </div>
             <button type="button" class="text-link" @click="goAccessData()">查看接入数据 →</button>
           </div>
           <a-tabs v-model:active-key="inboundDimTab" type="rounded" size="small" class="dim-tabs dim-tabs--nav-only">
@@ -128,12 +131,14 @@
             <div ref="inboundDimChartEl" class="dim-chart" />
           </div>
           <a-table
-            class="roomy-table"
+            class="roomy-table linked-height-table"
             :columns="inboundDimColumns"
             :data="inboundDimRows"
             :pagination="false"
             row-key="id"
             :bordered="false"
+            :scroll="{ y: linkedBodyHeight }"
+            :style="{ '--linked-body-h': `${linkedBodyHeight}px` }"
           >
             <template #name="{ record }">
               <button
@@ -148,23 +153,37 @@
                 v-else-if="inboundDimTab === 'org'"
                 type="button"
                 class="link-btn org-cell-btn"
-                @click="goAccessData(record.id)"
+                @click="goAccessData(record.id, record.name)"
               >
                 <div class="cell-main">{{ record.name }}</div>
                 <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
               </button>
-              <span v-else>{{ record.name }}</span>
+              <button
+                v-else
+                type="button"
+                class="link-btn"
+                @click="drillInboundDim(record)"
+              >
+                {{ record.name }}
+              </button>
             </template>
             <template #inbound="{ record }">
               <button
-                v-if="inboundDimTab === 'org'"
                 type="button"
                 class="link-btn"
-                @click="goAccessData(record.id)"
+                @click="drillInboundDim(record)"
               >
                 {{ Number(record.inboundCount || 0).toLocaleString() }}
               </button>
-              <span v-else class="num">{{ Number(record.inboundCount || 0).toLocaleString() }}</span>
+            </template>
+            <template #schemeCount="{ record }">
+              <button
+                type="button"
+                class="link-btn num"
+                @click="goStandardListByDim(record)"
+              >
+                {{ Number(record.schemeCount || 0).toLocaleString() }}
+              </button>
             </template>
           </a-table>
           <a-empty v-if="!inboundDimRows.length" description="暂无接入数据" />
@@ -172,7 +191,10 @@
 
         <a-card class="content-card detail-card detail-card--tall" :bordered="false">
           <div class="detail-card__head detail-card__head--row">
-            <h3 class="detail-card__title">推送统计</h3>
+            <div>
+              <h3 class="detail-card__title">推送统计</h3>
+              <p class="detail-card__desc">按机构/方案维度查看历史全量数据推送情况</p>
+            </div>
             <button type="button" class="text-link" @click="router.push('/push/push-data')">查看推送数据 →</button>
           </div>
           <a-tabs v-model:active-key="pushDimTab" type="rounded" size="small" class="dim-tabs dim-tabs--nav-only">
@@ -183,34 +205,85 @@
             <div ref="pushDimChartEl" class="dim-chart" />
           </div>
           <a-table
-            class="roomy-table"
+            class="roomy-table linked-height-table"
             :columns="pushDimColumns"
             :data="pushDimRows"
             :pagination="false"
             row-key="id"
             :bordered="false"
+            :scroll="{ y: linkedBodyHeight }"
+            :style="{ '--linked-body-h': `${linkedBodyHeight}px` }"
           >
             <template #name="{ record }">
               <button
                 v-if="pushDimTab === 'scheme'"
                 type="button"
                 class="link-btn"
-                @click="goPushScheme(record.id)"
+                @click="drillPushDim(record)"
               >
                 {{ record.name }}
               </button>
-              <div v-else class="org-cell">
+              <button
+                v-else
+                type="button"
+                class="link-btn org-cell-btn"
+                @click="drillPushDim(record)"
+              >
                 <div class="cell-main">{{ record.name }}</div>
                 <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
-              </div>
+              </button>
+            </template>
+            <template #pushSchemeCount="{ record }">
+              <button
+                type="button"
+                class="link-btn num"
+                @click="goPushSchemeList(record)"
+              >
+                {{ Number(record.schemeCount || 0).toLocaleString() }}
+              </button>
+            </template>
+            <template #pushCount="{ record }">
+              <button
+                type="button"
+                class="link-btn num"
+                @click="drillPushDim(record, '推送量')"
+              >
+                {{ pushTotalOf(record).toLocaleString() }}
+              </button>
+            </template>
+            <template #success="{ record }">
+              <button
+                type="button"
+                class="link-btn num"
+                @click="drillPushDim(record, '成功')"
+              >
+                {{ Number(record.successCount || 0).toLocaleString() }}
+              </button>
             </template>
             <template #fail="{ record }">
-              <span :class="Number(record.failCount) > 0 ? 'num-fail' : 'num'">
+              <button
+                type="button"
+                class="link-btn"
+                :class="Number(record.failCount) > 0 ? 'num-fail' : 'num'"
+                @click="drillPushDim(record, '失败')"
+              >
                 {{ Number(record.failCount || 0).toLocaleString() }}
-              </span>
+              </button>
             </template>
             <template #rate="{ record }">
               <span class="num">{{ record.successRate == null ? '—' : `${record.successRate}%` }}</span>
+            </template>
+            <template #pushOrg="{ record }">
+              <button
+                type="button"
+                class="link-btn org-cell-btn"
+                @click="goPushDataByOrg(record)"
+              >
+                <div class="org-cell">
+                  <div class="cell-main">{{ record.orgName || '—' }}</div>
+                  <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
+                </div>
+              </button>
             </template>
             <template #org="{ record }">
               <div class="org-cell">
@@ -231,18 +304,20 @@
           <div class="detail-card__head detail-card__head--row">
             <div>
               <h3 class="detail-card__title">接入异常</h3>
-              <p class="detail-card__desc">零流量方案与堆积偏高机构，优先排查接入链路</p>
+              <p class="detail-card__desc">零接入方案与高堆积方案，优先排查接入链路</p>
             </div>
             <span class="detail-chip">{{ inboundAlertCount }} 项</span>
           </div>
           <a-tabs v-model:active-key="inboundAlertTab" type="rounded" size="small" class="dim-tabs">
             <a-tab-pane key="zero" :title="`零接入 ${data.zeroInboundAlerts.length}`">
+              <p class="alert-tab-tip">近3天无数据接入的方案</p>
               <a-table
                 v-if="data.zeroInboundAlerts.length"
-                class="roomy-table"
+                class="roomy-table fixed-height-table"
                 :columns="zeroInboundColumns"
                 :data="data.zeroInboundAlerts"
                 :pagination="false"
+                :scroll="{ y: 520 }"
                 row-key="id"
                 :bordered="false"
               >
@@ -259,26 +334,31 @@
               <a-empty v-else description="暂无零接入方案" />
             </a-tab-pane>
             <a-tab-pane key="backlog" :title="`高堆积 ${inboundBacklogTop.length}`">
+              <p class="alert-tab-tip">当前接入堆积数据量超过100条的方案</p>
               <a-table
                 v-if="inboundBacklogTop.length"
-                class="roomy-table"
+                class="roomy-table fixed-height-table"
                 :columns="inboundBacklogColumns"
                 :data="inboundBacklogTop"
                 :pagination="false"
+                :scroll="{ y: 520 }"
                 row-key="id"
                 :bordered="false"
               >
                 <template #name="{ record }">
-                  <button type="button" class="link-btn org-cell-btn" @click="goAccessData(record.id)">
-                    <div class="cell-main">{{ record.name }}</div>
+                  <button type="button" class="link-btn" @click="goStandard(record.id)">{{ record.name }}</button>
+                </template>
+                <template #org="{ record }">
+                  <div class="org-cell">
+                    <div class="cell-main">{{ record.orgName || '—' }}</div>
                     <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
-                  </button>
+                  </div>
                 </template>
                 <template #backlog="{ record }">
                   <span class="num-warn">{{ record.backlogCount.toLocaleString() }}</span>
                 </template>
               </a-table>
-              <a-empty v-else description="暂无高堆积机构" />
+              <a-empty v-else description="暂无高堆积方案" />
             </a-tab-pane>
           </a-tabs>
         </a-card>
@@ -289,43 +369,56 @@
               <h3 class="detail-card__title">推送异常</h3>
               <p class="detail-card__desc">关注高失败率与高积压方案，便于值班排障</p>
             </div>
-            <div class="detail-chip-group">
-              <span class="detail-chip detail-chip--danger">失败 {{ data.pushFail.toLocaleString() }}</span>
-              <span class="detail-chip detail-chip--warn">积压 {{ data.backlogSum.toLocaleString() }}</span>
-            </div>
+            <span class="detail-chip">{{ pushAlertSchemeCount }} 项</span>
           </div>
           <a-tabs v-model:active-key="pushAlertTab" type="rounded" size="small" class="dim-tabs">
             <a-tab-pane key="fail" :title="`高失败率 ${data.failTopN.length}`">
+              <p class="alert-tab-tip">近3天推送总失败率超过10%的方案</p>
               <a-table
                 v-if="data.failTopN.length"
-                class="roomy-table"
-                :columns="topColumns"
+                class="roomy-table fixed-height-table"
+                :columns="failTopColumns"
                 :data="data.failTopN"
                 :pagination="false"
+                :scroll="{ y: 520 }"
                 row-key="id"
                 :bordered="false"
               >
                 <template #name="{ record }">
                   <button type="button" class="link-btn" @click="goPushScheme(record.id)">{{ record.name }}</button>
                 </template>
+                <template #org="{ record }">
+                  <div class="org-cell">
+                    <div class="cell-main">{{ record.orgName || '—' }}</div>
+                    <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
+                  </div>
+                </template>
                 <template #value="{ record }">
-                  <span class="num-fail">{{ record.value.toLocaleString() }}</span>
+                  <span class="num-fail">{{ record.value }}%</span>
                 </template>
               </a-table>
               <a-empty v-else description="暂无失败数据" />
             </a-tab-pane>
             <a-tab-pane key="backlog" :title="`高堆积 ${data.backlogTopN.length}`">
+              <p class="alert-tab-tip">当前推送堆积数据量超过100条的方案</p>
               <a-table
                 v-if="data.backlogTopN.length"
-                class="roomy-table"
-                :columns="topColumns"
+                class="roomy-table fixed-height-table"
+                :columns="backlogTopColumns"
                 :data="data.backlogTopN"
                 :pagination="false"
+                :scroll="{ y: 520 }"
                 row-key="id"
                 :bordered="false"
               >
                 <template #name="{ record }">
                   <button type="button" class="link-btn" @click="goPushScheme(record.id)">{{ record.name }}</button>
+                </template>
+                <template #org="{ record }">
+                  <div class="org-cell">
+                    <div class="cell-main">{{ record.orgName || '—' }}</div>
+                    <div class="cell-sub">{{ formatOrgSub(record.orgStatUnit, record.orgSalesName) }}</div>
+                  </div>
                 </template>
                 <template #value="{ record }">
                   <span class="num-warn">{{ record.value.toLocaleString() }}</span>
@@ -405,81 +498,115 @@ interface KpiMetaItem {
   danger?: boolean
 }
 
-const topColumns = [
-  { title: '方案', dataIndex: 'name', slotName: 'name', ellipsis: true },
-  { title: '数量', dataIndex: 'value', slotName: 'value', width: 96 },
+const failTopColumns = [
+  { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
+  { title: '失败率', dataIndex: 'value', slotName: 'value', width: 96 },
+]
+
+const backlogTopColumns = [
+  { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
+  { title: '堆积量', dataIndex: 'value', slotName: 'value', width: 96 },
 ]
 
 const zeroInboundColumns = [
-  { title: '接入方案', dataIndex: 'name', slotName: 'name', ellipsis: true },
-  { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 140 },
-  { title: '最近接入', dataIndex: 'lastAccessAt', width: 148 },
+  { title: '接入方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
+  { title: '最近接入', dataIndex: 'lastAccessAt', width: 136 },
 ]
 
 const inboundBacklogColumns = [
-  { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true },
+  { title: '接入方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
+  { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
   { title: '接入量', dataIndex: 'inboundCount', width: 104 },
-  { title: '堆积', dataIndex: 'backlogCount', slotName: 'backlog', width: 96 },
+  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 96 },
 ]
 
+/** 维度统计表与柱状图默认展示条数 */
+const DIM_PAGE_SIZE = 8
+
 const inboundDimColumns = computed(() => {
-  if (inboundDimTab.value === 'org') {
-    return [
-      { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true },
-      { title: '方案数', dataIndex: 'schemeCount', width: 88 },
-      { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108 },
-      { title: '堆积', dataIndex: 'backlogCount', width: 88 },
-    ]
-  }
-  const nameTitle = inboundDimTab.value === 'scheme' ? '接入方案' : '供数方'
+  const tab = inboundDimTab.value
+  const showSchemeCount = tab !== 'scheme'
+  const nameTitle = tab === 'scheme' ? '接入方案' : tab === 'supplier' ? '供数方' : '机构'
   return [
-    { title: nameTitle, dataIndex: 'name', slotName: 'name', ellipsis: true },
+    {
+      title: nameTitle,
+      dataIndex: 'name',
+      slotName: 'name',
+      ellipsis: true,
+      ...(tab === 'org' ? { width: 120 } : {}),
+    },
+    ...(showSchemeCount
+      ? [{ title: '方案数', dataIndex: 'schemeCount', slotName: 'schemeCount', width: 88 }]
+      : []),
     { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108 },
     { title: '堆积', dataIndex: 'backlogCount', width: 88 },
   ]
 })
 
 const inboundDimRows = computed(() => {
-  if (inboundDimTab.value === 'scheme') return props.data.inboundByStandard || []
-  if (inboundDimTab.value === 'supplier') return props.data.inboundBySupplier || []
-  return props.data.inboundByOrg || []
+  const all =
+    inboundDimTab.value === 'scheme'
+      ? props.data.inboundByStandard || []
+      : inboundDimTab.value === 'supplier'
+        ? props.data.inboundBySupplier || []
+        : props.data.inboundByOrg || []
+  return all.slice(0, DIM_PAGE_SIZE)
 })
 
 const pushDimColumns = computed(() => {
   if (pushDimTab.value === 'org') {
     return [
-      { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true },
-      { title: '成功', dataIndex: 'successCount', width: 96 },
-      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 80 },
-      { title: '积压', dataIndex: 'backlogCount', width: 80 },
-      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 88 },
+      { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 120 },
+      { title: '方案数', dataIndex: 'schemeCount', slotName: 'pushSchemeCount', width: 72 },
+      { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
+      { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
+      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
+      { title: '积压', dataIndex: 'backlogCount', width: 64 },
+      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
     ]
   }
   return [
     { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true },
-    { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 140 },
-    { title: '成功', dataIndex: 'successCount', width: 88 },
-    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 72 },
-    { title: '积压', dataIndex: 'backlogCount', width: 72 },
-    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 80 },
+    { title: '机构', dataIndex: 'orgName', slotName: 'pushOrg', ellipsis: true, width: 120 },
+    { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
+    { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
+    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
+    { title: '积压', dataIndex: 'backlogCount', width: 64 },
+    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
   ]
 })
 
-const pushDimRows = computed(() =>
-  pushDimTab.value === 'org' ? props.data.pushByOrg || [] : props.data.pushByScheme || [],
-)
+const pushDimRows = computed(() => {
+  const all = pushDimTab.value === 'org' ? props.data.pushByOrg || [] : props.data.pushByScheme || []
+  return all.slice(0, DIM_PAGE_SIZE)
+})
 
+const ROW_HEIGHT = 52
+const linkedRowCount = computed(() => DIM_PAGE_SIZE)
+const linkedBodyHeight = computed(() => linkedRowCount.value * ROW_HEIGHT)
+
+// 高堆积：当前接入堆积数据量超过 100 条的方案，按堆积量从大到小
 const inboundBacklogTop = computed(() =>
-  props.data.inboundByOrg
-    .filter((r) => r.backlogCount > 0)
+  props.data.inboundByStandard
+    .filter((r) => r.backlogCount > 100)
     .slice()
     .sort((a, b) => b.backlogCount - a.backlogCount)
-    .slice(0, 8),
+    .slice(0, 11),
 )
 
 const inboundAlertCount = computed(
   () => props.data.zeroInboundAlerts.length + inboundBacklogTop.value.length,
 )
+
+const pushAlertSchemeCount = computed(() => {
+  const ids = new Set<string>()
+  props.data.failTopN.forEach((r) => ids.add(r.id))
+  props.data.backlogTopN.forEach((r) => ids.add(r.id))
+  return ids.size
+})
 
 const inboundPrimary = computed<KpiCard[]>(() => {
   const d = props.data
@@ -502,8 +629,8 @@ const inboundPrimary = computed<KpiCard[]>(() => {
       key: 'in-scheme',
       label: '接入方案数',
       display: String(d.inboundSchemeCount),
-      tip: '当前筛选范围内启用的接入方案数量',
-      hint: '含有流量或已启用方案',
+      tip: '当前筛选范围内开启的接入方案数量',
+      hint: '含有流量或已开启方案',
       tone: 'cyan',
       icon: IconFile,
       onClick: () => router.push('/standard'),
@@ -543,7 +670,7 @@ const inboundMeta = computed<KpiMetaItem[]>(() => {
       key: 'in-field',
       label: '字段',
       display: String(d.inboundFieldCount),
-      tip: '接入字段数：启用接入方案勾选字段的去重总数',
+      tip: '接入字段数：开启接入方案勾选字段的去重总数',
       tone: 'violet',
       icon: IconList,
     },
@@ -568,7 +695,7 @@ const pushPrimary = computed<KpiCard[]>(() => {
       key: 'out-scheme',
       label: '推送方案数',
       display: String(d.pushSchemeCount),
-      tip: '当前筛选范围内的推送方案数量（优先统计启用态）',
+      tip: '当前筛选范围内的推送方案数量（优先统计开启态）',
       hint: '跳转推送方案列表',
       tone: 'cyan',
       icon: IconSend,
@@ -630,18 +757,89 @@ function goPushScheme(id: string) {
   router.push(`/push/schemes/${id}`)
 }
 
+/** 推送方案管理列表：携带机构筛选条件 */
+function goPushSchemeList(row: { id: string; name: string }) {
+  if (!row?.id || row.id === 'unknown') return
+  router.push({ path: '/push/schemes', query: { orgId: row.id, orgName: row.name } })
+}
+
+/** 推送量 = 成功 + 失败 */
+function pushTotalOf(record: { successCount?: number; failCount?: number }) {
+  return Number(record?.successCount || 0) + Number(record?.failCount || 0)
+}
+
 function goStandard(id: string) {
   router.push(`/standard/${id}`)
 }
 
-function goAccessData(orgId?: string) {
+function goStandardListByDim(row: { id: string; name: string }) {
+  const query: Record<string, string> = {}
+  if (inboundDimTab.value === 'org') {
+    query.orgId = row.id
+    query.orgName = row.name
+  } else if (inboundDimTab.value === 'supplier') {
+    query.supplierId = row.id
+    query.supplierName = row.name
+  }
+  if (!Object.keys(query).length) return
+  router.push({ path: '/standard', query })
+}
+
+function goAccessData(orgId?: string, orgName?: string) {
   router.push({
     path: '/standard/access-data',
     query: {
-      ...(orgId ? { orgId } : {}),
+      ...(orgId ? { orgId, ...(orgName ? { orgName } : {}) } : {}),
       range: mapRange(props.timeRange),
     },
   })
+}
+
+function drillInboundDim(row: { id: string; name: string }) {
+  const query: Record<string, string> = { range: mapRange(props.timeRange) }
+  if (inboundDimTab.value === 'org') {
+    query.orgId = row.id
+    query.orgName = row.name
+  } else if (inboundDimTab.value === 'scheme') {
+    query.schemeId = row.id
+    query.schemeName = row.name
+    if (props.orgIds[0]) query.orgId = props.orgIds[0]
+  } else {
+    query.supplierId = row.id
+    query.supplierName = row.name
+    if (props.orgIds[0]) query.orgId = props.orgIds[0]
+  }
+  router.push({ path: '/standard/access-data', query })
+}
+
+function drillPushDim(
+  row: { id: string; name: string; orgId?: string; orgName?: string },
+  seriesName?: string,
+) {
+  const query: Record<string, string> = { range: mapRange(props.timeRange) }
+  if (pushDimTab.value === 'org') {
+    query.orgId = row.id
+    query.orgName = row.name
+  } else {
+    query.schemeId = row.id
+    query.schemeName = row.name
+    if (row.orgId) {
+      query.orgId = row.orgId
+      if (row.orgName && row.orgName !== '—') query.orgName = row.orgName
+    } else if (props.orgIds[0]) {
+      query.orgId = props.orgIds[0]
+    }
+  }
+  if (seriesName === '失败') query.pushResult = 'fail'
+  else if (seriesName === '成功') query.pushResult = 'success'
+  router.push({ path: '/push/push-data', query })
+}
+
+function goPushDataByOrg(record: { orgId?: string; orgName?: string }) {
+  if (!record.orgId) return
+  const query: Record<string, string> = { range: mapRange(props.timeRange), orgId: record.orgId }
+  if (record.orgName && record.orgName !== '—') query.orgName = record.orgName
+  router.push({ path: '/push/push-data', query })
 }
 
 function shortenLabel(name: string, max = 6) {
@@ -734,6 +932,7 @@ function renderInboundDimChart() {
           type: 'bar',
           stack: 'in',
           barMaxWidth: 28,
+          cursor: 'pointer',
           data: rows.map((r) => r.inboundCount),
           itemStyle: { borderRadius: [0, 0, 0, 0] },
         },
@@ -742,6 +941,7 @@ function renderInboundDimChart() {
           type: 'bar',
           stack: 'in',
           barMaxWidth: 28,
+          cursor: 'pointer',
           data: rows.map((r) => r.backlogCount),
           itemStyle: { borderRadius: [4, 4, 0, 0] },
         },
@@ -749,6 +949,13 @@ function renderInboundDimChart() {
     },
     true,
   )
+  inboundDimChart.off('click')
+  inboundDimChart.on('click', (params) => {
+    if (params.componentType !== 'series') return
+    const row = rows[params.dataIndex]
+    if (!row?.id) return
+    drillInboundDim(row)
+  })
   inboundDimChart.resize()
 }
 
@@ -756,7 +963,10 @@ function renderPushDimChart() {
   if (!pushDimChartEl.value) return
   pushDimChart = ensureChart(pushDimChartEl.value, pushDimChart)
   if (!pushDimChart) return
-  const rows = pushDimRows.value.slice(0, 8)
+  const rows = pushDimRows.value
+    .slice()
+    .sort((a, b) => b.successCount + b.failCount - (a.successCount + a.failCount))
+    .slice(0, 8)
   const cats = rows.map((r) => shortenLabel(r.name, 5))
   pushDimChart.setOption(
     {
@@ -787,6 +997,7 @@ function renderPushDimChart() {
           type: 'bar',
           stack: 'out',
           barMaxWidth: 28,
+          cursor: 'pointer',
           data: rows.map((r) => r.successCount),
         },
         {
@@ -794,6 +1005,7 @@ function renderPushDimChart() {
           type: 'bar',
           stack: 'out',
           barMaxWidth: 28,
+          cursor: 'pointer',
           data: rows.map((r) => r.failCount),
         },
         {
@@ -801,6 +1013,7 @@ function renderPushDimChart() {
           type: 'bar',
           stack: 'out',
           barMaxWidth: 28,
+          cursor: 'pointer',
           data: rows.map((r) => r.backlogCount),
           itemStyle: { borderRadius: [4, 4, 0, 0] },
         },
@@ -808,6 +1021,13 @@ function renderPushDimChart() {
     },
     true,
   )
+  pushDimChart.off('click')
+  pushDimChart.on('click', (params) => {
+    if (params.componentType !== 'series') return
+    const row = rows[params.dataIndex]
+    if (!row?.id) return
+    drillPushDim(row, String(params.seriesName || ''))
+  })
   pushDimChart.resize()
 }
 
@@ -1306,7 +1526,9 @@ onBeforeUnmount(() => {
 }
 .section-block__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) 而非 1fr：1fr 的最小值是 auto，表格 min-content 较大的一侧
+     会把所在列撑宽，导致同一行左右两卡宽度不等、与上方模块错位 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -1349,6 +1571,7 @@ onBeforeUnmount(() => {
 .dim-chart {
   width: 100%;
   height: 180px;
+  cursor: pointer;
 }
 .roomy-table :deep(.arco-table-th) {
   padding: 12px 14px;
@@ -1371,6 +1594,48 @@ onBeforeUnmount(() => {
 .roomy-table :deep(.arco-table-tr:hover .arco-table-td) {
   background: #f7f8fa;
 }
+/* 接入异常 / 推送异常：高度固定 10 行（10 × 52px），超出部分滚动查看 */
+.fixed-height-table :deep(.arco-table-body) {
+  height: 520px;
+  max-height: 520px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fixed-height-table :deep(.arco-table-body)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fixed-height-table :deep(.arco-table-body)::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #d9dde5;
+}
+.fixed-height-table :deep(.arco-table-body)::-webkit-scrollbar-thumb:hover {
+  background: #c9cdd4;
+}
+.fixed-height-table :deep(.arco-table-body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* 接入统计 / 推送统计：双列表联动固定高度（4或8行），不足留白，超出滚动 */
+.linked-height-table :deep(.arco-table-body) {
+  min-height: var(--linked-body-h, 208px);
+  max-height: var(--linked-body-h, 208px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.linked-height-table :deep(.arco-table-body)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.linked-height-table :deep(.arco-table-body)::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #d9dde5;
+}
+.linked-height-table :deep(.arco-table-body)::-webkit-scrollbar-thumb:hover {
+  background: #c9cdd4;
+}
+.linked-height-table :deep(.arco-table-body)::-webkit-scrollbar-track {
+  background: transparent;
+}
 .detail-chip-group {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1383,7 +1648,7 @@ onBeforeUnmount(() => {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
-  color: #4e5969;
+  color: #f53f3f;
   background: #f2f3f5;
   white-space: nowrap;
 }
@@ -1410,6 +1675,12 @@ onBeforeUnmount(() => {
 }
 .dim-tabs {
   margin-top: 2px;
+}
+/* 接入异常 / 推送异常：tab 分类名称下的提示说明 */
+.alert-tab-tip {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #86909c;
 }
 .dim-tabs :deep(.arco-tabs-nav) {
   margin-bottom: 8px;

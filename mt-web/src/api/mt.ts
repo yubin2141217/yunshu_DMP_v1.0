@@ -3,13 +3,27 @@ import {
   mtMock,
   type BizCategory,
   type Metadata,
+  type Org,
+  type OrgAuthStatus,
+  type OrgOpenVersion,
   type Scheme,
   type Standard,
   type StandardScope,
   type Status,
   type Supplier,
 } from '@/mock/mt'
+import { ensureOrgStaff, queryOrgStaff, type OrgStaffKpiFilter } from '@/mock/orgStaff'
+import {
+  buildOrgProfile,
+  getOrgAppUsage,
+  getOrgApps,
+  getOrgManageLogs,
+  openOrgApp,
+  saveOrgApps,
+  type OrgAuthorizedApp,
+} from '@/mock/orgApps'
 import { checkLogin } from '@/utils/auth'
+import { expireSoon } from '@/utils/orgLicense'
 
 export async function loginApi(account: string, password: string) {
   await delay(180)
@@ -55,6 +69,144 @@ export async function deleteSupplier(id: string) {
   await delay()
   return mtMock.removeSupplier(id)
 }
+
+/** 机构管理列表：授权状态 KPI + 筛选分页 */
+export async function listManagedOrgs(params: {
+  keyword: string
+  statUnit: string
+  salesName: string
+  openVersion: string
+  authStatus: string
+  page: number
+  pageSize: number
+}) {
+  await delay()
+  const all = mtMock.getOrgs()
+  const kpis = {
+    total: all.length,
+    running: all.filter((o) => (o.authStatus || 'running') === 'running').length,
+    expired: all.filter((o) => o.authStatus === 'expired').length,
+    closed: all.filter((o) => o.authStatus === 'closed').length,
+    disabled: all.filter((o) => o.authStatus === 'disabled').length,
+    expiringSoon: all.filter((o) => expireSoon(o.expireAt)).length,
+  }
+  let list = all.slice()
+  const q = params.keyword.trim()
+  if (q) {
+    list = list.filter(
+      (o) =>
+        o.name.includes(q) ||
+        (o.fullName || '').includes(q) ||
+        (o.code || '').includes(q) ||
+        (o.creditCode || '').includes(q),
+    )
+  }
+  if (params.statUnit) list = list.filter((o) => (o.statUnit || '') === params.statUnit)
+  if (params.salesName) list = list.filter((o) => (o.salesName || '') === params.salesName)
+  if (params.openVersion) list = list.filter((o) => (o.openVersion || 'formal') === params.openVersion)
+  if (params.authStatus) list = list.filter((o) => (o.authStatus || 'running') === params.authStatus)
+  const statUnits = [...new Set(all.map((o) => o.statUnit).filter(Boolean))] as string[]
+  const salesNames = [...new Set(all.map((o) => o.salesName).filter(Boolean))] as string[]
+  return {
+    ...mtMock.paginate(list, params.page, params.pageSize),
+    kpis,
+    filterOptions: {
+      statUnits: statUnits.map((v) => ({ label: v, value: v })),
+      salesNames: salesNames.map((v) => ({ label: v, value: v })),
+    },
+  }
+}
+
+/** 快捷开通机构（原型：写入本地 Mock） */
+export async function createManagedOrg(payload: {
+  name: string
+  code: string
+  statUnit?: string
+  salesName?: string
+  region?: string
+  openVersion?: OrgOpenVersion
+  expireAt?: string
+}) {
+  await delay()
+  const res = mtMock.createOrg({
+    name: payload.name,
+    code: payload.code,
+    supplierIds: [],
+    statUnit: payload.statUnit,
+    salesName: payload.salesName,
+    region: payload.region,
+    openVersion: payload.openVersion || 'formal',
+    authStatus: 'running',
+    expireAt: payload.expireAt,
+  })
+  if (!res.ok) {
+    if (res.reason === 'dup') throw new Error('机构名称已存在')
+    if (res.reason === 'dupCode') throw new Error('机构编码已存在')
+    throw new Error('请完整填写机构名称与编码')
+  }
+  ensureOrgStaff(res.item.id)
+  return res.item
+}
+
+/** 机构授权详情（应用授权 / 使用情况 / 操作日志） */
+export async function getManagedOrg(id: string) {
+  await delay()
+  const org = mtMock.getOrgs().find((o) => o.id === id)
+  if (!org) throw new Error('机构不存在')
+  return {
+    profile: buildOrgProfile(org),
+    apps: getOrgApps(id),
+    usage: getOrgAppUsage(id),
+    logs: getOrgManageLogs(org),
+  }
+}
+
+/** 立即开通某个应用 */
+export async function openManagedOrgApp(orgId: string, appId: string) {
+  await delay()
+  const item = openOrgApp(orgId, appId)
+  if (!item) throw new Error('应用不存在')
+  return item
+}
+
+/** 保存机构应用授权配置 */
+export async function saveManagedOrgApps(orgId: string, apps: OrgAuthorizedApp[]) {
+  await delay()
+  if (!mtMock.getOrgs().some((o) => o.id === orgId)) throw new Error('机构不存在')
+  return saveOrgApps(orgId, apps)
+}
+
+/** 机构下拉（用户管理切换机构） */
+export async function listOrgOptions() {
+  await delay(80)
+  return mtMock.getOrgs().map((o) => ({
+    id: o.id,
+    name: o.name,
+    code: o.code,
+    label: `${o.name}（${o.code}）`,
+    value: o.id,
+  }))
+}
+
+/** 机构用户列表 */
+export async function listOrgStaff(params: {
+  orgId: string
+  enabled: boolean
+  role: string
+  keyword: string
+  kpi: OrgStaffKpiFilter
+  page: number
+  pageSize: number
+}) {
+  await delay()
+  const org = mtMock.getOrgs().find((o) => o.id === params.orgId) as Org | undefined
+  return {
+    ...queryOrgStaff(params),
+    org: org || null,
+  }
+}
+
+export type { OrgAuthStatus, OrgOpenVersion, OrgStaffKpiFilter, OrgAuthorizedApp }
 
 export async function listOrgs(params: { name: string; page: number; pageSize: number }) {
   await delay()
@@ -203,6 +355,12 @@ export async function getMetadata(id: string) {
   return mtMock.findMetadata(id)
 }
 
+/** 轻量：全部启用字段（保持最新写入优先顺序），供字段选择器导入后即时刷新 */
+export async function listEnabledMetadata() {
+  await delay(0)
+  return mtMock.enabledMetadata()
+}
+
 export async function saveMetadata(payload: Metadata) {
   await delay()
   if (!payload.name?.trim()) throw new Error('请填写字段名')
@@ -222,6 +380,7 @@ export async function saveMetadataBatch(
     defaultValue?: string
     bizCategory?: string
     remark?: string
+    status?: Status
   }>,
 ) {
   await delay()
@@ -250,7 +409,7 @@ export async function saveMetadataBatch(
       defaultValue: row.defaultValue || '',
       bizCategory: (row.bizCategory || '') as BizCategory | '',
       remark: row.remark || '',
-      status: 'enabled' as Status,
+      status: (row.status || 'enabled') as Status,
     }),
   )
   if (saved.some((item) => !item)) throw new Error('保存失败')
@@ -267,9 +426,85 @@ export async function toggleMetadata(id: string, status: Status) {
   return mtMock.setMetadataStatus(id, status)
 }
 
+export async function toggleMetadataBatch(ids: string[], status: Status) {
+  await delay()
+  return ids.map((id) => mtMock.setMetadataStatus(id, status)).filter(Boolean)
+}
+
 export async function deleteMetadata(id: string) {
   await delay()
   return mtMock.removeMetadata(id)
+}
+
+export async function listMetadataByIds(ids: string[]) {
+  await delay()
+  const order = ids.map(String).filter(Boolean)
+  const all = mtMock.getMetadataWithRefCount()
+  const map = new Map(all.map((m) => [m.id, m]))
+  return order.map((id) => map.get(id)).filter((m): m is NonNullable<typeof m> => Boolean(m))
+}
+
+export async function saveMetadataBatchUpdate(
+  rows: Array<{
+    id: string
+    name: string
+    description: string
+    dataType: string
+    length?: string
+    defaultValue?: string
+    bizCategory?: string
+    remark?: string
+    status?: Status
+  }>,
+) {
+  await delay()
+  if (!rows?.length) throw new Error('请至少保留一条字段')
+  const names = rows.map((r) => r.name.trim())
+  const emptyIdx = names.findIndex((n) => !n)
+  if (emptyIdx >= 0) throw new Error(`第 ${emptyIdx + 1} 行请填写字段名`)
+  const seen = new Set<string>()
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const n = names[i]
+    if (seen.has(n)) throw new Error(`字段名「${n}」在本批中重复，请修改后再提交`)
+    seen.add(n)
+    if (!row.id) throw new Error(`第 ${i + 1} 行缺少字段 ID`)
+    if (!row.description?.trim()) throw new Error(`第 ${i + 1} 行请填写描述`)
+    if (!row.dataType?.trim()) throw new Error(`第 ${i + 1} 行请选择数据类型`)
+    if (mtMock.metadataNameExists(n, row.id)) throw new Error(`字段名「${n}」已存在，请修改后再提交`)
+  }
+  const saved = rows.map((row) =>
+    mtMock.saveMetadata({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      dataType: row.dataType,
+      length: row.length || '',
+      defaultValue: row.defaultValue || '',
+      bizCategory: (row.bizCategory || '') as BizCategory | '',
+      remark: row.remark || '',
+      status: (row.status || 'enabled') as Status,
+    }),
+  )
+  if (saved.some((item) => !item)) throw new Error('保存失败')
+  return saved.filter(Boolean)
+}
+
+export async function deleteMetadataBatch(ids: string[]) {
+  await delay()
+  const deleted: string[] = []
+  const skipped: string[] = []
+  for (const id of ids) {
+    const item = mtMock.findMetadata(id)
+    if (item?.status === 'enabled') {
+      skipped.push(item.name || id)
+      continue
+    }
+    const res = mtMock.removeMetadata(id)
+    if (res.ok) deleted.push(item?.name || id)
+    else skipped.push(item?.name || id)
+  }
+  return { deleted, skipped }
 }
 
 export async function listFieldTemplates(params?: { name?: string; type?: string }) {
@@ -283,6 +518,11 @@ export async function listFieldTemplates(params?: { name?: string; type?: string
     list = list.filter((t) => t.type === params.type)
   }
   return list
+}
+
+export async function getFieldTemplate(id: string) {
+  await delay()
+  return mtMock.getFieldTemplates().find((t) => t.id === id) || null
 }
 
 export async function saveFieldTemplate(payload: {
@@ -433,6 +673,11 @@ export async function checkStandardNameExists(name: string, exceptId?: string) {
   return mtMock.standardNameExists(name, exceptId)
 }
 
+export async function checkEndpointUrlExists(url: string, exceptId?: string) {
+  await delay(0)
+  return mtMock.endpointUrlExists(url, exceptId)
+}
+
 export async function saveStandard(
   payload: Partial<Standard> & {
     name: string
@@ -494,7 +739,14 @@ export async function toggleStandard(id: string, status: Status) {
 
 export async function deleteStandard(id: string) {
   await delay()
-  return mtMock.removeStandard(id)
+  const res = mtMock.removeStandard(id)
+  if (!res.ok) {
+    if ((res as { reason?: string }).reason === 'enabled') {
+      throw new Error('开启状态的方案不可删除，请先停用')
+    }
+    throw new Error('删除失败')
+  }
+  return res
 }
 
 export async function listIpWhitelist(params?: {

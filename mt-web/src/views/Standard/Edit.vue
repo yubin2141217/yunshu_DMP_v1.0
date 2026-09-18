@@ -6,7 +6,7 @@
         <p class="page-desc">按步骤配置基础信息、字段库与接入方式；提交后自动生成接入文档。</p>
       </div>
       <a-space>
-        <a-button @click="goBack">返回列表</a-button>
+        <a-button @click="goBack">返回</a-button>
       </a-space>
     </div>
 
@@ -17,7 +17,7 @@
             <a-steps :current="step" class="edit-steps">
               <a-step title="基础信息" description="名称 / 机构 / 供数方" />
               <a-step title="字段库配置" description="勾选送数字段" />
-              <a-step title="接入方式" description="选择推送 / 队列 / 文件" />
+              <a-step title="接入方式" description="选择接入方式及配置信息" />
             </a-steps>
 
             <a-form ref="formRef" :model="editor" :rules="rules" layout="vertical" class="edit-form" :class="{ 'edit-form--fields': step === 2 }">
@@ -28,7 +28,7 @@
                       <template #label>
                         <FormFieldLabel
                           title="方案名称"
-                          desc="支持汉字、英文字母、数字、下划线组合，长度不超过 100"
+                          desc="支持汉字、英文字母、数字、英文连字符“-”，长度不超过 100"
                         />
                       </template>
                       <a-input
@@ -50,6 +50,8 @@
                       </template>
                       <a-switch
                         :model-value="editor.status === 'enabled'"
+                        checked-text="开启"
+                        unchecked-text="停用"
                         @change="onStatusSwitch"
                       />
                     </a-form-item>
@@ -97,6 +99,8 @@
                     v-model="editor.remark"
                     placeholder="可选补充说明"
                     :auto-size="{ minRows: 5, maxRows: 10 }"
+                    :max-length="200"
+                    show-word-limit
                   />
                 </a-form-item>
               </div>
@@ -112,7 +116,8 @@
                   <FieldPicker
                     v-model="editor.fieldIds"
                     v-model:field-maps="editor.fieldMaps"
-                    :fields="metaFields"
+                    v-model:fields="metaFields"
+                    hide-json-import
                   />
                 </a-form-item>
               </div>
@@ -133,11 +138,15 @@
                         <span class="request-example__title">请求示例</span>
                         <span class="request-example__tip">按当前接入参数与已选字段生成报文 / 配置示例</span>
                       </div>
-                      <a-button type="outline" size="small" @click="onGenerateExample">生成示例</a-button>
+                    </div>
+                    <div class="request-example__gen-row">
+                      <a-button type="outline" size="small" @click="onGenerateExample">
+                        保存配置并生成示例
+                      </a-button>
                     </div>
                     <a-textarea
                       v-model="requestExample"
-                      placeholder="点击右上角「生成示例」生成内容"
+                      placeholder="点击「保存配置并生成示例」生成内容"
                       :auto-size="{ minRows: 10, maxRows: 18 }"
                       class="request-example__input"
                     />
@@ -199,13 +208,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, type FormInstance } from '@arco-design/web-vue'
 import FormFieldLabel from '@/components/FormFieldLabel.vue'
 import FieldPicker, { type PickerField } from '@/components/FieldPicker.vue'
 import AccessMethodForm from '@/components/AccessMethodForm.vue'
-import { checkStandardNameExists, getStandard, listStandards, saveStandard, testAccessConnectivity } from '@/api/mt'
+import { checkStandardNameExists, checkEndpointUrlExists, getStandard, listStandards, saveStandard, testAccessConnectivity } from '@/api/mt'
 import {
   accessMethodLabel,
   buildAccessExample,
@@ -225,9 +234,11 @@ import {
   type Status,
 } from '@/mock/mt'
 import { validateForm } from '@/utils/formValidate'
+import { useUnsavedLeave } from '@/composables/useUnsavedLeave'
 
 const route = useRoute()
 const router = useRouter()
+const { markPristine, confirmLeave } = useUnsavedLeave(() => editor, '/standard')
 const step = ref(1)
 const saving = ref(false)
 const testing = ref(false)
@@ -302,7 +313,7 @@ const currentSuccessCode = computed(() =>
   successCodeOfAccess(editor.accessMethod, editor.apiAccess, editor.mqAccess, editor.fileAccess),
 )
 
-const NAME_PATTERN = /^[\u4e00-\u9fa5a-zA-Z0-9_]+$/
+const NAME_PATTERN = /^[\u4e00-\u9fa5a-zA-Z0-9-]+$/
 
 const rules = {
   name: [
@@ -319,7 +330,7 @@ const rules = {
           return
         }
         if (!NAME_PATTERN.test(name)) {
-          callback('仅支持汉字、英文字母、数字、下划线')
+          callback('仅支持汉字、英文字母、数字、英文连字符“-”')
           return
         }
         checkStandardNameExists(name, editor.id || undefined).then((exists) => {
@@ -349,14 +360,6 @@ const rules = {
       },
     },
   ],
-  'apiAccess.protocol': [
-    {
-      validator: (value: string, callback: (error?: string) => void) => {
-        if (editor.accessMethod === 'http_post' && !value) callback('请选择请求协议')
-        else callback()
-      },
-    },
-  ],
   'apiAccess.method': [
     {
       validator: (value: string, callback: (error?: string) => void) => {
@@ -370,32 +373,6 @@ const rules = {
       validator: (value: string, callback: (error?: string) => void) => {
         if (editor.accessMethod === 'http_post' && !value) callback('请选择鉴权方式')
         else callback()
-      },
-    },
-  ],
-  'apiAccess.appKey': [
-    {
-      validator: (value: string, callback: (error?: string) => void) => {
-        if (
-          editor.accessMethod === 'http_post' &&
-          editor.apiAccess.authType === 'appkey' &&
-          !value?.trim()
-        ) {
-          callback('请填写或自动生成 AppKey')
-        } else callback()
-      },
-    },
-  ],
-  'apiAccess.appSecret': [
-    {
-      validator: (value: string, callback: (error?: string) => void) => {
-        if (
-          editor.accessMethod === 'http_post' &&
-          editor.apiAccess.authType === 'appkey' &&
-          !value?.trim()
-        ) {
-          callback('请填写或自动生成 AppSecret')
-        } else callback()
       },
     },
   ],
@@ -460,7 +437,7 @@ const rules = {
 }
 
 function goBack() {
-  router.push('/standard')
+  confirmLeave()
 }
 
 function refreshExample() {
@@ -473,6 +450,7 @@ function refreshExample() {
   )
 }
 
+/** 接入方式切换后重置连通性测试与请求示例状态 */
 function onAccessMethodChange() {
   testDone.value = false
   testOk.value = false
@@ -485,11 +463,8 @@ async function onGenerateExample() {
     editor.accessMethod === 'http_post'
       ? [
           'apiAccess.endpointUrl',
-          'apiAccess.protocol',
           'apiAccess.method',
           'apiAccess.authType',
-          'apiAccess.appKey',
-          'apiAccess.appSecret',
         ]
       : editor.accessMethod === 'mq'
         ? [
@@ -503,6 +478,14 @@ async function onGenerateExample() {
   const ok = await validateForm(formRef.value, basicFields)
   if (!ok) {
     Message.error('请先完善基础信息中的必填项')
+    return
+  }
+  if (
+    editor.accessMethod === 'http_post' &&
+    editor.apiAccess.authType === 'appkey' &&
+    !(editor.apiAccess.authHeaders || []).some((h) => h.enabled !== false && h.name?.trim())
+  ) {
+    Message.warning('请至少配置一个鉴权 Header')
     return
   }
   if (!editor.fieldIds.length) {
@@ -567,6 +550,8 @@ async function loadOptions() {
   supplierOpts.value = res.suppliers || []
 }
 
+/** FieldPicker 导入新字段后通过 v-model:fields 同步 metaFields；此处仅负责其它下拉选项刷新 */
+
 async function loadDetail() {
   const id = String(route.params.id || '')
   const copyFrom = String(route.query.copyFrom || '')
@@ -577,7 +562,7 @@ async function loadDetail() {
   const item = await getStandard(id || copyFrom)
   if (!item) {
     Message.error('未找到接入方案')
-    goBack()
+    confirmLeave(true)
     return
   }
   const isCopy = !id && !!copyFrom
@@ -610,6 +595,8 @@ watch(
   () => `${String(route.params.id || '')}|${String(route.query.copyFrom || '')}`,
   async () => {
     await loadDetail()
+    await nextTick()
+    markPristine()
   },
 )
 
@@ -627,6 +614,22 @@ async function onSubmit() {
   if (!(await validateForm(formRef.value))) return
   if (await checkStandardNameExists(editor.name, editor.id || undefined)) {
     Message.error('方案名称已存在，不允许添加同名接入方案')
+    return
+  }
+  // HTTP 接入方式下校验接口地址全局唯一
+  if (editor.accessMethod === 'http_post' && editor.apiAccess.endpointUrl) {
+    if (await checkEndpointUrlExists(editor.apiAccess.endpointUrl, editor.id || undefined)) {
+      Message.error('接口地址已存在，请修改路由部分')
+      return
+    }
+  }
+  // AppKey 鉴权至少保留一个启用且有参数名的鉴权 Header
+  if (
+    editor.accessMethod === 'http_post' &&
+    editor.apiAccess.authType === 'appkey' &&
+    !(editor.apiAccess.authHeaders || []).some((h) => h.enabled !== false && h.name?.trim())
+  ) {
+    Message.warning('请至少配置一个鉴权 Header')
     return
   }
   saving.value = true
@@ -659,6 +662,8 @@ async function onSubmit() {
 onMounted(async () => {
   await loadOptions()
   await loadDetail()
+  await nextTick()
+  markPristine()
 })
 </script>
 
@@ -780,6 +785,12 @@ onMounted(async () => {
   padding: 10px 12px;
   border-bottom: 1px solid var(--color-border-2, #e5e6eb);
   background: #fafbfc;
+}
+
+.request-example__gen-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 10px 12px 0;
 }
 
 .request-example__title-wrap {
