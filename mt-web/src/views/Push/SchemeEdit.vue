@@ -1119,7 +1119,7 @@ async function onSubmit() {
       intervalMinutes: 30,
       batchLimit: 500,
     })
-    Message.success('保存成功')
+    Message.success(`已保存「${editor.name}」`)
     confirmLeave(true)
   } catch (e) {
     Message.error(e instanceof Error ? e.message : '保存失败')

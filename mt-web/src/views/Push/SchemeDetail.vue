@@ -16,7 +16,7 @@
         <a-descriptions :column="2" bordered size="large" :label-style="descLabelStyle">
           <a-descriptions-item label="方案名称" :span="2">{{ record.name }}</a-descriptions-item>
           <a-descriptions-item label="状态">
-            <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
+            <a-tag :color="record.status === 'enabled' ? 'green' : 'gray'" size="small">
               {{ record.status === 'enabled' ? '开启' : '停用' }}
             </a-tag>
           </a-descriptions-item>

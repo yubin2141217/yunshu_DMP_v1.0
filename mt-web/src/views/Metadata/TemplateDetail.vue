@@ -52,12 +52,12 @@ const record = ref<FieldTemplate | null>(null)
 const fields = ref<TplFieldRow[]>([])
 const descLabelStyle = { width: '148px', minWidth: '148px', maxWidth: '148px' }
 const fieldColumns = [
-  { title: '字段名', dataIndex: 'name', width: 140 },
+  { title: '字段名', dataIndex: 'name', width: 140, ellipsis: true, tooltip: true },
   { title: '字段描述', dataIndex: 'description', ellipsis: true, tooltip: true },
-  { title: '平台字段类型', dataIndex: 'dataType', width: 110 },
-  { title: '业务分类', dataIndex: 'bizCategory', width: 96 },
+  { title: '平台字段类型', dataIndex: 'dataType', width: 110, ellipsis: true, tooltip: true },
+  { title: '业务分类', dataIndex: 'bizCategory', width: 96, ellipsis: true, tooltip: true },
   { title: '字段名', dataIndex: 'supplierFieldName', width: 140, ellipsis: true, tooltip: true },
-  { title: '供数方字段类型', dataIndex: 'supplierDataType', width: 120 },
+  { title: '供数方字段类型', dataIndex: 'supplierDataType', width: 120, ellipsis: true, tooltip: true },
 ]
 
 onMounted(async () => {

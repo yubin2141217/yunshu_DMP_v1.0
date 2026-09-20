@@ -158,7 +158,7 @@ async function onSubmit() {
       fieldIds: editor.fieldIds,
       fieldMaps: editor.fieldMaps,
     })
-    Message.success('保存成功')
+    Message.success(`保存成功「${editor.name}」`)
     confirmLeave(true)
   } catch (e) {
     Message.error((e as Error).message)

@@ -134,9 +134,9 @@ const columns = [
   { title: '推送方案', dataIndex: 'schemeName', slotName: 'scheme', ellipsis: true },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
   { title: '推送方式', dataIndex: 'channelType', slotName: 'channel', width: 160, ellipsis: true, tooltip: true },
-  { title: '成功', dataIndex: 'successCount', width: 90 },
-  { title: '失败', dataIndex: 'failCount', width: 80 },
-  { title: '积压', dataIndex: 'backlogCount', width: 80 },
+  { title: '成功', dataIndex: 'successCount', width: 90, align: 'center' as const },
+  { title: '失败', dataIndex: 'failCount', width: 80, align: 'center' as const },
+  { title: '积压', dataIndex: 'backlogCount', width: 80, align: 'center' as const },
   { title: '最近推送', dataIndex: 'lastPushAt', width: 160 },
   { title: '操作', slotName: 'ops', width: 120 },
 ]

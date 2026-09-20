@@ -16,7 +16,7 @@
         <a-descriptions-item label="缺省值">{{ record.defaultValue || '—' }}</a-descriptions-item>
         <a-descriptions-item label="业务分类">{{ record.bizCategory || '—' }}</a-descriptions-item>
         <a-descriptions-item label="状态">
-          <a-tag :color="record.status === 'enabled' ? 'green' : 'orangered'" size="small">
+          <a-tag :color="record.status === 'enabled' ? 'green' : 'gray'" size="small">
             {{ record.status === 'enabled' ? '开启' : '停用' }}
           </a-tag>
         </a-descriptions-item>

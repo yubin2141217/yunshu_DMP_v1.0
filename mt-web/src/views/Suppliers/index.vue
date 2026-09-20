@@ -53,10 +53,11 @@
           v-model:current="pagination.current"
           :total="pagination.total"
           :page-size="pagination.pageSize"
+          :page-size-options="MT_PAGE_SIZE_OPTIONS"
           show-total
           show-page-size
           show-jumper
-          @change="fetchData"
+          @change="onPageChange"
           @page-size-change="onPageSize"
         />
       </div>
@@ -95,6 +96,7 @@ import FormFieldLabel from '@/components/FormFieldLabel.vue'
 import { deleteSupplier, listSuppliers, saveSupplier, toggleSupplier } from '@/api/mt'
 import type { Status, Supplier } from '@/mock/mt'
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const statusOptions = [
   { label: '开启', value: 'enabled' },
@@ -104,7 +106,7 @@ const form = reactive({ name: '', status: '' })
 const data = ref<Supplier[]>([])
 const loading = ref(false)
 const togglingId = ref('')
-const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const visible = ref(false)
 const mode = ref<'create' | 'edit'>('create')
 const formRef = ref<FormInstance>()
@@ -119,7 +121,7 @@ const columns = [
   { title: '供数方编码', dataIndex: 'code', slotName: 'code', width: 180 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 120 },
+  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 120, fixed: 'right' as const },
 ]
 
 async function copyCode(code?: string) {
@@ -147,7 +149,13 @@ async function fetchData(page = pagination.current) {
   }
 }
 
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
+
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -181,7 +189,7 @@ async function onSubmit() {
       code: editor.code,
       status: editor.status,
     })
-    Message.success(mode.value === 'create' ? '新增成功' : '保存成功')
+    Message.success(mode.value === 'create' ? `新增成功「${editor.name}」` : `保存成功「${editor.name}」`)
     fetchData(mode.value === 'create' ? 1 : pagination.current)
     return true
   } catch (e) {
@@ -200,7 +208,7 @@ async function applyToggle(record: Supplier, next: Status) {
   record.status = next
   try {
     await toggleSupplier(record.id, next)
-    Message.success(next === 'enabled' ? '开启成功' : '已停用')
+    Message.success(next === 'enabled' ? `已开启「${record.name}」` : `已停用「${record.name}」`)
     await fetchData(pagination.current)
   } catch (e) {
     record.status = prev
@@ -239,7 +247,7 @@ function onDelete(record: Supplier) {
           Message.warning('已被机构引用，请停用')
           return
         }
-        Message.success('已删除')
+        Message.success(`已删除「${record.name}」`)
         fetchData(1)
       } catch (e) {
         Message.error((e as Error).message)

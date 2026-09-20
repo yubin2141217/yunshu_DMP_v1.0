@@ -54,7 +54,7 @@
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
         <div class="search-field">
-          <span class="search-field__label">方案</span>
+          <span class="search-field__label">方案名称</span>
           <FuzzySuggestSelect
             v-model="query.schemeId"
             v-model:keyword="query.schemeName"
@@ -198,10 +198,11 @@
           v-model:current="pagination.current"
           :total="pagination.total"
           :page-size="pagination.pageSize"
+          :page-size-options="MT_PAGE_SIZE_OPTIONS"
           show-total
           show-page-size
           show-jumper
-          @change="fetchData"
+          @change="onPageChange"
           @page-size-change="onPageSize"
         />
       </div>
@@ -231,6 +232,7 @@ import {
   type PushVolumeRange,
 } from '@/api/push'
 import { formatOrgSub } from '@/utils/orgDisplay'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const router = useRouter()
 const route = useRoute()
@@ -246,7 +248,7 @@ const query = reactive({
 const data = ref<PushScheme[]>([])
 const loading = ref(false)
 const togglingId = ref('')
-const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const kpis = reactive({
   total: 0,
   enabled: 0,
@@ -273,12 +275,12 @@ const columns = computed(() => [
   { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 180 },
   { title: '数据来源', dataIndex: 'scope', slotName: 'scope', width: 200 },
   { title: '推送模式', dataIndex: 'pushMode', slotName: 'pushMode', width: 96 },
-  { title: '成功量（累计）', dataIndex: 'successTotal', slotName: 'successTotal', width: 120 },
-  { title: '成功量（今日）', dataIndex: 'successToday', slotName: 'successToday', width: 120 },
-  { title: '失败量（累计）', dataIndex: 'failTotal', slotName: 'failTotal', width: 120 },
-  { title: '失败量（今日）', dataIndex: 'failToday', slotName: 'failToday', width: 120 },
+  { title: '成功量（累计）/条', dataIndex: 'successTotal', slotName: 'successTotal', align: 'center' as const, width: 155 },
+  { title: '成功量（今日）/条', dataIndex: 'successToday', slotName: 'successToday', align: 'center' as const, width: 155 },
+  { title: '失败量（累计）/条', dataIndex: 'failTotal', slotName: 'failTotal', align: 'center' as const, width: 155 },
+  { title: '失败量（今日）/条', dataIndex: 'failToday', slotName: 'failToday', align: 'center' as const, width: 155 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 200 },
+  { title: '操作', dataIndex: 'operations', slotName: 'operations', fixed: 'right' as const, width: 200 },
 ])
 
 function orgSubText(record: PushScheme) {
@@ -297,7 +299,7 @@ async function copySchemeNo(record: PushScheme) {
   const text = String(record.schemeNo ?? '')
   try {
     await navigator.clipboard.writeText(text)
-    Message.success('已复制方案 ID')
+    Message.success(`已复制方案 ID「${text}」`)
   } catch {
     Message.error('复制失败')
   }
@@ -384,7 +386,13 @@ async function fetchData(page = pagination.current) {
   }
 }
 
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
+
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -404,7 +412,7 @@ async function applyToggle(record: PushScheme, next: PushStatus) {
   record.status = next
   try {
     await togglePushScheme(record.id, next)
-    Message.success(next === 'enabled' ? '开启成功' : '已停用')
+    Message.success(next === 'enabled' ? `开启「${record.name}」成功` : `已停用「${record.name}」`)
     await fetchData(pagination.current)
   } catch (e) {
     record.status = prev
@@ -439,7 +447,7 @@ function onDelete(record: PushScheme) {
     async onOk() {
       try {
         await deletePushScheme(record.id)
-        Message.success('已删除')
+        Message.success(`已删除「${record.name}」`)
         await fetchData(1)
       } catch (e) {
         Message.error(e instanceof Error ? e.message : '删除失败')
@@ -597,7 +605,7 @@ onMounted(async () => {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--mt-primary, #165dff);
+  color: #1d2129;
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
@@ -620,7 +628,7 @@ onMounted(async () => {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--mt-primary, #165dff);
+  color: #1d2129;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
@@ -666,7 +674,7 @@ onMounted(async () => {
 }
 .filter-cell:not(:disabled):hover .cell-main,
 .filter-cell--inline:not(:disabled):hover {
-  color: var(--mt-primary, #165dff);
+  text-decoration: underline;
 }
 .filter-cell--inline {
   display: inline-flex;

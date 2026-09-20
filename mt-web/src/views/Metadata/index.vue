@@ -101,10 +101,11 @@
               v-model:current="pagination.current"
               :total="pagination.total"
               :page-size="pagination.pageSize"
+              :page-size-options="MT_PAGE_SIZE_OPTIONS"
               show-total
               show-page-size
               show-jumper
-              @change="fetchData"
+              @change="onPageChange"
               @page-size-change="onPageSize"
             />
           </div>
@@ -141,7 +142,7 @@
             stripe
           >
             <template #type="{ record }">
-              <a-tag :color="record.type === 'system' ? 'arcoblue' : 'orangered'" size="small">
+              <a-tag :color="record.type === 'system' ? 'arcoblue' : 'gray'" size="small">
                 {{ record.typeLabel || (record.type === 'system' ? '系统内置' : '用户自定义') }}
               </a-tag>
             </template>
@@ -300,6 +301,7 @@ import { dictSelectOptions } from '@/api/dict'
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
 import { formatOrgSub } from '@/utils/orgDisplay'
 import { confirmReferencedFieldSubmit, wrapModalText } from '@/utils/metadataEditConfirm'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const router = useRouter()
 const route = useRoute()
@@ -324,7 +326,7 @@ const fieldCache = reactive<Record<string, Metadata>>({})
 const batchDeleteLocked = computed(() =>
   selectedKeys.value.some((id) => fieldCache[String(id)]?.status === 'enabled'),
 )
-const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const visible = ref(false)
 const formRef = ref<FormInstance>()
 const emptyEditor = (): Metadata => ({
@@ -361,27 +363,27 @@ const columns = [
   { title: '序号', slotName: 'index', width: 64 },
   { title: '字段名', dataIndex: 'name', width: 150, ellipsis: true, tooltip: true },
   { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
-  { title: '引用方案数量', dataIndex: 'refSchemeCount', slotName: 'refCount', width: 120 },
-  { title: '数据类型', dataIndex: 'dataType', width: 96 },
-  { title: '业务分类', dataIndex: 'bizCategory', width: 96 },
+  { title: '引用方案数量（个）', dataIndex: 'refSchemeCount', slotName: 'refCount', width: 140, align: 'center' as const },
+  { title: '数据类型', dataIndex: 'dataType', width: 96, ellipsis: true, tooltip: true },
+  { title: '业务分类', dataIndex: 'bizCategory', width: 96, ellipsis: true, tooltip: true },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 180 },
+  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 180, fixed: 'right' as const },
 ]
 const tplColumns = [
   { title: '模板名称', dataIndex: 'name', width: 220, ellipsis: true, tooltip: true },
   { title: '模板说明', dataIndex: 'desc', ellipsis: true, tooltip: true },
-  { title: '字段数', dataIndex: 'fieldCount', width: 88 },
+  { title: '字段数（个）', dataIndex: 'fieldCount', width: 110, align: 'center' as const },
   { title: '模板类型', dataIndex: 'type', slotName: 'type', width: 120 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
-  { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 180 },
+  { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 180, fixed: 'right' as const },
 ]
 const refColumns = [
   { title: '方案名称', dataIndex: 'name', ellipsis: true, tooltip: true },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '创建时间', dataIndex: 'uploadedAt', width: 160 },
-  { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 100 },
+  { title: '操作', dataIndex: 'ops', slotName: 'ops', width: 100, fixed: 'right' as const },
 ]
 const refTitle = computed(() =>
   refField.value ? `${refField.value.name}字段被引用方案列表` : '字段被引用方案列表',
@@ -422,7 +424,12 @@ function onTabChange(key: string | number) {
   fetchData(pagination.current)
   if (route.query.tab) router.replace({ path: '/metadata' })
 }
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -467,7 +474,9 @@ async function onBatchDisable() {
         targets.map((item) => item.id),
         'disabled',
       )
-      Message.success(targets.length === 1 ? '已停用' : `已停用 ${targets.length} 个字段`)
+      Message.success(
+        targets.length === 1 ? `已停用「${targets[0].name}」` : `已停用 ${targets.length} 个字段`,
+      )
       selectedKeys.value = []
       fetchData(pagination.current)
     },
@@ -550,7 +559,7 @@ function onDeleteTpl(record: FieldTemplate) {
     async onOk() {
       try {
         await deleteFieldTemplate(record.id)
-        Message.success('已删除')
+        Message.success(`已删除「${record.name}」`)
         fetchTemplates()
       } catch (e) {
         Message.warning((e as Error).message || '删除失败')
@@ -571,7 +580,7 @@ async function onSubmit() {
       code: editor.name.trim(),
       bizCaliber: editor.description.trim(),
     })
-    Message.success('保存成功')
+    Message.success(`保存成功「${editor.name}」`)
     fetchData(pagination.current)
     return true
   } catch (e) {
@@ -585,7 +594,7 @@ async function applyToggle(record: Metadata, next: Status) {
   record.status = next
   try {
     await toggleMetadata(record.id, next)
-    Message.success(next === 'enabled' ? '开启成功' : '已停用')
+    Message.success(next === 'enabled' ? `已开启「${record.name}」` : `已停用「${record.name}」`)
     await fetchData(pagination.current)
   } catch (e) {
     record.status = prev
@@ -622,7 +631,7 @@ function onDelete(record: Metadata) {
         Message.warning('已被接入标准引用，不能删除')
         return
       }
-      Message.success('已删除')
+      Message.success(`已删除「${record.name}」`)
       fetchData(1)
     },
   })
@@ -650,12 +659,17 @@ onMounted(() => {
 .ref-count-link {
   padding: 0 4px;
   font-weight: 400;
-  color: rgb(var(--primary-6, 22, 93, 255));
+  color: #1d2129;
 }
 .ref-count-link:deep(.arco-btn-text),
 .ref-count-link.arco-btn-text {
   font-weight: 400;
-  color: rgb(var(--primary-6, 22, 93, 255));
+  color: #1d2129;
+  cursor: pointer;
+}
+.ref-count-link:deep(.arco-btn-text):hover,
+.ref-count-link.arco-btn-text:hover {
+  text-decoration: underline;
 }
 .del-disabled-wrap {
   display: inline-block;

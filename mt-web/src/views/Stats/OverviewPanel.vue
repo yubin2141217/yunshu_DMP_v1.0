@@ -501,13 +501,13 @@ interface KpiMetaItem {
 const failTopColumns = [
   { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '失败率', dataIndex: 'value', slotName: 'value', width: 96 },
+  { title: '失败率', dataIndex: 'value', slotName: 'value', width: 96, align: 'center' as const },
 ]
 
 const backlogTopColumns = [
   { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '堆积量', dataIndex: 'value', slotName: 'value', width: 96 },
+  { title: '堆积量', dataIndex: 'value', slotName: 'value', width: 96, align: 'center' as const },
 ]
 
 const zeroInboundColumns = [
@@ -519,8 +519,8 @@ const zeroInboundColumns = [
 const inboundBacklogColumns = [
   { title: '接入方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '接入量', dataIndex: 'inboundCount', width: 104 },
-  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 96 },
+  { title: '接入量', dataIndex: 'inboundCount', width: 104, align: 'center' as const },
+  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 96, align: 'center' as const },
 ]
 
 /** 维度统计表与柱状图默认展示条数 */
@@ -539,10 +539,10 @@ const inboundDimColumns = computed(() => {
       ...(tab === 'org' ? { width: 120 } : {}),
     },
     ...(showSchemeCount
-      ? [{ title: '方案数', dataIndex: 'schemeCount', slotName: 'schemeCount', width: 88 }]
+      ? [{ title: '方案数', dataIndex: 'schemeCount', slotName: 'schemeCount', width: 88, align: 'center' as const }]
       : []),
-    { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108 },
-    { title: '堆积', dataIndex: 'backlogCount', width: 88 },
+    { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108, align: 'center' as const },
+    { title: '堆积', dataIndex: 'backlogCount', width: 88, align: 'center' as const },
   ]
 })
 
@@ -560,22 +560,22 @@ const pushDimColumns = computed(() => {
   if (pushDimTab.value === 'org') {
     return [
       { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 120 },
-      { title: '方案数', dataIndex: 'schemeCount', slotName: 'pushSchemeCount', width: 72 },
-      { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
-      { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
-      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
-      { title: '积压', dataIndex: 'backlogCount', width: 64 },
-      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
+      { title: '方案数', dataIndex: 'schemeCount', slotName: 'pushSchemeCount', width: 72, align: 'center' as const },
+      { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88, align: 'center' as const },
+      { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72, align: 'center' as const },
+      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64, align: 'center' as const },
+      { title: '积压', dataIndex: 'backlogCount', width: 64, align: 'center' as const },
+      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76, align: 'center' as const },
     ]
   }
   return [
     { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true },
     { title: '机构', dataIndex: 'orgName', slotName: 'pushOrg', ellipsis: true, width: 120 },
-    { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
-    { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
-    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
-    { title: '积压', dataIndex: 'backlogCount', width: 64 },
-    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
+    { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88, align: 'center' as const },
+    { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72, align: 'center' as const },
+    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64, align: 'center' as const },
+    { title: '积压', dataIndex: 'backlogCount', width: 64, align: 'center' as const },
+    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76, align: 'center' as const },
   ]
 })
 

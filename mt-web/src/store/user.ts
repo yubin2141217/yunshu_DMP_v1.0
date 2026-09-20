@@ -7,6 +7,8 @@ export interface UserInfo {
   name: string
   account: string
   role: string
+  /** 部门（顶栏展示，规范 2.1） */
+  dept?: string
 }
 
 export const useUserStore = defineStore('user', {
@@ -43,6 +45,7 @@ export const useUserStore = defineStore('user', {
         name: '王运营',
         account: import.meta.env.VITE_DEMO_USER || 'yunying',
         role: '平台运营',
+        dept: '平台运营部',
       })
     },
   },

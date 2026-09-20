@@ -58,10 +58,11 @@
           v-model:current="pagination.current"
           :total="pagination.total"
           :page-size="pagination.pageSize"
+          :page-size-options="MT_PAGE_SIZE_OPTIONS"
           show-total
           show-page-size
           show-jumper
-          @change="fetchData"
+          @change="onPageChange"
           @page-size-change="onPageSize"
         />
       </div>
@@ -119,6 +120,7 @@ import {
 } from '@/api/mt'
 import type { IpWhitelistItem, Status } from '@/mock/mt'
 import { clearFormValidate, validateForm } from '@/utils/formValidate'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const form = reactive({
   ip: '',
@@ -128,7 +130,7 @@ const form = reactive({
 const data = ref<IpWhitelistItem[]>([])
 const loading = ref(false)
 const togglingId = ref('')
-const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const visible = ref(false)
 const formRef = ref<FormInstance>()
 const supplierOpts = ref<{ label: string; value: string }[]>([])
@@ -147,7 +149,7 @@ const columns = [
   { title: '备注', dataIndex: 'remark', ellipsis: true, tooltip: true },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 100 },
   { title: '创建时间', dataIndex: 'createdAt', width: 160 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 88 },
+  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 88, fixed: 'right' as const },
 ]
 
 async function fetchData(page = pagination.current) {
@@ -169,7 +171,12 @@ async function fetchData(page = pagination.current) {
   }
 }
 
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -223,7 +230,7 @@ async function onStatusSwitch(record: IpWhitelistItem, enabled: boolean) {
   try {
     await toggleWhitelist(record.id, next)
     record.status = next
-    Message.success(enabled ? '已启用，将参与接入校验' : '已停用，不再参与接入校验')
+    Message.success(enabled ? `已启用「${record.ip}」，将参与接入校验` : `已停用「${record.ip}」，不再参与接入校验`)
   } catch (e) {
     Message.error((e as Error).message || '状态更新失败')
   } finally {
@@ -241,7 +248,7 @@ function onDelete(record: IpWhitelistItem) {
     content: `确定删除「${record.supplierName || '未归属'}」下的 IP「${record.ip}」？`,
     async onOk() {
       await deleteWhitelist(record.id)
-      Message.success('已删除')
+      Message.success(`已删除「${record.ip}」`)
       fetchData(pagination.current)
     },
   })

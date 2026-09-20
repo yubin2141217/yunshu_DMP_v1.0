@@ -146,8 +146,8 @@ const detailColumns = [
   { title: '机构', dataIndex: 'orgName', slotName: 'org', width: 150 },
   { title: '接入方案', dataIndex: 'standardName', ellipsis: true, tooltip: true },
   { title: '供数方', dataIndex: 'supplierName', width: 120, ellipsis: true, tooltip: true },
-  { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 110 },
-  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 110 },
+  { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 110, align: 'center' as const },
+  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 110, align: 'center' as const },
   { title: '最近入库', dataIndex: 'lastInboundAt', width: 168 },
 ]
 
@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--mt-primary, #165dff);
+  color: #1d2129;
   cursor: pointer;
   font: inherit;
   font-variant-numeric: tabular-nums;

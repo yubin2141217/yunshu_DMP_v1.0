@@ -79,7 +79,7 @@
     <a-card class="content-card" :bordered="false">
       <div class="page-search">
         <div class="search-field">
-          <span class="search-field__label">方案</span>
+          <span class="search-field__label">方案名称</span>
           <FuzzySuggestSelect
             v-model="form.schemePickId"
             v-model:keyword="form.name"
@@ -156,12 +156,12 @@
         </template>
         <template #accessVolumeTotal="{ record }">
           <button type="button" class="num-link" @click="goAccessDataQuery(record, 'total')">
-            {{ formatVolume(record, 'total') }} 条
+            {{ formatVolume(record, 'total') }}
           </button>
         </template>
         <template #accessVolumeToday="{ record }">
           <button type="button" class="num-link" @click="goAccessDataQuery(record, 'today')">
-            {{ formatVolume(record, 'today') }} 条
+            {{ formatVolume(record, 'today') }}
           </button>
         </template>
         <template #lastAccess="{ record }">
@@ -181,13 +181,13 @@
             <a-button type="text" size="small" @click="$router.push('/standard/' + record.id)">详情</a-button>
             <a-button type="text" size="small" @click="openPreview(record)">预览文档</a-button>
             <a-button type="text" size="small" @click="$router.push('/standard/edit/' + record.id)">编辑</a-button>
-            <a-button type="text" size="small" @click="onCopyCreate(record)">复制</a-button>
-            <a-tooltip v-if="record.status === 'enabled'" content="开启状态的方案不可删除，请先停用">
-              <span class="ops-disabled-wrap">
-                <a-button type="text" status="danger" size="small" disabled>删除</a-button>
-              </span>
-            </a-tooltip>
-            <a-button v-else type="text" status="danger" size="small" @click="onDelete(record)">删除</a-button>
+            <a-dropdown trigger="click">
+              <a-button type="text" size="small" title="更多操作"><IconMore /></a-button>
+              <template #content>
+                <a-doption @click="onCopyCreate(record)">复制</a-doption>
+                <a-doption :disabled="record.status === 'enabled'" @click="onDelete(record)">删除</a-doption>
+              </template>
+            </a-dropdown>
           </a-space>
         </template>
       </a-table>
@@ -196,10 +196,11 @@
           v-model:current="pagination.current"
           :total="pagination.total"
           :page-size="pagination.pageSize"
+          :page-size-options="MT_PAGE_SIZE_OPTIONS"
           show-total
           show-page-size
           show-jumper
-          @change="fetchData"
+          @change="onPageChange"
           @page-size-change="onPageSize"
         />
       </div>
@@ -232,7 +233,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
-import { IconInfoCircle } from '@arco-design/web-vue/es/icon'
+import { IconInfoCircle, IconMore } from '@arco-design/web-vue/es/icon'
 import FuzzySuggestSelect from '@/components/FuzzySuggestSelect.vue'
 import {
   deleteStandard,
@@ -249,6 +250,7 @@ import {
   type Status,
 } from '@/mock/mt'
 import { downloadApiDocPdf } from '@/utils/downloadApiDocPdf'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const route = useRoute()
 const router = useRouter()
@@ -271,7 +273,7 @@ const form = reactive({
 })
 const data = ref<Standard[]>([])
 const loading = ref(false)
-const pagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const kpis = reactive({
   total: 0,
   enabled: 0,
@@ -293,12 +295,12 @@ const columns = computed(() => [
   { title: '方案名称', dataIndex: 'name', slotName: 'name', minWidth: 160 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', minWidth: 140 },
   { title: '供数方', dataIndex: 'supplierName', slotName: 'supplier', width: 100, ellipsis: true },
-  { title: '接入数据量（累计）', dataIndex: 'accessVolumeTotal', slotName: 'accessVolumeTotal', width: 150 },
-  { title: '接入数据量（今日）', dataIndex: 'accessVolumeToday', slotName: 'accessVolumeToday', width: 150 },
+  { title: '接入数据量（累计/条）', dataIndex: 'accessVolumeTotal', slotName: 'accessVolumeTotal', width: 150, align: 'center' as const },
+  { title: '接入数据量（今日/条）', dataIndex: 'accessVolumeToday', slotName: 'accessVolumeToday', width: 150, align: 'center' as const },
   { title: '最近接入', dataIndex: 'lastAccessAt', slotName: 'lastAccess', width: 148 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
-  { title: '更新时间', dataIndex: 'updatedAt', width: 148 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 280 },
+  { title: '更新时间', dataIndex: 'updatedAt', width: 148, ellipsis: true },
+  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 210, fixed: 'right' as const },
 ])
 
 const previewTitle = computed(() =>
@@ -389,7 +391,13 @@ async function fetchData(page = pagination.current) {
   }
 }
 
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
+
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -462,7 +470,7 @@ async function applyToggle(record: Standard, next: Status) {
   record.status = next
   try {
     await toggleStandard(record.id, next)
-    Message.success(next === 'enabled' ? '开启成功' : '已停用')
+    Message.success(next === 'enabled' ? `开启成功「${record.name}」` : `已停用「${record.name}」`)
     await fetchData(pagination.current)
   } catch (e) {
     record.status = prev
@@ -510,7 +518,7 @@ function onDelete(record: Standard) {
     async onOk() {
       try {
         await deleteStandard(record.id)
-        Message.success('已删除')
+        Message.success(`已删除「${record.name}」`)
         fetchData(1)
       } catch (e) {
         Message.error((e as Error).message || '删除失败')
@@ -678,7 +686,7 @@ onMounted(async () => {
 }
 .filter-cell:not(:disabled):hover .cell-main,
 .filter-cell--inline:not(:disabled):hover {
-  color: var(--mt-primary, #165dff);
+  text-decoration: underline;
 }
 .filter-cell--inline {
   overflow: hidden;
@@ -692,7 +700,7 @@ onMounted(async () => {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--mt-primary, #165dff);
+  color: #1d2129;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
@@ -700,15 +708,11 @@ onMounted(async () => {
 .id-copy:hover {
   text-decoration: underline;
 }
-.ops-disabled-wrap {
-  display: inline-flex;
-  cursor: not-allowed;
-}
 .num-link {
   border: none;
   background: transparent;
   padding: 0;
-  color: var(--mt-primary, #165dff);
+  color: #1d2129;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
 }

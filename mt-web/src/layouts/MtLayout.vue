@@ -1,28 +1,39 @@
 <template>
   <div class="mt-layout">
     <header class="mt-topbar">
-      <div class="mt-topbar-left">
+      <div class="mt-topbar-left" role="button" tabindex="0" title="返回主页" @click="router.push('/stats')">
         <span class="pro-logo-mark" aria-hidden="true"><IconThunderbolt /></span>
         <span class="mt-topbar-brand">云数中台</span>
         <span class="mt-topbar-system">运营管理系统</span>
       </div>
       <div class="mt-topbar-right">
+        <button type="button" class="mt-topbar-action" title="返回首页" @click="router.push('/stats')">
+          <IconHome :size="18" />
+        </button>
         <span class="mt-topbar-action" title="消息">
           <a-badge :count="3" :dot="false" :max-count="99">
             <IconNotification :size="18" />
           </a-badge>
         </span>
-        <div class="mt-user">
-          <a-avatar :size="30" style="background: var(--mt-primary, #165dff)">{{ userInitial }}</a-avatar>
-          <div class="mt-user-meta">
-            <span class="mt-user-name">{{ userStore.userInfo?.name || '运营' }}</span>
-            <span class="mt-user-role">{{ userStore.userInfo?.role || '平台运营' }}</span>
+        <span class="mt-topbar-action" title="下载中心">
+          <IconDownload :size="18" />
+        </span>
+        <a-dropdown trigger="click">
+          <div class="mt-user" role="button" tabindex="0" aria-label="用户菜单">
+            <a-avatar :size="30" style="background: var(--mt-primary, #165dff)">{{ userInitial }}</a-avatar>
+            <div class="mt-user-meta">
+              <span class="mt-user-name">{{ userStore.userInfo?.name || '运营' }}</span>
+              <span class="mt-user-role">{{ userStore.userInfo?.dept || userStore.userInfo?.role || '平台运营' }}</span>
+            </div>
+            <IconDown :size="12" class="mt-user-caret" />
           </div>
-        </div>
-        <button type="button" class="mt-topbar-logout" title="退出登录" @click="onLogout">
-          <IconExport :size="16" />
-          <span>退出</span>
-        </button>
+          <template #content>
+            <a-doption @click="onLogout">
+              <template #icon><IconExport /></template>
+              退出登录
+            </a-doption>
+          </template>
+        </a-dropdown>
       </div>
     </header>
 
@@ -83,8 +94,11 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   IconBarChart,
+  IconDownload,
+  IconDown,
   IconExport,
   IconFile,
+  IconHome,
   IconNotification,
   IconSend,
   IconSettings,

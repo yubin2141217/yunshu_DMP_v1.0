@@ -189,10 +189,11 @@
           v-model:current="pagination.current"
           :total="pagination.total"
           :page-size="pagination.pageSize"
+          :page-size-options="MT_PAGE_SIZE_OPTIONS"
           show-total
           show-page-size
           show-jumper
-          @change="fetchData"
+          @change="onPageChange"
           @page-size-change="onPageSize"
         />
       </div>
@@ -218,6 +219,7 @@ import {
   type DataQueryRow,
 } from '@/api/dataQuery'
 import { formatOrgSub } from '@/utils/orgDisplay'
+import { MT_PAGE_SIZE_OPTIONS, scrollToTableTop } from '@/utils/mtPage'
 
 const route = useRoute()
 const router = useRouter()
@@ -278,7 +280,7 @@ const loading = ref(false)
 const rows = ref<DataQueryRow[]>([])
 const fields = ref<DataQueryFieldMeta[]>([])
 const fieldFilters = reactive<Record<string, string>>({})
-const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
+const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const detailVisible = ref(false)
 const detailRecord = ref<DataQueryRow | null>(null)
 
@@ -450,7 +452,13 @@ async function fetchData(page = pagination.current) {
   }
 }
 
+function onPageChange(page: number) {
+  scrollToTableTop()
+  fetchData(page)
+}
+
 function onPageSize(size: number) {
+  scrollToTableTop()
   pagination.pageSize = size
   fetchData(1)
 }
@@ -532,7 +540,7 @@ onMounted(() => {
   white-space: nowrap;
 }
 .cell-link:hover {
-  color: var(--mt-primary, #165dff);
+  text-decoration: underline;
 }
 .cell-link:disabled {
   cursor: default;
