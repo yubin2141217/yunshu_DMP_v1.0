@@ -2,7 +2,7 @@
 
 数据中台 **运营端 + 机构端** 前端演示：Vue 3 + Vite + Arco Design，默认 Mock。
 
-仓库：https://github.com/yubin2141217/yunshu_DMP
+仓库：https://github.com/yubin2141217/yunshu_DMP_v1.0
 
 > **默认启动工程是 `mt-web`（云数中台 · 运营管理系统）**，不是试用管理平台。  
 > 仓库内 **不包含** `admin/`（试用管理平台）；若 AI Studio 仍显示旧预览，请 **重新 Import** 本仓库最新代码。
@@ -28,7 +28,7 @@ npm run dev
 
 ### AI Studio 说明
 
-1. 用 GitHub 账号 `yubin2141217` 授权后 Import `yunshu_DMP`。  
+1. 用 GitHub 账号 `yubin2141217` 授权后 Import `yunshu_DMP_v1.0`。  
 2. 应识别为 **Vue 3 + Vite + Arco**，入口为根目录 → `mt-web`。  
 3. 若仍出现「试用管理平台」，说明导入的是旧提交：在 AI Studio **重新 Import** 或 Remix 最新 `main`。
 
