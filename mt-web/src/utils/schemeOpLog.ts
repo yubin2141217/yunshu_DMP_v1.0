@@ -1,5 +1,5 @@
 /** 方案审计操作日志（接入 / 推送方案共用） */
-export type SchemeOpAction = 'create' | 'update' | 'enable' | 'disable'
+export type SchemeOpAction = 'create' | 'update' | 'enable' | 'disable' | 'download'
 
 export interface SchemeOpLog {
   id: string
@@ -17,6 +17,7 @@ export function schemeOpActionLabel(action: SchemeOpAction) {
   if (action === 'create') return '新建'
   if (action === 'update') return '修改'
   if (action === 'enable') return '开启'
+  if (action === 'download') return '下载'
   return '停用'
 }
 

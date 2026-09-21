@@ -1,9 +1,6 @@
 <template>
   <div class="page-shell stats-page">
     <div class="stats-sticky">
-      <div class="crumb">
-        运营工作台<span class="crumb-sep">/</span><span class="crumb-current">综合看板</span>
-      </div>
       <div class="page-head">
         <div class="page-head__text">
           <h2 class="page-title">综合看板</h2>
@@ -228,11 +225,6 @@ onUnmounted(() => {
   padding: 0 var(--mt-content-side-pad, 5%) 12px;
   background: var(--mt-page-bg, #f7f8fa);
   box-shadow: 0 10px 16px -16px rgba(15, 23, 42, 0.4);
-}
-
-.stats-sticky .crumb {
-  margin: 0 0 12px;
-  padding: 2px 0 0;
 }
 
 .stats-sticky .page-head {

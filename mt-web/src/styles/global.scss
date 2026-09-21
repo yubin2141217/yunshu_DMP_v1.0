@@ -36,11 +36,6 @@ body,
   align-items: center;
   gap: 10px;
   min-width: 0;
-  cursor: pointer; /* 规范 2.1：点击左上角 logo 返回主页 */
-}
-
-.mt-topbar-left:hover .mt-topbar-brand {
-  color: var(--mt-primary, #165dff);
 }
 
 .mt-topbar .pro-logo-mark {
@@ -91,23 +86,32 @@ body,
   color: var(--mt-primary, #165dff);
 }
 
+.mt-topbar-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px;
+  margin-left: 2px;
+  border: none;
+  border-radius: var(--mt-control-radius, 8px);
+  background: transparent;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mt-topbar-logout:hover {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--mt-primary, #165dff);
+}
+
 .mt-user {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 8px 4px 4px;
   border-radius: var(--mt-control-radius, 8px);
-  cursor: pointer; /* 规范 2.1：点击头像显示退出登录 */
-  transition: background 0.15s ease;
-}
-
-.mt-user:hover {
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.mt-user-caret {
-  color: #86909c;
-  flex-shrink: 0;
 }
 
 .mt-user-meta {
@@ -540,7 +544,7 @@ body,
     display: none;
   }
 
-  .mt-user-caret {
+  .mt-topbar-logout span {
     display: none;
   }
 

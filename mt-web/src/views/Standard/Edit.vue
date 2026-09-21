@@ -197,7 +197,7 @@
     >
       <div class="doc-stage">
         <article class="doc-sheet">
-          <pre class="doc-md">{{ previewMarkdown }}</pre>
+          <div class="api-doc-pdf" v-html="previewHtml"></div>
         </article>
       </div>
       <div class="doc-actions">
@@ -218,7 +218,7 @@ import { checkStandardNameExists, checkEndpointUrlExists, getStandard, listStand
 import {
   accessMethodLabel,
   buildAccessExample,
-  buildApiDocMarkdown,
+  buildApiDocHtml,
   emptyApiAccess,
   defaultFileAccess,
   defaultMqAccess,
@@ -251,7 +251,7 @@ const orgOpts = ref<{ label: string; value: string }[]>([])
 const supplierOpts = ref<{ label: string; value: string }[]>([])
 const requestExample = ref('')
 const previewVisible = ref(false)
-const previewMarkdown = ref('')
+const previewHtml = ref('')
 function onStatusSwitch(val: string | number | boolean) {
   editor.status = val ? 'enabled' : 'disabled'
 }
@@ -522,7 +522,7 @@ async function onTestConnectivity() {
 
 function onPreviewScheme() {
   const orgName = orgOpts.value.find((o) => o.value === editor.orgId)?.label || ''
-  previewMarkdown.value = buildApiDocMarkdown({
+  previewHtml.value = buildApiDocHtml({
     name: editor.name.trim() || '未命名接入方案',
     scope: 'org',
     orgName,
@@ -880,14 +880,84 @@ onMounted(async () => {
   box-shadow: 0 8px 24px rgba(29, 33, 41, 0.06);
 }
 
-.doc-md {
+/* 文档预览：Word 排版（与下载 PDF 的版式一致），非 markdown 源码 */
+.doc-sheet :deep(.api-doc-pdf) {
+  width: 100%;
   margin: 0;
+  padding: 0;
+  font-family: 'Microsoft YaHei', 'PingFang SC', SimSun, sans-serif;
+  color: #1d2129;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.doc-sheet :deep(.api-doc-pdf h1) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: #1d2129;
+}
+.doc-sheet :deep(.api-doc-pdf h2) {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e6eb;
+  color: #1d2129;
+}
+.doc-sheet :deep(.api-doc-pdf ul) {
+  margin: 0;
+  padding-left: 20px;
+}
+.doc-sheet :deep(.api-doc-pdf li) {
+  margin: 2px 0;
+}
+.doc-sheet :deep(.api-doc-pdf p) {
+  margin: 0 0 8px;
+}
+.doc-sheet :deep(.api-doc-pdf .security) {
+  padding: 10px 12px;
+  background: #fff7e8;
+  border: 1px solid #ffe4ba;
+  border-radius: 4px;
+  color: #ad6800;
+}
+.doc-sheet :deep(.api-doc-pdf table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 4px;
+  table-layout: fixed;
+}
+.doc-sheet :deep(.api-doc-pdf th),
+.doc-sheet :deep(.api-doc-pdf td) {
+  border: 1px solid #e5e6eb;
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.doc-sheet :deep(.api-doc-pdf th) {
+  background: #f7f8fa;
+  width: 130px;
+  font-weight: 600;
+}
+.doc-sheet :deep(.api-doc-pdf thead th) {
+  width: auto;
+}
+.doc-sheet :deep(.api-doc-pdf pre) {
+  margin: 0;
+  padding: 12px 14px;
+  background: #f7f8fa;
+  border: 1px solid #e5e6eb;
+  border-radius: 4px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #1d2129;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.doc-sheet :deep(.api-doc-pdf code) {
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
 }
 
 .doc-actions {

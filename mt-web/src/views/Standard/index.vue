@@ -216,12 +216,12 @@
     >
       <div class="doc-stage">
         <article class="doc-sheet">
-          <pre class="doc-md">{{ previewMarkdown }}</pre>
+          <div class="doc-md api-doc-pdf" v-html="previewHtml"></div>
         </article>
       </div>
       <div class="doc-actions">
         <a-space>
-          <a-button :loading="downloading" @click="downloadDoc">下载 PDF</a-button>
+          <a-button :loading="downloading" @click="downloadDoc">下载文档</a-button>
           <a-button type="primary" @click="previewVisible = false">关闭</a-button>
         </a-space>
       </div>
@@ -243,7 +243,6 @@ import {
 } from '@/api/mt'
 import {
   accessVolumeOf,
-  resolveStandardApiDoc,
   resolveStandardApiDocHtml,
   type AccessVolumeRange,
   type Standard,
@@ -306,8 +305,8 @@ const columns = computed(() => [
 const previewTitle = computed(() =>
   previewRecord.value ? `接口文档 · ${previewRecord.value.name}` : '接口文档预览',
 )
-const previewMarkdown = computed(() =>
-  previewRecord.value ? resolveStandardApiDoc(previewRecord.value) : '暂无文档',
+const previewHtml = computed(() =>
+  previewRecord.value ? resolveStandardApiDocHtml(previewRecord.value) : '<p>暂无文档</p>',
 )
 
 function orgSubText(record: Standard) {
@@ -435,7 +434,7 @@ async function downloadDoc() {
     const html = resolveStandardApiDocHtml(previewRecord.value)
     const fileName = (previewRecord.value.fileName || `${previewRecord.value.name}-接口文档`).replace(/\.md$/i, '.pdf')
     await downloadApiDocPdf(html, fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`)
-    Message.success('已开始下载 PDF')
+    Message.success('已开始下载文档')
   } catch (e) {
     Message.error((e as Error).message || 'PDF 下载失败')
   } finally {
@@ -738,14 +737,84 @@ onMounted(async () => {
   border: 1px solid #e5e6eb;
   box-shadow: 0 8px 24px rgba(29, 33, 41, 0.06);
 }
-.doc-md {
+/* 文档预览：Word 排版（与下载 PDF 的版式一致），非 markdown 源码 */
+.doc-sheet :deep(.api-doc-pdf) {
+  width: 100%;
   margin: 0;
+  padding: 0;
+  font-family: 'Microsoft YaHei', 'PingFang SC', SimSun, sans-serif;
+  color: #1d2129;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.doc-sheet :deep(.api-doc-pdf h1) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: #1d2129;
+}
+.doc-sheet :deep(.api-doc-pdf h2) {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e6eb;
+  color: #1d2129;
+}
+.doc-sheet :deep(.api-doc-pdf ul) {
+  margin: 0;
+  padding-left: 20px;
+}
+.doc-sheet :deep(.api-doc-pdf li) {
+  margin: 2px 0;
+}
+.doc-sheet :deep(.api-doc-pdf p) {
+  margin: 0 0 8px;
+}
+.doc-sheet :deep(.api-doc-pdf .security) {
+  padding: 10px 12px;
+  background: #fff7e8;
+  border: 1px solid #ffe4ba;
+  border-radius: 4px;
+  color: #ad6800;
+}
+.doc-sheet :deep(.api-doc-pdf table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 4px;
+  table-layout: fixed;
+}
+.doc-sheet :deep(.api-doc-pdf th),
+.doc-sheet :deep(.api-doc-pdf td) {
+  border: 1px solid #e5e6eb;
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.doc-sheet :deep(.api-doc-pdf th) {
+  background: #f7f8fa;
+  width: 130px;
+  font-weight: 600;
+}
+.doc-sheet :deep(.api-doc-pdf thead th) {
+  width: auto;
+}
+.doc-sheet :deep(.api-doc-pdf pre) {
+  margin: 0;
+  padding: 12px 14px;
+  background: #f7f8fa;
+  border: 1px solid #e5e6eb;
+  border-radius: 4px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #1d2129;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.doc-sheet :deep(.api-doc-pdf code) {
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
 }
 .doc-actions {
   display: flex;

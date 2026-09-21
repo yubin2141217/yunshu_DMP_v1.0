@@ -247,10 +247,10 @@ export function emptyHttpConfig(): PushHttpConfig {
     endpointUrl: '',
     protocol: 'HTTPS',
     method: 'POST',
-    authType: 'appkey',
+    authType: 'none',
     retry: 3,
     retryIntervalMs: 1000,
-    authHeaders: [defaultAppKeyAuthHeader()],
+    authHeaders: [],
   }
 }
 
@@ -268,10 +268,7 @@ export function normalizeHttpConfig(raw?: Partial<PushHttpConfig> | null): PushH
           value: h?.value || '',
           remark: h?.remark || '',
         }))
-      : // 历史方案：由 AppKey 凭证迁移为鉴权 Header 列表
-        raw.authType === 'appkey' && raw.appKey?.trim()
-        ? [{ enabled: true, name: raw.authHeaderName || 'AppKey', value: raw.appKey, remark: '' }]
-        : [],
+      : [],
   }
 }
 

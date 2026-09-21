@@ -466,13 +466,12 @@ export const DEFAULT_RESPONSE_CODES: { code: string; desc: string }[] = [
 /** 新增接入方案表单用：不预填接口地址 / 限流重试 / 成功码等 */
 export function emptyApiAccess(): ApiAccessConfig {
   const route = genDefaultRoute()
-  const defaultHeader = defaultAccessAppKeyHeader()
   return {
     ...defaultApiAccess(),
     endpointUrl: `${SYSTEM_GATEWAY}${route}`,
     baseUrl: SYSTEM_GATEWAY,
     path: route,
-    authType: 'appkey',
+    authType: 'none',
     customHeaders: 'Content-Type: application/json',
     contentType: 'application/json',
     rateLimitQps: undefined as unknown as number,
@@ -481,9 +480,9 @@ export function emptyApiAccess(): ApiAccessConfig {
     successHttpCode: '',
     payloadRootPath: '',
     idempotencyHeader: '',
-    appKey: defaultHeader.value,
+    appKey: '',
     appSecret: '',
-    authHeaders: [defaultHeader],
+    authHeaders: [],
     responseCodes: DEFAULT_RESPONSE_CODES.map((r) => ({ ...r })),
   }
 }
@@ -951,13 +950,6 @@ export function buildApiDocMarkdown(input: {
       : `连通性测试成功响应码为 \`${successCode}\`。`
   if (method === 'mq') {
     const addr = mq.mqType === 'rocketmq' ? mq.nameServer || mq.brokers : mq.brokers
-    // 鉴权凭证行：SASL 展示用户名/密码（脱敏），SSL 展示证书路径（与新增/详情页一致）
-    const mqAuthCredRows =
-      mq.authType === 'sasl'
-        ? `\n| 用户名 | ${dash(mq.username)} |\n| 密码 | ${mq.password ? '******' : '—'} |`
-        : mq.authType === 'ssl'
-          ? `\n| 证书路径 | ${dash(mq.certPath)} |`
-          : ''
     accessSection = `## 3. 消息队列配置
 | 项 | 说明 |
 | --- | --- |
@@ -965,7 +957,7 @@ export function buildApiDocMarkdown(input: {
 | 接入地址 | ${dash(addr)} |
 | Topic | ${dash(mq.topic)} |
 | 消费组 | ${dash(mq.consumerGroup)} |
-| 鉴权方式 | ${mqAuthLabel(mq.authType)} |${mqAuthCredRows}
+| 鉴权方式 | ${mqAuthLabel(mq.authType)} |
 | 起始消费位点 | ${mqOffsetLabel(mq.startOffset)} |
 | 消费并发数 | ${dash(mq.concurrency)} |
 | 单次拉取最大条数 | ${dash(mq.maxPullSize)} |
@@ -994,20 +986,15 @@ export function buildApiDocMarkdown(input: {
 | 服务器地址 | ${dash(file.host)} |
 | 端口号 | ${dash(file.port)} |
 | 登录方式 | ${file.loginType === 'key' ? '密钥登录' : '用户名密码'} |
-| 用户名 | ${dash(file.username)} |
-| ${file.loginType === 'key' ? '私钥路径' : '密码'} | ${file.loginType === 'key' ? dash(file.privateKeyPath) : file.password ? '******' : '—'} |
 | 文件目录路径 | ${dash(file.remoteDir)} |
 | 文件命名匹配规则 | ${dash(file.fileNamePattern)} |
-| 文件编码 | ${dash(file.encoding)} |
-| 文件格式 | ${dash(file.fileFormat)} |
+| 文件格式 / 编码 | ${file.fileFormat} / ${file.encoding} |
 | 单次拉取最大文件数 | ${dash(file.maxFilesPerPull)} |
 | 轮询扫描周期 | ${dash(file.pollInterval)} |
-| 文件处理完成动作 | ${file.afterProcess === 'delete' ? '删除远程文件' : file.afterProcess === 'archive' ? '移动到归档目录' : '保留'} |
+| 处理完成动作 | ${file.afterProcess === 'delete' ? '删除远程文件' : file.afterProcess === 'archive' ? '移动到归档目录' : '保留'} |
 | 断点续传 | ${file.resumeEnabled ? '开启' : '关闭'} |
 | 字段校验 | ${file.enableFieldValidate ? '开启' : '关闭'} |
 | 去重主键 | ${dash(file.dedupeField)} |
-| 文件超时告警 | ${file.fileTimeoutAlert ? '开启' : '关闭'} |
-| 文件解析失败告警 | ${file.parseFailAlert ? '开启' : '关闭'} |
 | 成功响应码 | ${dash(file.successCode)} |`
   } else {
     const responseCodesRows = (api.responseCodes || [])
@@ -1025,25 +1012,6 @@ export function buildApiDocMarkdown(input: {
 | 响应码 | 说明 |
 | --- | --- |
 ${responseCodesRows || '| — | — |'}`
-    // 鉴权方式为 AppKey 时展示鉴权 Header 明细（与新增/详情页一致）
-    if (normalizeAuthType(api.authType) === 'appkey') {
-      const authHeaderRows = (api.authHeaders || [])
-        .filter((h) => h.name?.trim())
-        .map(
-          (h) =>
-            `| \`${h.name.trim()}${h.enabled === false ? '（停用）' : ''}\` | ${h.value?.trim() || '—'} | ${dash(h.remark)} |`,
-        )
-        .join('\n')
-      if (authHeaderRows) {
-        accessSection += `
-
-## 3.2 鉴权 Header
-以键值对列表配置请求头，接入时将随报文一并校验。
-| 参数名 | 参数值 | 说明 |
-| --- | --- | --- |
-${authHeaderRows}`
-      }
-    }
   }
 
   return `# ${input.name} · 接入文档
@@ -1161,16 +1129,6 @@ export function buildApiDocHtml(input: {
       ['Topic', escapeHtml(dash(mq.topic))],
       ['消费组', escapeHtml(dash(mq.consumerGroup))],
       ['鉴权方式', escapeHtml(mqAuthLabel(mq.authType))],
-      // 鉴权凭证行：SASL 展示用户名/密码（脱敏），SSL 展示证书路径（与新增/详情页一致）
-      ...(mq.authType === 'sasl'
-        ? ([
-            ['用户名', escapeHtml(dash(mq.username))],
-            ['密码', mq.password ? '******' : '—'],
-          ] as [string, string][])
-        : []),
-      ...(mq.authType === 'ssl'
-        ? ([['证书路径', escapeHtml(dash(mq.certPath))]] as [string, string][])
-        : []),
       ['起始消费位点', escapeHtml(mqOffsetLabel(mq.startOffset))],
       ['消费并发数', escapeHtml(dash(mq.concurrency))],
       ['单次拉取最大条数', escapeHtml(dash(mq.maxPullSize))],
@@ -1200,19 +1158,13 @@ export function buildApiDocHtml(input: {
       ['服务器地址', escapeHtml(dash(file.host))],
       ['端口号', escapeHtml(dash(file.port))],
       ['登录方式', file.loginType === 'key' ? '密钥登录' : '用户名密码'],
-      ['用户名', escapeHtml(dash(file.username))],
-      [
-        file.loginType === 'key' ? '私钥路径' : '密码',
-        file.loginType === 'key' ? escapeHtml(dash(file.privateKeyPath)) : file.password ? '******' : '—',
-      ],
       ['文件目录路径', escapeHtml(dash(file.remoteDir))],
       ['文件命名匹配规则', escapeHtml(dash(file.fileNamePattern))],
-      ['文件编码', escapeHtml(dash(file.encoding))],
-      ['文件格式', escapeHtml(dash(file.fileFormat))],
+      ['文件格式 / 编码', escapeHtml(`${file.fileFormat} / ${file.encoding}`)],
       ['单次拉取最大文件数', escapeHtml(dash(file.maxFilesPerPull))],
       ['轮询扫描周期', escapeHtml(dash(file.pollInterval))],
       [
-        '文件处理完成动作',
+        '处理完成动作',
         file.afterProcess === 'delete'
           ? '删除远程文件'
           : file.afterProcess === 'archive'
@@ -1222,8 +1174,6 @@ export function buildApiDocHtml(input: {
       ['断点续传', file.resumeEnabled ? '开启' : '关闭'],
       ['字段校验', file.enableFieldValidate ? '开启' : '关闭'],
       ['去重主键', escapeHtml(dash(file.dedupeField))],
-      ['文件超时告警', file.fileTimeoutAlert ? '开启' : '关闭'],
-      ['文件解析失败告警', file.parseFailAlert ? '开启' : '关闭'],
       ['成功响应码', escapeHtml(dash(file.successCode))],
     ])}</tbody></table>`
   } else {
@@ -1234,26 +1184,12 @@ export function buildApiDocHtml(input: {
     const responseCodesTable = `<h2>3.1 接口响应码</h2><table><thead><tr><th>响应码</th><th>说明</th></tr></thead><tbody>${
       responseCodesRows || '<tr><td>—</td><td>—</td></tr>'
     }</tbody></table>`
-    // 鉴权方式为 AppKey 时展示鉴权 Header 明细（与新增/详情页一致）
-    let authHeadersTable = ''
-    if (normalizeAuthType(api.authType) === 'appkey') {
-      const authHeaderRowsHtml = (api.authHeaders || [])
-        .filter((h) => h.name?.trim())
-        .map(
-          (h) =>
-            `<tr><td><code>${escapeHtml(h.name.trim())}${h.enabled === false ? '（停用）' : ''}</code></td><td>${escapeHtml(h.value?.trim() || '—')}</td><td>${escapeHtml(dash(h.remark))}</td></tr>`,
-        )
-        .join('')
-      if (authHeaderRowsHtml) {
-        authHeadersTable = `<h2>3.2 鉴权 Header</h2><p class="security">以键值对列表配置请求头，接入时将随报文一并校验。</p><table><thead><tr><th>参数名</th><th>参数值</th><th>说明</th></tr></thead><tbody>${authHeaderRowsHtml}</tbody></table>`
-      }
-    }
     accessHtml = `<h2>3. 接口信息</h2><table><tbody>${kv([
       ['接口地址', `<code>${escapeHtml(dash(buildApiEndpoint(api)))}</code>`],
       ['请求方法', escapeHtml(dash(api.method || 'POST'))],
       ['鉴权方式', escapeHtml(apiAuthDesc(api))],
       ['最大 QPS 上限', escapeHtml(dash(api.rateLimitQps))],
-    ])}</tbody></table>${responseCodesTable}${authHeadersTable}`
+    ])}</tbody></table>${responseCodesTable}`
   }
 
   return `<div class="api-doc-pdf">
@@ -1332,7 +1268,7 @@ export interface IpWhitelistItem {
   createdAt: string
 }
 
-const STORAGE_KEY = 'yunshu-mt-mock-v33'
+const STORAGE_KEY = 'yunshu-mt-mock-v34'
 const BRIDGE_KEY = 'yunshu-enabled-standard-v1'
 const BRIDGE_LIST_KEY = 'yunshu-enabled-standards-v2'
 
@@ -1806,7 +1742,7 @@ const seed = {
       name: '陕西省网信办',
       code: 'ORG_WXB_001',
       supplierIds: ['s1', 's2', 's3'],
-      standardIds: ['st1'],
+      standardIds: ['st1', 'st4', 'st09', 'st10', 'st11', 'st12', 'st13', 'st14'],
       remark: '',
       region: '西安市/新城区',
       salesName: '张三三',
@@ -2270,6 +2206,189 @@ const seed = {
       accessStats: { total: 1560, today: 0, d3: 80, w1: 260, m1: 900 },
       lastAccessAt: '2026-09-10 18:06:12',
       accessActiveDaysW1: 2,
+    },
+    {
+      id: 'st09',
+      schemeNo: 10008,
+      name: '清博智能舆情实时推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's1',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'platform_name', 'news_uuid', 'news_title', 'media_name', 'news_posttime'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: true,
+      remark: '覆盖全网舆情核心字段，按 AppKey 鉴权实时推送',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/org/o1/qingbo/push',
+        rateLimitQps: 50,
+        appKey: 'AkO1Qb09',
+        appSecret: 'SecO1DemoKey09',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '清博智能舆情实时推送方案-接口文档.pdf',
+      fileSize: '12 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-09-07 10:20:00',
+      accessStats: { total: 204600, today: 5320, d3: 15800, w1: 39600, m1: 121400 },
+      lastAccessAt: '2026-09-11 14:05:32',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st10',
+      schemeNo: 10009,
+      name: '智慧星光网信办报送推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's2',
+      fieldIds: ['supplier_code', 'org_id', 'platform_name', 'news_uuid', 'news_title', 'media_name'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: true,
+      remark: '网信办报送轻量字段集，字段经平台运营确认',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/org/o1/zhgx/push',
+        rateLimitQps: 20,
+        appKey: 'AkO1Zg10',
+        appSecret: 'SecO1DemoKey10',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '智慧星光网信办报送推送方案-接口文档.pdf',
+      fileSize: '10 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-09-05 15:30:00',
+      accessStats: { total: 78600, today: 1680, d3: 5200, w1: 13400, m1: 46200 },
+      lastAccessAt: '2026-09-11 13:50:11',
+      accessActiveDaysW1: 6,
+    },
+    {
+      id: 'st11',
+      schemeNo: 10010,
+      name: '数美科技库表文件增量投递方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's3',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'platform_name', 'news_uuid', 'news_title', 'media_name', 'news_is_origin'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '按日增量文件投递，适用于大容量离线舆情归集；每日 02:00 投递，UTF-8 CSV',
+      accessMethod: 'file' as AccessMethodType,
+      apiAccess: defaultApiAccess(),
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '数美科技库表文件增量投递方案-接口文档.pdf',
+      fileSize: '11 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '数据接入组',
+      uploadedAt: '2026-08-30 09:20:00',
+      accessStats: { total: 56200, today: 0, d3: 3200, w1: 8600, m1: 31800 },
+      lastAccessAt: '2026-09-11 02:03:48',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st12',
+      schemeNo: 10011,
+      name: '百度舆情 API 实时推送方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's4',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title', 'news_is_origin'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: true,
+      remark: '百度舆情开放接口实时推送，限频 50 QPS',
+      accessMethod: 'http_post' as AccessMethodType,
+      apiAccess: {
+        ...defaultApiAccess(),
+        path: '/api/v1/org/o1/baidu/push',
+        rateLimitQps: 50,
+        appKey: 'AkO1Bd12',
+        appSecret: 'SecO1DemoKey12',
+      },
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '百度舆情API实时推送方案-接口文档.pdf',
+      fileSize: '11 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '平台运营',
+      uploadedAt: '2026-08-28 14:10:00',
+      accessStats: { total: 132400, today: 3460, d3: 10200, w1: 26800, m1: 82600 },
+      lastAccessAt: '2026-09-11 13:32:55',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st13',
+      schemeNo: 10012,
+      name: '清博智能 Kafka 高吞吐订阅方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's1',
+      fieldIds: ['supplier_code', 'org_id', 'platform', 'news_uuid', 'news_title', 'news_content', 'news_posttime'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: '经 Kafka 集群消费高吞吐接入，支持高峰削峰与失败重试',
+      accessMethod: 'mq' as AccessMethodType,
+      apiAccess: defaultApiAccess(),
+      mqAccess: {
+        ...defaultMqAccess(),
+        mqType: 'kafka',
+        brokers: 'kafka-1.yunshu.local:9092,kafka-2.yunshu.local:9092',
+        topic: 'yunshu.article.o1',
+        consumerGroup: 'cg-yunshu-o1',
+        startOffset: 'latest',
+        concurrency: 6,
+        maxPullSize: 300,
+      },
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '清博智能Kafka高吞吐订阅方案-接口文档.pdf',
+      fileSize: '9 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '数据接入组',
+      uploadedAt: '2026-08-25 10:05:00',
+      accessStats: { total: 248900, today: 6240, d3: 18600, w1: 47200, m1: 146800 },
+      lastAccessAt: '2026-09-11 14:12:07',
+      accessActiveDaysW1: 7,
+    },
+    {
+      id: 'st14',
+      schemeNo: 10013,
+      name: '智慧星光 SFTP 文件批量投递方案',
+      scope: 'org' as StandardScope,
+      orgId: 'o1',
+      supplierId: 's2',
+      fieldIds: ['supplier_code', 'org_id', 'platform_name', 'news_uuid', 'news_title'],
+      metadataId: 'supplier_code',
+      requireIpWhitelist: false,
+      remark: 'SFTP 密钥登录，按文件命名规则每小时轮询扫描，支持断点续传',
+      accessMethod: 'file' as AccessMethodType,
+      apiAccess: defaultApiAccess(),
+      mqAccess: defaultMqAccess(),
+      fileAccess: defaultFileAccess(),
+      apiDocMarkdown: '',
+      fileName: '智慧星光SFTP文件批量投递方案-接口文档.pdf',
+      fileSize: '8 KB',
+      fileUrl: '#',
+      status: 'enabled' as Status,
+      uploader: '数据接入组',
+      uploadedAt: '2026-08-20 16:40:00',
+      accessStats: { total: 31800, today: 420, d3: 1400, w1: 3900, m1: 13200 },
+      lastAccessAt: '2026-09-11 13:00:26',
+      accessActiveDaysW1: 5,
     },
     ...buildAlertDemoStandards(),
   ] as Standard[],

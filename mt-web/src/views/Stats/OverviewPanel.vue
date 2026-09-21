@@ -116,10 +116,7 @@
       <div class="section-block__grid">
         <a-card class="content-card detail-card detail-card--tall" :bordered="false">
           <div class="detail-card__head detail-card__head--row">
-            <div>
-              <h3 class="detail-card__title">接入统计</h3>
-              <p class="detail-card__desc">按机构/方案/供数方维度查看历史全量数据接入情况</p>
-            </div>
+            <h3 class="detail-card__title">接入统计</h3>
             <button type="button" class="text-link" @click="goAccessData()">查看接入数据 →</button>
           </div>
           <a-tabs v-model:active-key="inboundDimTab" type="rounded" size="small" class="dim-tabs dim-tabs--nav-only">
@@ -191,10 +188,7 @@
 
         <a-card class="content-card detail-card detail-card--tall" :bordered="false">
           <div class="detail-card__head detail-card__head--row">
-            <div>
-              <h3 class="detail-card__title">推送统计</h3>
-              <p class="detail-card__desc">按机构/方案维度查看历史全量数据推送情况</p>
-            </div>
+            <h3 class="detail-card__title">推送统计</h3>
             <button type="button" class="text-link" @click="router.push('/push/push-data')">查看推送数据 →</button>
           </div>
           <a-tabs v-model:active-key="pushDimTab" type="rounded" size="small" class="dim-tabs dim-tabs--nav-only">
@@ -369,7 +363,7 @@
               <h3 class="detail-card__title">推送异常</h3>
               <p class="detail-card__desc">关注高失败率与高积压方案，便于值班排障</p>
             </div>
-            <span class="detail-chip">{{ pushAlertSchemeCount }} 项</span>
+            <span class="push-alert-count">{{ pushAlertSchemeCount }} 项</span>
           </div>
           <a-tabs v-model:active-key="pushAlertTab" type="rounded" size="small" class="dim-tabs">
             <a-tab-pane key="fail" :title="`高失败率 ${data.failTopN.length}`">
@@ -501,13 +495,13 @@ interface KpiMetaItem {
 const failTopColumns = [
   { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '失败率', dataIndex: 'value', slotName: 'value', width: 96, align: 'center' as const },
+  { title: '失败率', dataIndex: 'value', slotName: 'value', width: 96 },
 ]
 
 const backlogTopColumns = [
   { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '堆积量', dataIndex: 'value', slotName: 'value', width: 96, align: 'center' as const },
+  { title: '堆积量', dataIndex: 'value', slotName: 'value', width: 96 },
 ]
 
 const zeroInboundColumns = [
@@ -519,12 +513,9 @@ const zeroInboundColumns = [
 const inboundBacklogColumns = [
   { title: '接入方案', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 200 },
   { title: '机构', dataIndex: 'orgName', slotName: 'org', ellipsis: true, width: 170 },
-  { title: '接入量', dataIndex: 'inboundCount', width: 104, align: 'center' as const },
-  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 96, align: 'center' as const },
+  { title: '接入量', dataIndex: 'inboundCount', width: 104 },
+  { title: '堆积量', dataIndex: 'backlogCount', slotName: 'backlog', width: 96 },
 ]
-
-/** 维度统计表与柱状图默认展示条数 */
-const DIM_PAGE_SIZE = 8
 
 const inboundDimColumns = computed(() => {
   const tab = inboundDimTab.value
@@ -539,53 +530,51 @@ const inboundDimColumns = computed(() => {
       ...(tab === 'org' ? { width: 120 } : {}),
     },
     ...(showSchemeCount
-      ? [{ title: '方案数', dataIndex: 'schemeCount', slotName: 'schemeCount', width: 88, align: 'center' as const }]
+      ? [{ title: '方案数', dataIndex: 'schemeCount', slotName: 'schemeCount', width: 88 }]
       : []),
-    { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108, align: 'center' as const },
-    { title: '堆积', dataIndex: 'backlogCount', width: 88, align: 'center' as const },
+    { title: '接入量', dataIndex: 'inboundCount', slotName: 'inbound', width: 108 },
+    { title: '堆积', dataIndex: 'backlogCount', width: 88 },
   ]
 })
 
 const inboundDimRows = computed(() => {
-  const all =
-    inboundDimTab.value === 'scheme'
-      ? props.data.inboundByStandard || []
-      : inboundDimTab.value === 'supplier'
-        ? props.data.inboundBySupplier || []
-        : props.data.inboundByOrg || []
-  return all.slice(0, DIM_PAGE_SIZE)
+  if (inboundDimTab.value === 'scheme') return props.data.inboundByStandard || []
+  if (inboundDimTab.value === 'supplier') return props.data.inboundBySupplier || []
+  return props.data.inboundByOrg || []
 })
 
 const pushDimColumns = computed(() => {
   if (pushDimTab.value === 'org') {
     return [
       { title: '机构', dataIndex: 'name', slotName: 'name', ellipsis: true, width: 120 },
-      { title: '方案数', dataIndex: 'schemeCount', slotName: 'pushSchemeCount', width: 72, align: 'center' as const },
-      { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88, align: 'center' as const },
-      { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72, align: 'center' as const },
-      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64, align: 'center' as const },
-      { title: '积压', dataIndex: 'backlogCount', width: 64, align: 'center' as const },
-      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76, align: 'center' as const },
+      { title: '方案数', dataIndex: 'schemeCount', slotName: 'pushSchemeCount', width: 72 },
+      { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
+      { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
+      { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
+      { title: '积压', dataIndex: 'backlogCount', width: 64 },
+      { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
     ]
   }
   return [
     { title: '推送方案', dataIndex: 'name', slotName: 'name', ellipsis: true },
     { title: '机构', dataIndex: 'orgName', slotName: 'pushOrg', ellipsis: true, width: 120 },
-    { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88, align: 'center' as const },
-    { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72, align: 'center' as const },
-    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64, align: 'center' as const },
-    { title: '积压', dataIndex: 'backlogCount', width: 64, align: 'center' as const },
-    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76, align: 'center' as const },
+    { title: '推送量', dataIndex: 'pushCount', slotName: 'pushCount', width: 88 },
+    { title: '成功', dataIndex: 'successCount', slotName: 'success', width: 72 },
+    { title: '失败', dataIndex: 'failCount', slotName: 'fail', width: 64 },
+    { title: '积压', dataIndex: 'backlogCount', width: 64 },
+    { title: '成功率', dataIndex: 'successRate', slotName: 'rate', width: 76 },
   ]
 })
 
-const pushDimRows = computed(() => {
-  const all = pushDimTab.value === 'org' ? props.data.pushByOrg || [] : props.data.pushByScheme || []
-  return all.slice(0, DIM_PAGE_SIZE)
-})
+const pushDimRows = computed(() =>
+  pushDimTab.value === 'org' ? props.data.pushByOrg || [] : props.data.pushByScheme || [],
+)
 
 const ROW_HEIGHT = 52
-const linkedRowCount = computed(() => DIM_PAGE_SIZE)
+const linkedRowCount = computed(() => {
+  const maxLen = Math.max(inboundDimRows.value.length, pushDimRows.value.length)
+  return maxLen > 4 ? 8 : 4
+})
 const linkedBodyHeight = computed(() => linkedRowCount.value * ROW_HEIGHT)
 
 // 高堆积：当前接入堆积数据量超过 100 条的方案，按堆积量从大到小
@@ -1642,13 +1631,19 @@ onBeforeUnmount(() => {
   gap: 6px;
   justify-content: flex-end;
 }
+.push-alert-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f53f3f;
+  white-space: nowrap;
+}
 .detail-chip {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
-  color: #f53f3f;
+  color: #4e5969;
   background: #f2f3f5;
   white-space: nowrap;
 }

@@ -1,0 +1,1442 @@
+/* ============================================================
+ * V8 机构端子系统样式（作用域隔离）
+ * 所有规则限定在 .v8-layout（主框架）与 .v8-login（登录页）下，
+ * 不污染 mt-web 现有全局样式，也不被其同名类（.content-card/.page-head 等）影响。
+ * 视觉取值与 v8-web 原工程保持一致。
+ * ============================================================ */
+
+.v8-layout,
+.v8-login {
+  --v8-chrome-top: 56px;
+  --v8-nav-bar: 48px;
+  --v8-nav-blue: #4c9aff;
+  --v8-nav-selected: rgba(255, 255, 255, 0.22);
+  --v8-page-bg: #f4f7fd;
+  --v8-card-radius: 8px;
+  --v8-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --primary-1: 230, 244, 255;
+  --primary-2: 186, 224, 255;
+  --primary-3: 145, 202, 255;
+  --primary-4: 105, 177, 255;
+  --primary-5: 64, 150, 255;
+  --primary-6: 22, 119, 255;
+  --primary-7: 9, 88, 217;
+  --primary-8: 0, 64, 179;
+  --primary-9: 0, 46, 140;
+  --primary-10: 0, 30, 102;
+  --arcoblue-6: 22, 119, 255;
+  --pro-theme-color: #1677ff;
+  --pro-theme-color-soft: rgba(22, 119, 255, 0.22);
+  --login-bg-hue: -28deg;
+  --login-bg-sat: 1.08;
+}
+
+/* ── 主框架：页面背景 ── */
+.v8-layout {
+  min-height: 100vh;
+  background: var(--v8-page-bg, #f0f2f5);
+  --v8-content-max: 1440px;
+  --v8-content-pad-x: 24px;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  color: #1d2129;
+}
+
+/* 顶栏 / 导航 / 内容共用同一内容宽度，左右对齐 */
+.v8-layout .chrome-inner {
+  width: 100%;
+  max-width: var(--v8-content-max);
+  margin: 0 auto;
+  padding: 0 var(--v8-content-pad-x);
+  box-sizing: border-box;
+}
+
+/* ── 白顶栏（背景通栏，内容居中对齐）── */
+.v8-layout .chrome-top {
+  height: var(--v8-chrome-top, 56px);
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  box-sizing: border-box;
+}
+
+.v8-layout .chrome-top .chrome-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.v8-layout .chrome-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.v8-layout .chrome-brand .pro-logo-mark {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  border-radius: 6px;
+}
+
+.v8-layout .chrome-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d2129;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.v8-layout .chrome-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v8-layout .chrome-tags .arco-tag {
+  border: none;
+  font-weight: 500;
+}
+
+.v8-layout .chrome-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* 「MT管理端」入口按钮：位于顶栏右侧、机构头像左侧 */
+.v8-layout .chrome-mt-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(22, 119, 255, 0.35);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--v8-nav-blue, #1677ff);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.v8-layout .chrome-mt-entry:hover {
+  background: var(--v8-nav-blue, #1677ff);
+  border-color: var(--v8-nav-blue, #1677ff);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.28);
+}
+
+.v8-layout .chrome-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 6px 4px 4px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.v8-layout .chrome-user:hover {
+  background: #f5f6f8;
+}
+
+.v8-layout .chrome-user-name {
+  font-size: 14px;
+  color: #1d2129;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v8-layout .chrome-user-caret {
+  color: #86909c;
+  font-size: 12px;
+}
+
+/* ── 明快半透明蓝横导航（背景通栏，菜单与内容对齐）── */
+.v8-layout .chrome-nav {
+  height: var(--v8-nav-bar, 48px);
+  background: linear-gradient(
+    100deg,
+    rgba(76, 154, 255, 0.92) 0%,
+    rgba(94, 166, 255, 0.88) 46%,
+    rgba(122, 186, 255, 0.85) 100%
+  );
+  box-shadow: 0 2px 10px rgba(76, 154, 255, 0.18);
+  backdrop-filter: blur(6px);
+}
+
+.v8-layout .chrome-nav-inner {
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+}
+
+.v8-layout .chrome-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: auto 4px;
+  padding: 0 18px;
+  height: 34px;
+  border-radius: 17px;
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.v8-layout .chrome-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.v8-layout .chrome-nav a.router-link-active {
+  color: #fff;
+  font-weight: 600;
+  background: var(--v8-nav-selected, rgba(255, 255, 255, 0.22));
+  box-shadow: 0 2px 8px rgba(64, 132, 230, 0.28);
+}
+
+/* 含二级菜单的一级分组（系统设置） */
+.v8-layout .chrome-nav-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: auto 4px;
+}
+
+.v8-layout .chrome-nav-parent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 18px;
+  border-radius: 17px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.v8-layout .chrome-nav-group:hover .chrome-nav-parent,
+.v8-layout .chrome-nav-group.is-active .chrome-nav-parent {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.v8-layout .chrome-nav-group.is-active .chrome-nav-parent {
+  font-weight: 600;
+  background: var(--v8-nav-selected, rgba(255, 255, 255, 0.22));
+  box-shadow: 0 2px 8px rgba(64, 132, 230, 0.28);
+}
+
+.v8-layout .chrome-nav-caret {
+  font-size: 11px;
+}
+
+.v8-layout .chrome-nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 148px;
+  padding: 6px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(29, 33, 41, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  z-index: 100;
+}
+
+.v8-layout .chrome-nav-group:hover .chrome-nav-dropdown,
+.v8-layout .chrome-nav-group:focus-within .chrome-nav-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.v8-layout a.chrome-nav-sub {
+  display: block;
+  padding: 9px 14px;
+  border-radius: 6px;
+  color: #4e5969 !important;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: transparent !important;
+}
+
+.v8-layout a.chrome-nav-sub:hover {
+  color: var(--v8-nav-blue, #1677ff) !important;
+  background: #f2f7ff !important;
+}
+
+.v8-layout a.chrome-nav-sub.router-link-active {
+  color: var(--v8-nav-blue, #1677ff) !important;
+  font-weight: 600;
+  background: #e8f3ff !important;
+}
+
+/* ── 内容区 ── */
+.v8-layout .chrome-main {
+  width: 100%;
+  max-width: var(--v8-content-max);
+  margin: 0 auto;
+  padding: 16px var(--v8-content-pad-x) 32px;
+  box-sizing: border-box;
+}
+
+.v8-layout .workplace-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.v8-layout .workplace-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.v8-layout .workplace-header > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.v8-layout .workplace-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1d2129;
+  line-height: 1.35;
+}
+
+.v8-layout .workplace-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #86909c;
+  /* 占满标题区可用宽度：一行放得下就不换行，放不下时才自然折行 */
+  max-width: 100%;
+}
+
+.v8-layout .v8-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 4px;
+  font-size: 13px;
+  color: #86909c;
+}
+
+.v8-layout .v8-summary-stats strong {
+  margin-left: 6px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+/* ── 卡片：软阴影白底 ── */
+.v8-layout .kpi-card,
+.v8-layout .content-card {
+  border: none !important;
+  border-radius: var(--v8-card-radius, 8px) !important;
+  background: #fff;
+  box-shadow: var(--v8-card-shadow);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.v8-layout .kpi-card:hover {
+  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.v8-layout .kpi-card .arco-card-body,
+.v8-layout .content-card .arco-card-body {
+  padding: 20px;
+}
+
+.v8-layout .kpi-body {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.v8-layout .kpi-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 6px 14px rgba(27, 65, 120, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.28);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.v8-layout .kpi-card:hover .kpi-icon {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 22px rgba(27, 65, 120, 0.24), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.v8-layout .kpi-title {
+  color: #86909c;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.v8-layout .kpi-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1d2129;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.v8-layout .kpi-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #a9aeb8;
+}
+
+.v8-layout .section-title {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+/* ── 筛选条 ── */
+.v8-layout .page-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid #f2f3f5;
+}
+
+.v8-layout .page-search .arco-input-wrapper,
+.v8-layout .page-search .arco-select-view-single {
+  border-radius: 6px;
+}
+
+.v8-layout .page-search .arco-btn {
+  border-radius: 6px;
+}
+
+.v8-layout .table-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.v8-layout .table-footer-right {
+  margin-left: auto;
+}
+
+/* ── 表格 ── */
+.v8-layout .arco-table-th {
+  background: #fafafa !important;
+  font-weight: 600;
+  color: #1d2129;
+  font-size: 13px;
+}
+
+.v8-layout .arco-table-tr:hover .arco-table-td {
+  background: #f5f8ff !important;
+}
+
+.v8-layout .arco-table-td {
+  font-size: 13px;
+  color: #4e5969;
+}
+
+.v8-layout .arco-table-container,
+.v8-layout .arco-table-content,
+.v8-layout .arco-table-content-inner,
+.v8-layout .arco-table-content-scroll,
+.v8-layout .arco-scrollbar,
+.v8-layout .arco-scrollbar-container {
+  overflow-x: hidden !important;
+  max-width: 100%;
+}
+
+.v8-layout .arco-table-element {
+  table-layout: fixed !important;
+  width: 100% !important;
+}
+
+.v8-layout .arco-table-th,
+.v8-layout .arco-table-th .arco-table-cell,
+.v8-layout .arco-table-td .arco-table-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+  word-break: keep-all;
+}
+
+.v8-layout .arco-table-th .arco-table-cell {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.v8-layout .arco-table-td .arco-table-cell .arco-space,
+.v8-layout .arco-table-td .arco-table-cell .arco-btn,
+.v8-layout .arco-table-ops {
+  white-space: nowrap !important;
+}
+
+.v8-layout .arco-table-ops.arco-space {
+  flex-wrap: nowrap !important;
+}
+
+.v8-layout .arco-table-td .arco-table-cell .arco-btn-size-small {
+  padding: 0 4px;
+}
+
+.v8-layout .arco-pagination {
+  font-size: 13px;
+}
+
+.v8-layout .arco-btn-primary {
+  border-radius: 6px;
+}
+
+.v8-layout .arco-radio-group-button .arco-radio-button {
+  border-radius: 0;
+}
+
+.v8-layout .arco-radio-group-button .arco-radio-button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.v8-layout .arco-radio-group-button .arco-radio-button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.v8-layout .status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v8-layout .status-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 表单字段说明：统一放在字段名（label）下方 */
+.v8-layout .form-field-label {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.v8-layout .form-field-label__title {
+  font-weight: inherit;
+  color: inherit;
+}
+
+.v8-layout .form-field-label__desc {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--color-text-3, #86909c);
+  white-space: normal;
+}
+
+.v8-layout .arco-form-item-label-col .form-field-label {
+  vertical-align: top;
+}
+
+@media (max-width: 768px) {
+  .v8-layout {
+    --v8-content-pad-x: 16px;
+  }
+
+  .v8-layout .chrome-tags,
+  .v8-layout .chrome-user-name {
+    display: none;
+  }
+
+  .v8-layout .chrome-nav-inner {
+    overflow-x: auto;
+  }
+
+  .v8-layout .chrome-nav a {
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+
+  .v8-layout .chrome-main {
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+
+  .v8-layout .page-search .arco-input-wrapper,
+  .v8-layout .page-search .arco-select {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* ============================================================
+ * V8 登录页（作用域 .v8-login）
+ * ============================================================ */
+.v8-login.login-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.v8-login.login-container--cover {
+  position: relative;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #e8f3ff;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.v8-login.login-container--cover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/images/login-bg.svg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: hue-rotate(var(--login-bg-hue, 0deg)) saturate(var(--login-bg-sat, 1.08));
+  pointer-events: none;
+}
+
+.v8-login.login-container--cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 72% at 8% 0%, color-mix(in srgb, var(--pro-theme-color, #1890ff) 34%, transparent), transparent 56%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, color-mix(in srgb, var(--pro-theme-color, #1890ff) 26%, transparent), transparent 54%),
+    radial-gradient(ellipse 55% 45% at 82% 16%, color-mix(in srgb, var(--pro-theme-color, #1890ff) 18%, transparent), transparent 60%);
+  mix-blend-mode: multiply;
+  opacity: 0.72;
+}
+
+.v8-login .login-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100vh;
+  padding: 80px 24px 72px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.v8-login .login-form-card {
+  width: 400px;
+  max-width: 100%;
+  padding: 36px 32px 28px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 16px 48px color-mix(in srgb, var(--pro-theme-color, #1890ff) 16%, rgba(15, 23, 42, 0.1)),
+    0 2px 8px rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
+}
+
+.v8-login .login-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.v8-login .pro-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgb(var(--primary-4)) 0%, rgb(var(--primary-5)) 50%, rgb(var(--primary-6)) 100%);
+  box-shadow: 0 2px 8px var(--pro-theme-color-soft);
+  color: #fff;
+  font-size: 16px;
+}
+
+.v8-login .login-logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-1);
+}
+
+.v8-login .login-form-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--color-text-1);
+  line-height: 34px;
+}
+
+.v8-login .login-form-sub-title {
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--color-text-3);
+  margin-top: 6px;
+  margin-bottom: 24px;
+}
+
+.v8-login .login-form-field--user {
+  margin-bottom: 24px;
+}
+
+.v8-login .login-form-field--password {
+  margin-bottom: 20px;
+}
+
+.v8-login .login-form-field.is-error.login-form-field--user,
+.v8-login .login-form-field.is-error.login-form-field--password {
+  margin-bottom: 16px;
+}
+
+.v8-login .login-form-field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: rgb(var(--red-6));
+}
+
+.v8-login .login-form-fields .arco-input-wrapper,
+.v8-login .login-form-fields .arco-input-password,
+.v8-login .login-auth-form .arco-input-wrapper,
+.v8-login .login-auth-form .arco-input-password {
+  height: 45px;
+  padding: 0 15px;
+  border: 1px solid transparent !important;
+  border-radius: 10px;
+  background: var(--color-fill-2) !important;
+  box-shadow: none !important;
+}
+
+.v8-login .login-form-fields .arco-input-wrapper.arco-input-focus,
+.v8-login .login-form-fields .arco-input-password.arco-input-focus,
+.v8-login .login-auth-form .arco-input-wrapper.arco-input-focus,
+.v8-login .login-auth-form .arco-input-password.arco-input-focus {
+  background: var(--color-bg-2) !important;
+  border: 1px solid rgb(var(--primary-6)) !important;
+  box-shadow: 0 0 0 3px rgba(var(--primary-6), 0.14) !important;
+}
+
+.v8-login .login-form-field.is-error .arco-input-wrapper,
+.v8-login .login-form-field.is-error .arco-input-password {
+  border-color: rgb(var(--red-6)) !important;
+  background: rgba(var(--red-6), 0.06) !important;
+}
+
+.v8-login .login-form-fields .arco-input-prefix {
+  margin-right: 10px;
+  color: var(--color-text-3);
+}
+
+.v8-login .login-form-password-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.v8-login .login-forget {
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-2) !important;
+}
+
+.v8-login .login-forget:hover {
+  color: rgb(var(--primary-6)) !important;
+}
+
+.v8-login .login-form-submit {
+  margin-top: 20px;
+  height: 45px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.v8-login .login-form-register-btn {
+  color: var(--color-text-2) !important;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.v8-login .login-form-register-btn:hover {
+  color: rgb(var(--primary-6)) !important;
+}
+
+.v8-login .login-form-demo-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-text-4);
+}
+
+.v8-login .login-auth-code {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 45px;
+  padding: 0 5px 0 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--color-fill-2);
+  box-sizing: border-box;
+}
+
+.v8-login .login-auth-code .arco-input-wrapper {
+  flex: 1;
+  min-width: 0;
+  height: 100% !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.v8-login .login-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-4);
+}
+
+/* ============================================================
+ * V8 扫码登录页（.qr-login）
+ * ============================================================ */
+/* ---------- 分屏式登录页（复刻数解舆情全屏背板布局） ---------- */
+.v8-login.qr-login.qr-login--split {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  color: #1f2d44;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  background:
+    radial-gradient(120% 90% at 18% 0%, rgba(150, 190, 235, 0.55) 0%, rgba(214, 229, 247, 0) 55%),
+    radial-gradient(100% 80% at 100% 100%, rgba(158, 193, 235, 0.4) 0%, rgba(231, 240, 250, 0) 60%),
+    linear-gradient(120deg, #d9e8f8 0%, #eef4fb 42%, #f4f8fd 100%);
+}
+
+/* 背景层 */
+.v8-login.qr-login .qr-login-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.v8-login.qr-login .bg-prism {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+}
+
+.v8-login.qr-login .bg-beam {
+  position: absolute;
+  top: 56%;
+  right: 6%;
+  width: 46%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(143, 180, 224, 0.35) 40%, rgba(143, 180, 224, 0));
+  filter: blur(0.4px);
+}
+
+.v8-login.qr-login .bg-dots {
+  position: absolute;
+  background-image: radial-gradient(rgba(96, 142, 200, 0.32) 1.5px, transparent 1.6px);
+  background-size: 26px 26px;
+  opacity: 0.5;
+}
+
+.v8-login.qr-login .bg-dots--a {
+  top: 6%;
+  left: 4%;
+  width: 220px;
+  height: 300px;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 90%);
+}
+
+.v8-login.qr-login .bg-dots--b {
+  bottom: 4%;
+  left: 12%;
+  width: 160px;
+  height: 200px;
+  opacity: 0.32;
+  mask-image: linear-gradient(0deg, #000 0%, transparent 90%);
+}
+
+/* 顶部品牌栏 */
+.v8-login.qr-login .qr-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px 56px;
+}
+
+.v8-login.qr-login .qr-top-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.v8-login.qr-login .qr-top-brand .pro-logo-mark {
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  border-radius: 9px;
+}
+
+.v8-login.qr-login .qr-top-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #1d3f6e;
+}
+
+.v8-login.qr-login .qr-top-slash {
+  width: 1px;
+  height: 16px;
+  background: #9db6d6;
+}
+
+.v8-login.qr-login .qr-top-edition {
+  font-size: 16px;
+  font-weight: 600;
+  color: #3d5a82;
+  letter-spacing: 1px;
+}
+
+.v8-login.qr-login .qr-top-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 14px;
+  color: #44618c;
+}
+
+.v8-login.qr-login .qr-top-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.v8-login.qr-login .qr-top-phone {
+  font-size: 15px;
+  color: #3f6399;
+}
+
+.v8-login.qr-login .qr-top-sep {
+  width: 1px;
+  height: 14px;
+  background: #b3c6df;
+}
+
+/* 主舞台 */
+.v8-login.qr-login .qr-stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 0 56px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* 左侧产品文案 */
+.v8-login.qr-login .qr-hero {
+  max-width: 560px;
+}
+
+.v8-login.qr-login .qr-hero-domain {
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #5d7ba6;
+  margin-bottom: 14px;
+}
+
+.v8-login.qr-login .qr-hero-title {
+  margin: 0;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 4px;
+  background: linear-gradient(180deg, #183c6b 0%, #2f5f99 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.v8-login.qr-login .qr-hero-subtitle {
+  margin: 18px 0 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  color: #2c4f7d;
+}
+
+.v8-login.qr-login .qr-hero-line {
+  width: 220px;
+  height: 3px;
+  margin: 26px 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #3f6fb0, rgba(63, 111, 176, 0));
+}
+
+.v8-login.qr-login .qr-hero-slogan {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: #52709c;
+}
+
+.v8-login.qr-login .qr-hero-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3f6fb0;
+  box-shadow: 0 0 0 4px rgba(63, 111, 176, 0.14);
+}
+
+/* 右侧竖版登录卡 */
+.v8-login.qr-login .qr-panel {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 34px 30px 28px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 60px rgba(41, 84, 138, 0.2), 0 2px 10px rgba(15, 23, 42, 0.05);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.v8-login.qr-login .qr-panel-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1d2d48;
+  letter-spacing: 2px;
+}
+
+.v8-login.qr-login .qr-panel-sub {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: #8a9ab2;
+  letter-spacing: 0.5px;
+}
+
+.v8-login.qr-login .qr-panel-hint {
+  margin-top: 16px;
+  min-height: 20px;
+  font-size: 12.5px;
+  color: #7c8ca6;
+}
+
+.v8-login.qr-login .qr-panel-foot {
+  margin-top: 18px;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  color: #a8b6cb;
+}
+
+/* 底部版权 */
+.v8-login.qr-login .qr-copyright {
+  position: relative;
+  z-index: 2;
+  padding: 18px 20px 22px;
+  text-align: center;
+  font-size: 12px;
+  color: #7f93b0;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 900px) {
+  .v8-login.qr-login .qr-topbar { padding: 20px 24px; }
+  .v8-login.qr-login .qr-stage {
+    flex-direction: column;
+    justify-content: center;
+    gap: 30px;
+    padding: 10px 24px 24px;
+    text-align: center;
+  }
+  .v8-login.qr-login .qr-hero { max-width: 100%; }
+  .v8-login.qr-login .qr-hero-title { font-size: 40px; }
+  .v8-login.qr-login .qr-hero-subtitle { font-size: 17px; white-space: normal; }
+  .v8-login.qr-login .qr-hero-line { margin-left: auto; margin-right: auto; }
+  .v8-login.qr-login .qr-hero-slogan { justify-content: center; }
+  .v8-login.qr-login .qr-panel { width: 320px; }
+  .v8-login.qr-login .bg-prism,
+  .v8-login.qr-login .bg-beam { opacity: 0.5; }
+}
+
+.v8-login.qr-login .qr-code-wrap {
+  position: relative;
+  width: 188px;
+  height: 188px;
+  margin: 24px auto 0;
+  cursor: pointer;
+}
+
+.v8-login.qr-login .qr-code {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(41, 84, 138, 0.12);
+}
+
+.v8-login.qr-login .qr-code svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.v8-login.qr-login .qr-code.is-scanned,
+.v8-login.qr-login .qr-code.is-confirmed {
+  position: relative;
+}
+
+.v8-login.qr-login .qr-code-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #3f6fb0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.v8-login.qr-login .qr-mask-icon {
+  font-size: 40px;
+}
+
+.v8-login.qr-login .qr-code-expired {
+  flex-direction: column;
+  gap: 10px;
+  color: #86909c;
+  font-size: 14px;
+  background: #f7f8fa;
+  border: 1px dashed #c9cdd4;
+  box-shadow: none;
+}
+
+.v8-login.qr-login .qr-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #3f6fb0;
+  pointer-events: none;
+}
+
+.v8-login.qr-login .qr-corner--tl { top: -4px; left: -4px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+.v8-login.qr-login .qr-corner--tr { top: -4px; right: -4px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+.v8-login.qr-login .qr-corner--bl { bottom: -4px; left: -4px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+.v8-login.qr-login .qr-corner--br { bottom: -4px; right: -4px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+
+.v8-login.qr-login .qr-demo-btn {
+  margin-top: 14px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  color: #3f6fb0;
+  cursor: pointer;
+}
+
+.v8-login.qr-login .qr-demo-btn:hover { text-decoration: underline; }
+.v8-login.qr-login .qr-demo-btn:disabled { color: #a9aeb8; cursor: not-allowed; text-decoration: none; }
+
+/* ============================================================
+ * V8 顶栏：消息铃铛 / 用户区 / 下拉图标
+ * ============================================================ */
+.v8-layout .chrome-bell-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #4e5969;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+
+.v8-layout .chrome-bell-btn:hover {
+  background: #f5f6f8;
+  color: var(--v8-nav-blue, #1677ff);
+}
+
+/* 用户区：头像+姓名（点击进个人设置）与右侧小箭头（点击出菜单）组合 */
+.v8-layout .chrome-user-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.v8-layout button.chrome-user {
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+
+.v8-layout .chrome-user-caret-btn {
+  width: 22px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #86909c;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.v8-layout .chrome-user-caret-btn:hover {
+  background: #f5f6f8;
+  color: var(--v8-nav-blue, #1677ff);
+}
+
+.v8-layout .chrome-doption-icon {
+  margin-right: 8px;
+}
+
+/* ============================================================
+ * V8 强制水印：覆盖业务区全高、不拦截交互
+ * ============================================================ */
+.v8-layout .v8-watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+  background-repeat: repeat;
+}
+
+/* ============================================================
+ * V8 受限态页
+ * ============================================================ */
+.v8-restricted {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--v8-page-bg, #f0f2f5);
+  padding: 24px;
+}
+
+.v8-restricted .v8-restricted-card {
+  width: 460px;
+  max-width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--v8-card-shadow);
+  padding: 48px 40px 40px;
+  text-align: center;
+}
+
+.v8-restricted .v8-restricted-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: #fff;
+  background: linear-gradient(135deg, #ffb65c, #ff7d00);
+}
+
+.v8-restricted .v8-restricted-icon.is-forbidden {
+  background: linear-gradient(135deg, #6aa1ff, #1677ff);
+}
+
+.v8-restricted .v8-restricted-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d2129;
+}
+
+.v8-restricted .v8-restricted-desc {
+  margin: 0 0 28px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #86909c;
+}
+
+.v8-restricted .v8-restricted-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+ * V8 通用：外链/标签/描述列表等增强
+ * ============================================================ */
+.v8-layout .v8-link-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.v8-layout .v8-section-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: #165dff;
+  font-size: 13px;
+}
+
+.v8-layout .v8-kpi-clickable {
+  cursor: pointer;
+}
+
+.v8-layout .v8-todo-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f7f8fa;
+}
+
+.v8-layout .v8-todo-item:last-child {
+  border-bottom: none;
+}
+
+.v8-layout .v8-todo-meta {
+  font-size: 12px;
+  color: #a9aeb8;
+  margin-top: 2px;
+}
+
+/* ── 通用筛选栅格 ─────────────────────────────── */
+.v8-layout .v8-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.v8-layout .v8-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.v8-layout .v8-filter-item label {
+  font-size: 13px;
+  color: #4e5969;
+}
+
+.v8-layout .v8-filter-actions {
+  /* 始终落在当前行最右一列，与筛选项控件底边对齐 */
+  grid-column-start: -2;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+@media (max-width: 1200px) {
+  .v8-layout .v8-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .v8-layout .v8-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

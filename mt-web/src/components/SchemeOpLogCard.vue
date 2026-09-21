@@ -34,8 +34,8 @@ const props = defineProps<{
 const columns = [
   { title: '操作类型', dataIndex: 'action', slotName: 'action', width: 100 },
   { title: '操作内容', dataIndex: 'summary', ellipsis: true, tooltip: true, minWidth: 200 },
-  { title: '操作人', dataIndex: 'operator', width: 120 },
-  { title: '操作时间', dataIndex: 'operatedAt', width: 180 },
+  { title: '操作人', dataIndex: 'operator', width: 110 },
+  { title: '操作时间', dataIndex: 'operatedAt', width: 170, cellStyle: { whiteSpace: 'nowrap' } },
 ]
 
 const rows = computed(() => props.logs || [])
@@ -50,6 +50,7 @@ function actionColor(action: SchemeOpAction) {
   if (action === 'enable') return 'green'
   if (action === 'disable') return 'orangered'
   if (action === 'create') return 'arcoblue'
+  if (action === 'download') return 'purple'
   return 'gray'
 }
 </script>

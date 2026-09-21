@@ -7,8 +7,9 @@
         <span class="mt-topbar-system">运营管理系统</span>
       </div>
       <div class="mt-topbar-right">
-        <button type="button" class="mt-topbar-action" title="返回首页" @click="router.push('/stats')">
-          <IconHome :size="18" />
+        <button type="button" class="mt-topbar-v8-entry" title="进入 V8 机构端" @click="goV8Org">
+          <IconApps :size="14" />
+          <span>V8机构端</span>
         </button>
         <span class="mt-topbar-action" title="消息">
           <a-badge :count="3" :dot="false" :max-count="99">
@@ -69,6 +70,11 @@
             <a-menu-item key="/push/schemes">推送方案管理</a-menu-item>
             <a-menu-item key="/push/push-data">推送数据明细</a-menu-item>
           </a-sub-menu>
+          <a-sub-menu key="monitorGroup">
+            <template #icon><IconExclamationCircleFill /></template>
+            <template #title>监控告警</template>
+            <a-menu-item key="/monitor/rules">告警规则</a-menu-item>
+          </a-sub-menu>
           <a-sub-menu key="settingsGroup">
             <template #icon><IconSettings /></template>
             <template #title>系统设置</template>
@@ -79,9 +85,6 @@
 
       <div class="mt-main">
         <main class="mt-content">
-          <div v-if="!embedPageCrumb" class="crumb">
-            运营工作台<span class="crumb-sep">/</span><span class="crumb-current">{{ currentTitle }}</span>
-          </div>
           <router-view />
         </main>
       </div>
@@ -93,12 +96,13 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  IconApps,
   IconBarChart,
   IconDownload,
   IconDown,
   IconExport,
+  IconExclamationCircleFill,
   IconFile,
-  IconHome,
   IconNotification,
   IconSend,
   IconSettings,
@@ -110,8 +114,6 @@ import { useUserStore } from '@/store/user'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const currentTitle = computed(() => (route.meta.title as string) || '')
-const embedPageCrumb = computed(() => route.path.startsWith('/stats'))
 const userInitial = computed(() => (userStore.userInfo?.name || '运').slice(0, 1))
 const selectedKeys = computed(() => {
   if (route.path.startsWith('/org/open')) return ['/org/open']
@@ -127,10 +129,11 @@ const selectedKeys = computed(() => {
   if (route.path.startsWith('/push/push-data')) return ['/push/push-data']
   if (route.path.startsWith('/push/schemes')) return ['/push/schemes']
   if (route.path.startsWith('/push')) return ['/push/schemes']
+  if (route.path.startsWith('/monitor/rules')) return ['/monitor/rules']
   if (route.path.startsWith('/stats')) return ['/stats']
   return [route.path]
 })
-const openKeys = ref<string[]>(['orgGroup', 'standardGroup', 'pushGroup', 'settingsGroup'])
+const openKeys = ref<string[]>(['orgGroup', 'standardGroup', 'pushGroup', 'monitorGroup', 'settingsGroup'])
 
 watch(
   () => route.meta.group,
@@ -141,6 +144,11 @@ watch(
 
 function onMenu(key: string) {
   router.push(key)
+}
+
+// 跳转 V8 机构端：未登录时由 v8 路由守卫引导至其登录页，登录后进入数据概览首页
+function goV8Org() {
+  router.push('/v8/overview')
 }
 
 function onLogout() {
