@@ -8,7 +8,7 @@
       <h2 class="v8-restricted-title">{{ meta.title }}</h2>
       <p class="v8-restricted-desc">{{ meta.desc }}</p>
       <div class="v8-restricted-actions">
-        <a-button v-if="type === 'forbidden'" type="primary" @click="goOverview">返回数据概览</a-button>
+        <a-button v-if="type === 'forbidden'" type="primary" @click="goOverview">返回首页</a-button>
         <a-button v-else @click="goLogin">重新登录</a-button>
         <a-button type="text" @click="goMt">进入 MT 管理端</a-button>
       </div>
