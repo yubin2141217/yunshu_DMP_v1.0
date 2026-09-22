@@ -563,7 +563,7 @@ interface FallbackSeed {
 const fallbackSeeds: FallbackSeed[] = [
   {
     id: 'st-fb-01',
-    name: '清博智能舆情数据 HTTP 推送方案',
+    name: '清博智能榆林市舆情数据推送',
     supplierId: 's1',
     supplierName: '清博智能',
     scope: 'org',
@@ -576,7 +576,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-02',
-    name: '智慧星光网信办报送字段方案',
+    name: '智慧星光榆林市网信报送数据推送',
     supplierId: 's2',
     supplierName: '智慧星光',
     scope: 'org',
@@ -591,7 +591,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-03',
-    name: '数美科技库表增量抽取方案',
+    name: '数美科技榆林市舆情库表增量数据投递',
     supplierId: 's3',
     supplierName: '数美科技',
     scope: 'org',
@@ -603,7 +603,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-04',
-    name: '百度舆情 API 实时推送方案',
+    name: '百度舆情榆林市舆情数据推送',
     supplierId: 's4',
     supplierName: '百度舆情',
     scope: 'org',
@@ -618,7 +618,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-05',
-    name: '清博智能消息队列接入方案',
+    name: '清博智能榆林市舆情数据订阅',
     supplierId: 's1',
     supplierName: '清博智能',
     scope: 'org',
@@ -630,7 +630,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-06',
-    name: '智慧星光文件批量投递方案',
+    name: '智慧星光榆林市舆情文件批量投递',
     supplierId: 's2',
     supplierName: '智慧星光',
     scope: 'org',
@@ -642,7 +642,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-07',
-    name: '全网舆情标准接入方案（全局）',
+    name: '云数中台全局舆情数据接入',
     scope: 'global',
     accessMethod: 'http_post',
     summary: '全局通用字段口径，未单独绑定供数方的机构默认按本方案接入与字段校验。',
@@ -653,7 +653,7 @@ const fallbackSeeds: FallbackSeed[] = [
   },
   {
     id: 'st-fb-08',
-    name: '百度舆情短视频数据接入方案',
+    name: '百度舆情榆林市短视频舆情数据推送',
     supplierId: 's4',
     supplierName: '百度舆情',
     scope: 'org',
@@ -745,7 +745,7 @@ function buildFallbackStandards(): Standard[] {
       type: seed.accessMethod === 'http_post' ? 'API' : 'Word',
       publishedAt: seed.publishedAt,
       scope: seed.scope || 'org',
-      orgName: seed.scope === 'global' ? '' : '某市网信办',
+      orgName: seed.scope === 'global' ? '' : '榆林市网信办',
       supplierId: seed.supplierId,
       supplierName: seed.supplierName,
       schemeNo: 10001 + idx,
@@ -763,7 +763,7 @@ function buildFallbackStandards(): Standard[] {
 }
 
 export const v8Mock = {
-  orgName: '某市网信办',
+  orgName: '榆林市网信办',
   paginate,
   configuredSuppliers,
   statsRows(range: TimeRange): StatsRow[] {

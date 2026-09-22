@@ -599,8 +599,8 @@ function makePushStats(success: number, fail: number, lastPushCount: number, las
 const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps1', schemeNo: 20001, name: '机构回推-HTTP标准', status: 'enabled', remark: '默认增量回推',
-    receiverType: 'mt', orgId: 'o1', orgName: '陕西省网信办', orgStatUnit: '陕西大区', orgSalesName: '张三三',
-    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['云数中台全局接入方案'], channelType: 'http',
+    receiverType: 'mt', orgId: 'o1', orgName: '榆林市互联网信息办公室', orgStatUnit: '陕西大区', orgSalesName: '张三三',
+    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['清博智能榆林市舆情数据推送'], channelType: 'http',
     httpConfig: { ...emptyHttpConfig(), endpointUrl: 'https://org-recv.example.gov/api/v1/ingest', authType: 'token', token: 'demo-token', authHeaderName: 'Authorization', retry: 3 },
     pushMode: 'incremental', scheduleType: 'realtime', cronExpr: '0 * * * *', intervalMinutes: 30, batchLimit: 500,
     stats: makePushStats(12840, 26, 486, '2026-09-11 08:30:00', 320), updatedAt: '2026-09-08 10:00:00',
@@ -608,7 +608,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps2', schemeNo: 20002, name: '融媒体-MQ异步', status: 'enabled', remark: '每日凌晨全量',
     receiverType: 'third', orgId: 'ro1', orgName: '陕西省融媒第三方接收端', orgStatUnit: '陕西大区', orgSalesName: '王小明',
-    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['云数中台全局接入方案'], channelType: 'mq',
+    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['清博智能榆林市舆情数据推送'], channelType: 'mq',
     mqConfig: { ...emptyMqConfig(), mqType: 'kafka', brokers: 'mq.example.gov:9092', topic: 'yunshu.org.push', authType: 'none', retry: 2 },
     pushMode: 'full', scheduleType: 'cron', cronExpr: '0 2 * * *', intervalMinutes: 60, batchLimit: 1000,
     filterRules: [{ id: 'fr-seed-1', field: 'title', op: 'contains', value: '舆情' }],
@@ -618,7 +618,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps3', schemeNo: 20003, name: '网安协查-HTTP推送', status: 'enabled', remark: '协查任务回传',
     receiverType: 'third', orgId: 'ro2', orgName: '网安协查第三方平台', orgStatUnit: '陕西大区', orgSalesName: '张三三',
-    dataSourceType: 'standard', standardIds: ['st3'], standardNames: ['舆情实时推送方案'], channelType: 'http',
+    dataSourceType: 'standard', standardIds: ['st3'], standardNames: ['清博智能西安市委宣传部舆情数据推送'], channelType: 'http',
     httpConfig: { ...emptyHttpConfig(), endpointUrl: 'https://sec-recv.example.gov/api/push', authType: 'token', token: 'demo-sec-token', authHeaderName: 'X-Token', retry: 2 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 15, batchLimit: 200,
     stats: makePushStats(2860, 330, 120, '2026-09-11 09:10:00', 86), updatedAt: '2026-09-09 11:00:00',
@@ -626,7 +626,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps4', schemeNo: 20004, name: '宣传部-定时全量', status: 'enabled', remark: '每日全量归档推送',
     receiverType: 'mt', orgId: 'o2', orgName: '西安市委宣传部', orgStatUnit: '陕西大区', orgSalesName: '李四五',
-    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['云数中台全局接入方案'], channelType: 'http',
+    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['清博智能榆林市舆情数据推送'], channelType: 'http',
     httpConfig: { ...emptyHttpConfig(), endpointUrl: 'https://xcb-recv.example.gov/api/archive', authType: 'token', token: 'demo-xcb-token', authHeaderName: 'Authorization', retry: 1 },
     pushMode: 'full', scheduleType: 'cron', cronExpr: '0 3 * * *', intervalMinutes: 60, batchLimit: 2000,
     stats: makePushStats(9640, 18, 2000, '2026-09-11 03:05:00', 45), updatedAt: '2026-09-08 18:40:00',
@@ -634,7 +634,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps5', schemeNo: 20005, name: '咸阳网信-增量回推', status: 'enabled', remark: '区县汇总增量',
     receiverType: 'mt', orgId: 'o4', orgName: '咸阳市网信办', orgStatUnit: '陕西大区', orgSalesName: '赵六六',
-    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['云数中台全局接入方案'], channelType: 'http',
+    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['清博智能榆林市舆情数据推送'], channelType: 'http',
     httpConfig: { ...emptyHttpConfig(), endpointUrl: 'https://xy-recv.example.gov/api/v1/push', authType: 'appkey', appKey: 'xy-demo-key', appSecret: 'xy-demo-secret', retry: 2 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 20, batchLimit: 300,
     stats: makePushStats(6120, 31, 210, '2026-09-13 10:20:00', 112), updatedAt: '2026-09-12 09:30:00',
@@ -642,7 +642,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps6', schemeNo: 20006, name: '雁塔融媒-Kafka推送', status: 'enabled', remark: '融媒内容分发',
     receiverType: 'mt', orgId: 'o3', orgName: '西安市雁塔区融媒体中心', orgStatUnit: '陕西大区', orgSalesName: '王小明',
-    dataSourceType: 'standard', standardIds: ['st5'], standardNames: ['西安市委宣传部专属推送方案'], channelType: 'mq',
+    dataSourceType: 'standard', standardIds: ['st5'], standardNames: ['智慧星光西安市委宣传部宣传口径数据推送'], channelType: 'mq',
     mqConfig: { ...emptyMqConfig(), mqType: 'kafka', brokers: 'kafka-yt.example.gov:9092', topic: 'yt.media.push', authType: 'sasl', username: 'yt_push', password: 'demo', retry: 3 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 10, batchLimit: 400,
     stats: makePushStats(15880, 64, 380, '2026-09-13 11:05:00', 56), updatedAt: '2026-09-11 14:00:00',
@@ -657,8 +657,8 @@ const seedSchemes: PushScheme[] = [
   }),
   normalizeScheme({
     id: 'ps8', schemeNo: 20008, name: '省局-RocketMQ快推', status: 'enabled', remark: '高优实时通道',
-    receiverType: 'mt', orgId: 'o1', orgName: '陕西省网信办', orgStatUnit: '陕西大区', orgSalesName: '张三三',
-    dataSourceType: 'standard', standardIds: ['st3'], standardNames: ['舆情实时推送方案'], channelType: 'mq',
+    receiverType: 'mt', orgId: 'o1', orgName: '榆林市互联网信息办公室', orgStatUnit: '陕西大区', orgSalesName: '张三三',
+    dataSourceType: 'standard', standardIds: ['st3'], standardNames: ['清博智能西安市委宣传部舆情数据推送'], channelType: 'mq',
     mqConfig: { ...emptyMqConfig(), mqType: 'rocketmq', nameServer: 'rmq.example.gov:9876', topic: 'SX_YX_PUSH', authType: 'none', retry: 2 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 5, batchLimit: 150,
     stats: makePushStats(22400, 88, 140, '2026-09-13 11:40:00', 210), updatedAt: '2026-09-12 20:10:00',
@@ -674,7 +674,7 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps10', schemeNo: 20010, name: '咸阳-MQ旁路', status: 'disabled', remark: '灰度通道已停',
     receiverType: 'mt', orgId: 'o4', orgName: '咸阳市网信办', orgStatUnit: '陕西大区', orgSalesName: '赵六六',
-    dataSourceType: 'standard', standardIds: ['st1', 'st3'], standardNames: ['云数中台全局接入方案', '舆情实时推送方案'], channelType: 'mq',
+    dataSourceType: 'standard', standardIds: ['st1', 'st3'], standardNames: ['清博智能榆林市舆情数据推送', '清博智能西安市委宣传部舆情数据推送'], channelType: 'mq',
     mqConfig: { ...emptyMqConfig(), mqType: 'bmq', brokers: 'bmq.xy.example.gov:9092', topic: 'xy.bypass', authType: 'none', retry: 1 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 45, batchLimit: 250,
     stats: makePushStats(1480, 55, 0, '2026-08-20 15:00:00', 0), updatedAt: '2026-08-21 10:00:00',
@@ -682,15 +682,15 @@ const seedSchemes: PushScheme[] = [
   normalizeScheme({
     id: 'ps11', schemeNo: 20011, name: '宣传部-增量补推', status: 'enabled', remark: '失败重推专用',
     receiverType: 'mt', orgId: 'o2', orgName: '西安市委宣传部', orgStatUnit: '陕西大区', orgSalesName: '李四五',
-    dataSourceType: 'standard', standardIds: ['st5'], standardNames: ['西安市委宣传部专属推送方案'], channelType: 'http',
+    dataSourceType: 'standard', standardIds: ['st5'], standardNames: ['智慧星光西安市委宣传部宣传口径数据推送'], channelType: 'http',
     httpConfig: { ...emptyHttpConfig(), endpointUrl: 'https://xcb-recv.example.gov/api/retry', authType: 'token', token: 'xcb-retry', retry: 5, retryIntervalMs: 2000 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 60, batchLimit: 100,
     stats: makePushStats(780, 120, 36, '2026-09-13 09:50:00', 48), updatedAt: '2026-09-10 11:25:00',
   }),
   normalizeScheme({
     id: 'ps12', schemeNo: 20012, name: '全局-BMQ广播', status: 'enabled', remark: '多机构共享广播主题',
-    receiverType: 'mt', orgId: 'o1', orgName: '陕西省网信办', orgStatUnit: '陕西大区', orgSalesName: '张三三',
-    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['云数中台全局接入方案'], channelType: 'mq',
+    receiverType: 'mt', orgId: 'o1', orgName: '榆林市互联网信息办公室', orgStatUnit: '陕西大区', orgSalesName: '张三三',
+    dataSourceType: 'standard', standardIds: ['st1'], standardNames: ['清博智能榆林市舆情数据推送'], channelType: 'mq',
     mqConfig: { ...emptyMqConfig(), mqType: 'bmq', brokers: 'bmq.global.example.gov:9092', topic: 'yunshu.broadcast', authType: 'ssl', certPath: '/certs/push-client.pem', retry: 2 },
     pushMode: 'incremental', scheduleType: 'interval', intervalMinutes: 8, batchLimit: 600,
     stats: makePushStats(18920, 47, 520, '2026-09-13 11:55:00', 180), updatedAt: '2026-09-13 08:15:00',
@@ -732,7 +732,7 @@ const seedReceivers: PushReceiverOrg[] = [
     code: 'TP-SAFE-02',
     name: '网安协查第三方平台',
     relatedMtOrgId: 'o1',
-    relatedMtOrgName: '陕西省网信办',
+    relatedMtOrgName: '榆林市互联网信息办公室',
     contactName: '王对接',
     contactPhone: '13900002222',
     contactEmail: '',

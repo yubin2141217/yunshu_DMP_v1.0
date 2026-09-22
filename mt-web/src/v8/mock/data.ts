@@ -382,7 +382,7 @@ export const specVersionsSeed: SpecVersion[] = [
 
 export const orgInfoSeed: OrgInfo = {
   id: ORG_ID,
-  name: '某市互联网信息办公室',
+  name: '榆林市互联网信息办公室',
   code: 'WXB-330100',
   industry: '政府 / 网信',
   region: '浙江省 杭州市',

@@ -26,8 +26,8 @@ export const V8_NAV: V8NavNode[] = [
   { key: 'dataCheck', title: '接入日志', path: '/v8/data-check' },
   { key: 'suppliers', title: '供数方管理', path: '/v8/suppliers' },
   { key: 'spec', title: '接入规范', path: '/v8/spec' },
-  { key: 'monitor', title: '供数监控', path: '/v8/monitor' },
-  // 推送回流（pushback）本期主导航隐藏：路由与权限点保留，供数据概览推送对账分区下钻
+  // 本期主导航隐藏项：供数监控（monitor）与推送回流（pushback）——路由与权限点均保留，
+  // monitor 仍可由消息中心告警跳转进入，pushback 供数据概览推送对账分区下钻
   {
     key: 'system',
     title: '系统设置',
