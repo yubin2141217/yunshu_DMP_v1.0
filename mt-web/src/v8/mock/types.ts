@@ -42,8 +42,8 @@ export interface V8UserInfo {
 }
 
 // ── 概览 ─────────────────────────────────────────────────────
-/** 数据概览全局时间范围（all=历时全量） */
-export type OverviewRange = 'today' | '3d' | '1w' | '1m' | 'all'
+/** 数据概览全局时间范围：今日 / 近3天 / 近7天 / 近1个月 / 近2个月 / 近3个月 */
+export type OverviewRange = 'today' | '3d' | '7d' | '1m' | '2m' | '3m'
 
 export interface OverviewTrendPoint {
   date: string
@@ -51,13 +51,29 @@ export interface OverviewTrendPoint {
   reject: number
 }
 
+/** 趋势点内单个供方在此时段的入库 / 拒收明细（簇状展示用） */
+export interface OverviewTrendSupplierPoint {
+  supplierId: string
+  supplierName: string
+  inbound: number
+  reject: number
+}
+
+/** 随时间范围联动的趋势点（含按供方拆分明细） */
+export interface OverviewTrendSeriesPoint {
+  date: string
+  inbound: number
+  reject: number
+  suppliers: OverviewTrendSupplierPoint[]
+}
+
 /** 接入数据量趋势的横坐标粒度 */
 export type TrendGranularity = 'hour' | '12h' | 'day' | 'month'
 
-/** 随时间范围联动的趋势序列（粒度由所选时间范围 / 历时全量下的按天按月切换决定） */
+/** 随时间范围联动的趋势序列（粒度由所选时间范围决定，点内含按供方拆分明细） */
 export interface OverviewTrendSeries {
   granularity: TrendGranularity
-  points: OverviewTrendPoint[]
+  points: OverviewTrendSeriesPoint[]
 }
 
 /** 拒收原因分布项（随全局时间范围） */

@@ -9,6 +9,7 @@ import type {
   DataEntryQuery,
   Overview,
   OverviewRange,
+  OverviewRejectReason,
   PageResult,
   StatsQuery,
   StatsRow,
@@ -18,12 +19,15 @@ import type {
 } from '@/v8/mock/types'
 
 /** 数据概览（含健康度/环比/拒收率/推送成功率/待办/趋势及 V1.1 五分区聚合） */
-export async function getOverview(
-  range: OverviewRange = '1w',
-  granularity: 'day' | 'month' = 'day',
-): Promise<Overview> {
+export async function getOverview(range: OverviewRange = '7d'): Promise<Overview> {
   await delay()
-  return v8Service.overview(currentScope(), range, granularity)
+  return v8Service.overview(currentScope(), range)
+}
+
+/** 拒收原因分布（近 7 天口径，供数方查看页用） */
+export async function getRejectReasons(): Promise<OverviewRejectReason[]> {
+  await delay()
+  return v8Service.rejectReasons(currentScope())
 }
 
 /** 供数统计：汇总指标 */

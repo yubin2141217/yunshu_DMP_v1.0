@@ -266,7 +266,7 @@
             />
           </a-descriptions-item>
           <a-descriptions-item label="今日入库量">{{ currentSupplier.todayCount }} 条</a-descriptions-item>
-          <a-descriptions-item label="今日拒收率">{{ (currentSupplier.todayRejectRate * 100).toFixed(2) }}%</a-descriptions-item>
+          <a-descriptions-item label="今日拒收率">{{ currentSupplier.todayRejectRate }}%</a-descriptions-item>
           <a-descriptions-item label="最近推送时间">{{ currentSupplier.lastPushAt }}</a-descriptions-item>
           <a-descriptions-item label="信息更新时间">{{ currentSupplier.updatedAt }}</a-descriptions-item>
         </a-descriptions>

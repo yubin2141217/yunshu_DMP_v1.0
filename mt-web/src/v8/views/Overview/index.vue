@@ -3,16 +3,17 @@
     <!-- 页头：标题 + 全局时间范围 + 摘要 -->
     <div class="workplace-header">
       <div>
-        <h2 class="workplace-title">数据概览</h2>
-        <p class="workplace-desc">数据接入情况统计分析总览，包括入库数据量、供数方等统计总览指标以及运营管理相关的数据概览。</p>
+        <h2 class="workplace-title">首页</h2>
+        <p class="workplace-desc">数据接入情况统计分析总览，包括入库数据量、供数方等统计总览指标，数据随所选时间范围联动。</p>
       </div>
       <div class="v8-overview-head-right">
         <a-radio-group v-model:model-value="range" type="button" @change="onRangeChange">
           <a-radio value="today">今日</a-radio>
           <a-radio value="3d">近3天</a-radio>
-          <a-radio value="1w">近1周</a-radio>
+          <a-radio value="7d">近7天</a-radio>
           <a-radio value="1m">近1月</a-radio>
-          <a-radio value="all">历史全量</a-radio>
+          <a-radio value="2m">近2月</a-radio>
+          <a-radio value="3m">近3月</a-radio>
         </a-radio-group>
         <div class="v8-summary-stats">
           <span>更新时间<strong>{{ lastInbound }}</strong></span>
@@ -51,7 +52,7 @@
                     </div>
                     <div class="kpi-value">
                       {{ item.value }}
-                      <div v-if="item.key === 'total' && range !== 'all' && range !== 'today'" class="kpi-compare">
+                      <div v-if="item.key === 'total' && range !== 'today'" class="kpi-compare">
                         <span v-for="c in inboundCompare" :key="c.label" class="kpi-compare-item">
                           {{ c.label }}
                           <component
@@ -76,7 +77,8 @@
         <section class="v8-zone">
           <div class="v8-zone-head">
             <span class="v8-zone-title">接入分析</span>
-            <span class="v8-zone-hint">本机构数据接入汇总分析，数据随上方时间范围联动（除供数方状态分布外）</span>
+            <span class="v8-zone-hint">本机构数据接入汇总分析，数据随上方时间范围联动</span>
+            <a-button type="text" size="mini" @click="goDataCheck()">查看接入明细</a-button>
           </div>
           <!-- 上排：突出展示，趋势宽度对齐 KPI 第 3 张「供数方健康度」右边界（整行 60%），两图等高加高 -->
           <a-row :gutter="[16, 16]">
@@ -85,20 +87,10 @@
                 <div class="v8-card-head">
                   <span class="v8-card-title-tip">
                     <span class="section-title">接入数据量趋势</span>
-                    <a-tooltip content="展示所选时间范围内入库量与拒收量的变化趋势，随上方时间范围联动；历史全量下可切换按天/按月查看。" mini>
+                    <a-tooltip content="按所选时间范围以折线图展示各供数方的入库量，一位供数方一条线，便于对比供方之间的数据量差异与走势，随上方时间范围联动。" mini>
                       <IconQuestionCircle class="v8-card-title-info" />
                     </a-tooltip>
                   </span>
-                  <a-radio-group
-                    v-if="range === 'all'"
-                    v-model:model-value="allGranularity"
-                    type="button"
-                    size="small"
-                    @change="load"
-                  >
-                    <a-radio value="day">按天</a-radio>
-                    <a-radio value="month">按月</a-radio>
-                  </a-radio-group>
                 </div>
                 <V8Chart v-if="trendPoints.length" :option="trendOption" height="340px" />
                 <div v-else class="v8-chart-empty v8-chart-empty-lg"><a-empty description="暂无趋势数据" /></div>
@@ -125,132 +117,6 @@
               </a-card>
             </a-col>
           </a-row>
-          <!-- 下排：常规高度 -->
-          <a-row :gutter="[16, 16]">
-            <a-col :xs="24" :lg="12">
-              <a-card class="content-card v8-panel-card" :bordered="false">
-                <div class="v8-card-head v8-card-head--inline">
-                  <span class="section-title">供数方状态分布</span>
-                  <span class="v8-card-head-sub">按供方实时接入状态统计</span>
-                </div>
-                <V8Chart :option="healthOption" height="240px" @chart-click="onHealthClick" />
-              </a-card>
-            </a-col>
-            <a-col :xs="24" :lg="12">
-              <a-card class="content-card v8-panel-card" :bordered="false">
-                <div class="v8-card-head v8-card-head--inline">
-                  <span class="v8-card-title-tip">
-                    <span class="section-title">拒收原因分布</span>
-                    <span class="v8-card-head-sub">接入失败原因统计分析</span>
-                    <a-tooltip content="按所选时间范围统计各拒收原因的分布情况；点击图块可查看拒收明细。" mini>
-                      <IconQuestionCircle class="v8-card-title-info" />
-                    </a-tooltip>
-                  </span>
-                </div>
-                <V8Chart
-                  v-if="rejectReasonTotal"
-                  :option="rejectReasonOption"
-                  height="240px"
-                  class="v8-click-chart"
-                  @chart-click="goStatsReject"
-                />
-                <div v-else class="v8-chart-empty v8-chart-empty-sm"><a-empty description="暂无拒收" /></div>
-              </a-card>
-            </a-col>
-          </a-row>
-        </section>
-
-        <!-- 分区② 运营管理（运营信息置顶 + 待办 + 动态） -->
-        <section class="v8-zone">
-          <div class="v8-zone-head">
-            <span class="v8-zone-title">运营管理</span>
-            <span class="v8-zone-hint">本机构运营管理情况概览，数据以累计/静态为主，不随上方时间范围联动</span>
-          </div>
-
-          <!-- 运营信息（置顶）：配额(28%) + 接入方案(32%) 合计 60% 与趋势右边界对齐，来源站点 40% -->
-          <a-row :gutter="[16, 16]">
-            <a-col :xs="24" class="v8-col-28">
-              <a-card class="content-card v8-panel-card v8-stretch-card" :bordered="false">
-                <div class="v8-card-head"><span class="section-title">机构配额用量</span></div>
-                <div class="v8-quota-num">
-                  {{ num(summary.quota.used) }}
-                  <span class="v8-quota-sep">/</span>
-                  <span class="v8-quota-total">{{ num(summary.quota.total) }}</span>
-                </div>
-                <a-progress
-                  :percent="quotaRatio"
-                  :color="quotaColor"
-                  :stroke-width="10"
-                  :show-text="false"
-                  style="margin: 12px 0 8px"
-                />
-                <div class="v8-quota-sub" :style="{ color: quotaColor }">
-                  已用 {{ quotaPercent }}%{{ quotaPercent >= 95 ? '，配额即将用尽，请联系运营扩容' : quotaPercent >= 80 ? '，用量较高，请关注' : '，用量正常' }}
-                </div>
-              </a-card>
-            </a-col>
-            <a-col :xs="24" class="v8-col-32">
-              <a-card class="content-card v8-panel-card v8-stretch-card" :bordered="false">
-                <div class="v8-card-head">
-                  <span class="section-title">接入方案</span>
-                  <a-button type="text" size="small" @click="$router.push('/v8/spec')">全部 &gt;</a-button>
-                </div>
-                <a-empty v-if="!schemes.length" class="v8-scheme-empty" description="暂无接入方案" />
-                <ul v-else class="v8-scheme-list">
-                  <li v-for="s in recentSchemes" :key="s.id" class="v8-scheme-item">
-                    <div class="v8-scheme-name" :title="s.name">{{ s.name }}</div>
-                    <div class="v8-scheme-meta">
-                      <a-tag size="small" :color="s.scope === 'org' ? 'arcoblue' : 'green'">
-                        {{ s.scope === 'org' ? '机构' : '全局' }}
-                      </a-tag>
-                      <span>{{ s.fields?.length || 0 }} 字段</span>
-                      <span class="v8-scheme-date">{{ (s.publishedAt || '').slice(0, 10) }}</span>
-                    </div>
-                  </li>
-                </ul>
-              </a-card>
-            </a-col>
-            <a-col :xs="24" class="v8-col-40">
-              <a-card class="content-card v8-panel-card v8-stretch-card" :bordered="false">
-                <div class="v8-card-head"><span class="section-title">来源平台 TOP 5</span></div>
-                <V8Chart v-if="summary.siteDist.length" :option="siteOption" height="200px" />
-                <div v-else class="v8-chart-empty v8-chart-empty-xs"><a-empty description="暂无来源数据" /></div>
-              </a-card>
-            </a-col>
-          </a-row>
-
-          <!-- 动态：最近入库动态 60% 与趋势右边界对齐 + 告警类型分布 40% -->
-          <a-row :gutter="[16, 16]">
-            <a-col :xs="24" class="v8-col-60">
-              <a-card class="content-card v8-panel-card v8-stretch-card" :bordered="false">
-                <div class="v8-card-head">
-                  <span class="section-title">最近入库动态</span>
-                  <a-button type="text" size="small" @click="$router.push('/v8/data-check')">入库核对 &gt;</a-button>
-                </div>
-                <a-empty v-if="!summary.recentEntries.length" description="暂无入库动态" />
-                <ul v-else class="v8-feed-list">
-                  <li v-for="e in summary.recentEntries" :key="e.id" class="v8-feed-item">
-                    <span class="v8-feed-time">{{ e.inboundAt.slice(5, 16) }}</span>
-                    <a-tag size="small" color="arcoblue" class="v8-feed-supplier">{{ e.supplierName }}</a-tag>
-                    <span class="v8-feed-title" :title="e.title">{{ e.title }}</span>
-                  </li>
-                </ul>
-              </a-card>
-            </a-col>
-            <a-col :xs="24" class="v8-col-40">
-              <a-card class="content-card v8-panel-card v8-stretch-card" :bordered="false">
-                <div class="v8-card-head">
-                  <span class="section-title">告警类型分布</span>
-                </div>
-                <V8Chart
-                  :option="alertTypeOption"
-                  height="264px"
-                  class="v8-alert-type-chart"
-                  @chart-click="onAlertTypeClick"
-                />
-              </a-card>
-            </a-col>
-          </a-row>
         </section>
       </template>
     </a-spin>
@@ -264,45 +130,31 @@ import {
   IconArrowDown,
   IconArrowUp,
   IconBarChart,
-  IconCheckCircle,
   IconExclamationCircle,
   IconHeart,
   IconQuestionCircle,
   IconUserGroup,
 } from '@arco-design/web-vue/es/icon'
-import * as echarts from 'echarts/core'
 import type { EChartsCoreOption } from 'echarts/core'
 import V8Chart from '@/v8/components/V8Chart.vue'
 import { getOverview } from '@/v8/api/data'
-import { getEnabledStandards } from '@/v8/api/v8'
-import type { Standard } from '@/v8/mock/v8'
-import {
-  alertStackStatusMeta,
-  alertTypeLabels,
-  healthMeta,
-  rejectReasonLabels,
-  type AlertStackStatus,
-  type AlertType,
-  type Health,
-  type Overview,
-  type OverviewRange,
-  type RejectReason,
-} from '@/v8/mock/types'
+import type { Overview, OverviewRange } from '@/v8/mock/types'
 
 const router = useRouter()
 const loading = ref(false)
 const range = ref<OverviewRange>('today')
-/** 历时全量下的趋势粒度切换：按天 / 按月（最大近 1 年） */
-const allGranularity = ref<'day' | 'month'>('day')
 
-/** 切换时间范围：离开历史全量时重置粒度，避免下次进入仍按月 */
+/** 切换时间范围 */
 function onRangeChange() {
-  if (range.value !== 'all') allGranularity.value = 'day'
   load()
 }
 
-/** 下钻到供数统计页时的时间范围映射：该页不支持「历时全量」，兜底为近 1 月 */
-const statsRange = computed(() => (range.value === 'all' ? '1m' : range.value))
+/** 下钻到接入数据对账页时的时间范围映射：该页仅支持 今日/近3天/近1周/近1月/自定义，7天/2月/3月分别兜底为近1周/近1月 */
+const statsRange = computed(() => {
+  if (range.value === '7d') return '1w'
+  if (range.value === '2m' || range.value === '3m') return '1m'
+  return range.value
+})
 
 function emptyOverview(): Overview {
   return {
@@ -341,16 +193,6 @@ function emptyOverview(): Overview {
   }
 }
 const summary = ref<Overview>(emptyOverview())
-// 接入方案列表（MT 管理端桥接下发，V8 只读）
-const schemes = ref<Standard[]>([])
-// 概览卡片按发布时间倒序展示最新 3 个方案，完整列表见「接入规范」页
-const recentSchemes = computed(() =>
-  schemes.value
-    .slice()
-    .sort((a, b) => (a.publishedAt || '').localeCompare(b.publishedAt || ''))
-    .reverse()
-    .slice(0, 3),
-)
 
 const C = {
   ok: '#00b42a',
@@ -361,14 +203,6 @@ const C = {
   purple: '#722ed1',
   gray: '#86909c',
 }
-const REASON_COLORS = ['#f53f3f', '#ff7d00', '#ffb400', '#1677ff', '#13c2c2', '#86909c']
-const HEALTH_COLOR: Record<Health, string> = {
-  healthy: C.ok,
-  active: C.blue,
-  error: C.bad,
-  disabled: C.gray,
-}
-const HEALTH_ORDER: Health[] = ['healthy', 'active', 'error', 'disabled']
 
 function num(n: number) {
   return Number(n || 0).toLocaleString('zh-CN')
@@ -421,41 +255,7 @@ const kpis = computed(() => [
     accent: 'linear-gradient(135deg, #ffc96b 0%, #ff9f40 100%)', icon: IconExclamationCircle,
     to: { path: '/v8/data-check', query: { result: 'reject', range: statsRange.value } },
   },
-  {
-    key: 'todo', title: '异常待办', value: String(summary.value.pendingAlertCount),
-    tip: '当前待处置告警数量，即尚未处置完成的供给异常告警（如接入中断、拒收突增等），点击进入供数监控查看待处置告警。',
-    accent: 'linear-gradient(135deg, #ff8f8f 0%, #ff6b6b 100%)', icon: IconCheckCircle,
-    to: { path: '/v8/monitor', query: { status: 'pending' } },
-  },
 ])
-
-// ── 分区② 图表 ──────────────────────────────────────────────
-const rejectReasonTotal = computed(() => summary.value.rejectReasons.reduce((s, r) => s + r.count, 0))
-
-const rejectReasonOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-  legend: {
-    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
-    textStyle: { fontSize: 12, color: '#4e5969' },
-    formatter: (name: string) => {
-      const item = summary.value.rejectReasons.find((r) => rejectReasonLabels[r.reason] === name)
-      const total = rejectReasonTotal.value
-      const pct = item && total ? ((item.count / total) * 100).toFixed(1) : '0'
-      return `${name}  ${num(item?.count || 0)} (${pct}%)`
-    },
-  },
-  color: REASON_COLORS,
-  series: [
-    {
-      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
-      label: { show: false }, labelLine: { show: false },
-      data: summary.value.rejectReasons.map((r) => ({
-        name: rejectReasonLabels[r.reason],
-        value: r.count,
-      })),
-    },
-  ],
-}))
 
 // 供数方供数 TOP 5：按入库量降序取前 5
 const top5Suppliers = computed(() => summary.value.topSuppliers.slice(0, 5))
@@ -489,57 +289,87 @@ const topSupplierOption = computed<EChartsCoreOption>(() => {
   }
 })
 
-const healthOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} 家 ({d}%)' },
-  legend: {
-    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
-    textStyle: { fontSize: 12, color: '#4e5969' },
-  },
-  color: HEALTH_ORDER.map((h) => HEALTH_COLOR[h]),
-  series: [
-    {
-      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
-      label: { show: false }, labelLine: { show: false },
-      data: HEALTH_ORDER.map((h) => ({ name: healthMeta[h].label, value: summary.value.healthDist[h] })),
-    },
-  ],
-}))
+// 接入数据量趋势：随时间范围联动横坐标粒度（今日整点 / 近3天12小时 / 按天）
+const trendPoints = computed(() => summary.value.trendSeries.points || [])
 
-// 接入数据量趋势：随时间范围联动横坐标粒度（今日整点 / 近3天12小时 / 按天 / 按月）
-const trendSeriesData = computed(() => summary.value.trendSeries)
-const trendPoints = computed(() => trendSeriesData.value.points || [])
-const trendGranularity = computed(() => trendSeriesData.value.granularity)
-
-/** 横坐标刻度稀疏化：点较多（按天近 1 月/近 1 年）时只展示部分标签，避免拥挤重叠 */
-function xLabelInterval(): number | ((index: number, value: string) => boolean) {
-  const len = trendPoints.value.length
-  if (trendGranularity.value === 'month') return 0
+/** 横坐标刻度稀疏化：点较多（近 1 月 30 / 近 2 月 60 / 近 3 月 90）时只展示部分标签，避免拥挤重叠 */
+function xLabelInterval(len: number): number | ((index: number) => boolean) {
   if (len <= 14) return 0
-  // 近 1 月（30）约隔日显示；近 1 年（365）约每 30 天显示一个（≈12 个标签）
-  const step = len > 60 ? 30 : 2
+  const step = len > 60 ? 7 : len > 30 ? 5 : 2
   return (index: number) => index % step === 0 || index === len - 1
+}
+
+// 供方折线色板：一位供数方一条线
+const TREND_PALETTE = ['#1677ff', '#00b42a', '#ff7d00', '#722ed1', '#13c2c2']
+
+/** 供方顺序与名称（按趋势数据首个出现顺序，避免刷新跳变） */
+function trendSupplierMeta() {
+  const names: Record<string, string> = {}
+  const order: string[] = []
+  trendPoints.value.forEach((p) => {
+    p.suppliers?.forEach((s) => {
+      if (!names[s.supplierId]) {
+        names[s.supplierId] = s.supplierName
+        order.push(s.supplierId)
+      }
+    })
+  })
+  return { names, order }
 }
 
 const trendOption = computed<EChartsCoreOption>(() => {
   const points = trendPoints.value
+  const { names, order } = trendSupplierMeta()
+  const colorOf = (sid: string) => TREND_PALETTE[Math.max(0, order.indexOf(sid)) % TREND_PALETTE.length]
+  const series = order.map((sid) => ({
+    name: names[sid],
+    type: 'line' as const,
+    smooth: true,
+    showSymbol: points.length <= 14,
+    symbolSize: 6,
+    lineStyle: { width: 2 },
+    itemStyle: { color: colorOf(sid) },
+    data: points.map((p) => p.suppliers?.find((s) => s.supplierId === sid)?.inbound ?? 0),
+  }))
   return {
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'line' },
-      valueFormatter: (v: unknown) => `${num(Number(v))} 条`,
+      backgroundColor: '#ffffff',
+      borderColor: '#e5e6eb',
+      borderWidth: 1,
+      padding: [9, 12],
+      textStyle: { color: '#4e5969', fontSize: 12 },
+      extraCssText: 'box-shadow: 0 6px 20px rgba(29,33,41,0.10);border-radius:8px;',
+      formatter: (params: unknown) => {
+        const arr = params as { seriesName: string; value: number; dataIndex: number }[]
+        if (!arr.length) return ''
+        const date = points[arr[0].dataIndex]?.date || ''
+        const rows = arr
+          .map((it) => {
+            const sid = order.find((id) => names[id] === it.seriesName)
+            const c = sid ? colorOf(sid) : '#86909c'
+            return `<div style="display:flex;align-items:center;margin-top:4px">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};margin-right:6px"></span>
+              <span style="flex:1;color:#4e5969">${it.seriesName}</span>
+              <span style="color:#1d2129;font-weight:500;margin-left:14px">入库 ${num(Number(it.value))}</span>
+            </div>`
+          })
+          .join('')
+        return `<div style="font-weight:600;color:#1d2129;margin-bottom:2px">${date}</div>${rows}`
+      },
     },
     legend: {
-      data: ['入库', '拒收'], top: 0, right: 0, itemWidth: 14, itemHeight: 8,
+      type: 'scroll', top: 0, right: 0, itemWidth: 14, itemHeight: 8,
       textStyle: { fontSize: 12, color: '#4e5969' },
     },
-    grid: { left: 56, right: 20, top: 36, bottom: 30 },
+    grid: { left: 56, right: 20, top: 40, bottom: 30 },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: points.map((p) => p.date),
       axisLine: { lineStyle: { color: '#e5e6eb' } },
       axisTick: { show: false },
-      axisLabel: { color: '#86909c', fontSize: 11, interval: xLabelInterval() },
+      axisLabel: { color: '#86909c', fontSize: 11, interval: xLabelInterval(points.length) },
     },
     yAxis: {
       type: 'value',
@@ -548,167 +378,16 @@ const trendOption = computed<EChartsCoreOption>(() => {
       splitLine: { lineStyle: { color: '#f2f3f5' } },
       axisLabel: { color: '#86909c', formatter: (v: number) => num(v) },
     },
-    series: [
-      {
-        name: '入库', type: 'line', smooth: true, showSymbol: points.length <= 14,
-        symbolSize: 6,
-        data: points.map((p) => p.inbound),
-        lineStyle: { width: 2, color: C.blue },
-        itemStyle: { color: C.blue },
-        areaStyle: { color: 'rgba(22,119,255,0.10)' },
-      },
-      {
-        name: '拒收', type: 'line', smooth: true, showSymbol: points.length <= 14,
-        symbolSize: 6,
-        data: points.map((p) => p.reject),
-        lineStyle: { width: 2, color: C.warn },
-        itemStyle: { color: C.warn },
-        areaStyle: { color: 'rgba(255,125,0,0.08)' },
-      },
-    ],
-  }
-})
-
-// ── 分区③ 运营管理：告警类型分布（竖向堆叠：待处理/处理中/已处置）────
-const ALERT_STACK_ORDER: AlertStackStatus[] = ['pending', 'processing', 'resolved']
-// x 轴自左向右：供数断流 → 字段异常
-const alertTypeOrder = Object.keys(alertTypeLabels) as AlertType[]
-// 各段柱条的柔和竖向微渐变（顶略亮、底略深，低饱和不刺眼）与圆角：底段圆下角、顶段圆上角、中段直角
-const ALERT_STACK_STYLE: Record<AlertStackStatus, { from: string; to: string; radius: [number, number, number, number] }> = {
-  pending: { from: '#ffce8f', to: '#f5a04c', radius: [0, 0, 6, 6] },
-  processing: { from: '#9dc6fb', to: '#5b9bf0', radius: [0, 0, 0, 0] },
-  resolved: { from: '#9fe6c2', to: '#46c484', radius: [6, 6, 0, 0] },
-}
-
-const alertTypeOption = computed<EChartsCoreOption>(() => {
-  const dist = summary.value.alertTypeDist
-  const categories = alertTypeOrder.map((k) => alertTypeLabels[k])
-  const series = ALERT_STACK_ORDER.map((st) => {
-    const s = ALERT_STACK_STYLE[st]
-    return {
-      name: alertStackStatusMeta[st].label,
-      type: 'bar' as const,
-      stack: 'total',
-      barMaxWidth: 30,
-      itemStyle: {
-        borderRadius: s.radius,
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: s.from },
-          { offset: 1, color: s.to },
-        ]),
-      },
-      label: {
-        show: true,
-        position: 'inside' as const,
-        fontSize: 11,
-        fontWeight: 600,
-        color: '#ffffff',
-        textBorderColor: 'rgba(31,35,41,0.18)',
-        textBorderWidth: 2,
-        formatter: (p: { value: number }) => (Number(p.value) > 0 ? p.value : ''),
-      },
-      emphasis: { focus: 'series' as const },
-      data: alertTypeOrder.map((k) => dist[k][st]),
-    }
-  })
-  return {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(22,119,255,0.06)' } },
-      backgroundColor: '#ffffff',
-      borderColor: '#e5e6eb',
-      borderWidth: 1,
-      padding: [9, 12],
-      textStyle: { color: '#4e5969', fontSize: 12 },
-      extraCssText: 'box-shadow: 0 6px 20px rgba(29,33,41,0.10);border-radius:8px;',
-      formatter: (params: unknown) => {
-        const arr = params as { name: string; seriesName: string; value: number }[]
-        if (!arr.length) return ''
-        const total = arr.reduce((sum, it) => sum + (Number(it.value) || 0), 0)
-        const lines = arr
-          .filter((it) => Number(it.value) > 0)
-          .map((it, i) => {
-            const c = ALERT_STACK_STYLE[ALERT_STACK_ORDER[i]].to
-            return `<div style="display:flex;align-items:center;margin-top:3px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};margin-right:6px"></span><span style="flex:1;color:#4e5969">${it.seriesName}</span><span style="font-weight:600;color:#1d2129;margin-left:16px">${it.value}</span></div>`
-          })
-          .join('')
-        return `<div style="font-weight:600;color:#1d2129;margin-bottom:2px">${arr[0].name} · 共 ${total} 条</div>${lines || '暂无'}`
-      },
-    },
-    legend: {
-      top: 0,
-      right: 4,
-      icon: 'roundRect',
-      itemWidth: 12,
-      itemHeight: 8,
-      itemGap: 16,
-      data: ALERT_STACK_ORDER.map((st) => alertStackStatusMeta[st].label),
-      textStyle: { fontSize: 12, color: '#4e5969' },
-    },
-    grid: { left: 8, right: 16, top: 40, bottom: 4, containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: categories,
-      axisLine: { lineStyle: { color: '#e5e6eb' } },
-      axisTick: { show: false },
-      axisLabel: { color: '#4e5969', fontSize: 12, interval: 0 },
-    },
-    yAxis: {
-      type: 'value',
-      minInterval: 1,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: '#86909c', fontSize: 11 },
-      splitLine: { lineStyle: { color: '#eef0f3', type: 'dashed' } },
-    },
     series,
   }
 })
 
-function onAlertTypeClick(p: { dataIndex?: number }) {
-  const idx = p.dataIndex
-  if (idx === undefined || idx < 0) return
-  const type = alertTypeOrder[idx]
-  if (type) router.push({ path: '/v8/monitor', query: { type } })
-}
-
-// ── 分区④ 运营 ──────────────────────────────────────────────
-const quotaPercent = computed(() =>
-  summary.value.quota.total ? Math.round((summary.value.quota.used / summary.value.quota.total) * 100) : 0,
-)
-/** 进度条占比（0–1）：Arco Progress 的 percent 接收比例值 */
-const quotaRatio = computed(() =>
-  summary.value.quota.total ? Math.min(1, summary.value.quota.used / summary.value.quota.total) : 0,
-)
-const quotaColor = computed(() =>
-  quotaPercent.value >= 95 ? C.bad : quotaPercent.value >= 80 ? C.warn : C.blue,
-)
-
-const siteOption = computed<EChartsCoreOption>(() => {
-  const list = [...summary.value.siteDist].reverse()
-  return {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: {c} 条' },
-    grid: { left: 8, right: 40, top: 8, bottom: 8, containLabel: true },
-    xAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f3f5' } }, axisLabel: { color: '#86909c' } },
-    yAxis: {
-      type: 'category', data: list.map((s) => s.site),
-      axisLine: { lineStyle: { color: '#e5e6eb' } }, axisTick: { show: false },
-      axisLabel: { color: '#4e5969', fontSize: 12 },
-    },
-    series: [
-      {
-        type: 'bar', barMaxWidth: 14, data: list.map((s) => s.count),
-        itemStyle: { color: C.cyan, borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right', color: '#4e5969', fontSize: 12 },
-      },
-    ],
-  }
-})
-
 // ── 下钻 ────────────────────────────────────────────────────
-function goStatsReject() {
-  router.push({ path: '/v8/data-check', query: { result: 'reject', range: statsRange.value } })
+/** 查看接入明细：携带当前时间范围跳转接入数据对账 */
+function goDataCheck() {
+  router.push({ path: '/v8/data-check', query: { range: statsRange.value } })
 }
+
 function onTopSupplierClick(p: { dataIndex?: number }) {
   // 图表为逆序展示，dataIndex 需映射回降序原数组；下钻至接入数据对账并带上时间范围 + 供方
   const list = top5Suppliers.value
@@ -721,21 +400,11 @@ function onTopSupplierClick(p: { dataIndex?: number }) {
     })
   }
 }
-function onHealthClick(p: { dataIndex?: number }) {
-  if (p.dataIndex == null) return
-  const h = HEALTH_ORDER[p.dataIndex]
-  if (h) router.push({ path: '/v8/suppliers', query: { health: h } })
-}
 
 async function load() {
   loading.value = true
   try {
-    const [ov, list] = await Promise.all([
-      getOverview(range.value, allGranularity.value),
-      getEnabledStandards(),
-    ])
-    summary.value = ov
-    schemes.value = list
+    summary.value = await getOverview(range.value)
   } finally {
     loading.value = false
   }
@@ -768,11 +437,11 @@ onMounted(load)
   margin: 72px 0;
 }
 
-/* 核心指标现为 5 卡：大屏（lg 及以上）均分整行，取代默认 1/6 固定宽度 */
+/* 核心指标现为 4 卡：大屏（lg 及以上）均分整行 */
 @media (min-width: 992px) {
   .kpi-row .kpi-col {
     flex: 1 1 0;
-    max-width: 20%;
+    max-width: 25%;
   }
 }
 
@@ -850,7 +519,7 @@ onMounted(load)
   color: #4096ff;
 }
 /* 入库总量：同比 / 环比绝对定位于主数字右侧，脱离文档流，
-   不挤占主数字位置，保证 5 张卡片主数字中心对齐；
+   不挤占主数字位置，保证 4 张卡片主数字中心对齐；
    比值为正箭头向上（涨/绿）、为负箭头向下（跌/红）。 */
 .kpi-value {
   position: relative;
@@ -912,18 +581,6 @@ onMounted(load)
   margin: 0;
   font-size: 15px;
 }
-.v8-card-head-sub {
-  font-size: 12px;
-  color: #a9aeb8;
-}
-/* 说明紧跟模块标题后方（不两端撑开），与分区标题「名称 + 说明」风格一致 */
-.v8-card-head--inline {
-  justify-content: flex-start;
-  gap: 8px;
-}
-.v8-card-head--inline .v8-card-head-sub {
-  white-space: nowrap;
-}
 /* 模块标题 + tooltip 提示图标成组（说明文案并入 tooltip） */
 .v8-card-title-tip {
   display: inline-flex;
@@ -950,12 +607,6 @@ onMounted(load)
 .v8-chart-empty-lg {
   height: 340px;
 }
-.v8-chart-empty-sm {
-  height: 240px;
-}
-.v8-chart-empty-xs {
-  height: 200px;
-}
 
 /* 上排突出图表：可点击图表给出指针反馈 */
 :deep(.v8-feature-card) {
@@ -967,7 +618,7 @@ onMounted(load)
 }
 
 /* 通用列宽（lg 及以上）：60% 与「接入数据量趋势」右边界（即 KPI 第 3 张右缘）对齐；
-   40% 为其右侧；28% + 32% 组合计 60%。窄屏各占整行。 */
+   40% 为其右侧。窄屏各占整行。 */
 @media (min-width: 992px) {
   .v8-zone :deep(.v8-col-60) {
     flex: 0 0 60%;
@@ -976,14 +627,6 @@ onMounted(load)
   .v8-zone :deep(.v8-col-40) {
     flex: 0 0 40%;
     max-width: 40%;
-  }
-  .v8-zone :deep(.v8-col-32) {
-    flex: 0 0 32%;
-    max-width: 32%;
-  }
-  .v8-zone :deep(.v8-col-28) {
-    flex: 0 0 28%;
-    max-width: 28%;
   }
 }
 
@@ -998,114 +641,6 @@ onMounted(load)
   width: 100%;
   height: 100%;
 }
-:deep(.v8-stretch-card .arco-card-body) {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-/* ── 告警类型分布（堆叠柱状图） ── */
-.v8-alert-type-chart {
-  width: 100%;
-}
-
-/* ── 最近入库动态时间流 ── */
-.v8-feed-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.v8-feed-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 0;
-  border-bottom: 1px solid #f7f8fa;
-}
-.v8-feed-item:last-child {
-  border-bottom: none;
-}
-.v8-feed-time {
-  flex-shrink: 0;
-  width: 78px;
-  font-size: 12px;
-  color: #a9aeb8;
-  font-variant-numeric: tabular-nums;
-}
-.v8-feed-supplier {
-  flex-shrink: 0;
-}
-.v8-feed-title {
-  min-width: 0;
-  flex: 1;
-  font-size: 13px;
-  color: #4e5969;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── 运营管理：配额 / 规范版本 ── */
-.v8-quota-num {
-  font-size: 30px;
-  font-weight: 700;
-  color: #1d2129;
-  line-height: 1.1;
-}
-.v8-quota-sep {
-  margin: 0 4px;
-  color: #c9cdd4;
-  font-weight: 500;
-}
-.v8-quota-total {
-  font-size: 18px;
-  font-weight: 500;
-  color: #86909c;
-}
-.v8-quota-sub {
-  font-size: 12px;
-  color: #86909c;
-}
-/* ── 接入方案列表 ── */
-.v8-scheme-empty {
-  padding: 24px 0;
-}
-.v8-scheme-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.v8-scheme-item {
-  padding: 10px 0;
-  border-bottom: 1px solid #f7f8fa;
-}
-.v8-scheme-item:last-child {
-  border-bottom: none;
-}
-.v8-scheme-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1d2129;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.v8-scheme-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 12px;
-  color: #86909c;
-}
-.v8-scheme-date {
-  margin-left: auto;
-  color: #a9aeb8;
-  font-variant-numeric: tabular-nums;
-}
-
-.v8-text-ok { color: #00b42a; }
-.v8-text-bad { color: #f53f3f; }
 
 /* 中窄屏页头换行后：右侧恢复自然间距并左对齐，避免更新时间与按钮组贴边、错位 */
 @media (max-width: 991px) {

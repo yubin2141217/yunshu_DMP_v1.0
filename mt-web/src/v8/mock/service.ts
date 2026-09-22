@@ -17,12 +17,12 @@ import type {
   OrgUser,
   Overview,
   OverviewRange,
+  OverviewRejectReason,
   PageResult,
   ProfileSetting,
   PushBatch,
   PushBatchQuery,
   PushFailReason,
-  RejectReason,
   SpecVersion,
   StatsQuery,
   StatsRow,
@@ -37,6 +37,7 @@ import {
   alertsSeed,
   buildHourlyTrend,
   buildOverviewTrend,
+  buildRejectReasons,
   buildSiteDistTop5,
   buildTrend,
   entriesSeed,
@@ -52,7 +53,7 @@ import {
   subscriptionsSeed,
   suppliersSeed,
 } from './data'
-import { defaultCondition, describeCondition, rejectReasonLabels } from './types'
+import { defaultCondition, describeCondition } from './types'
 
 const LS = {
   alerts: 'yunshu-v8-alerts-v2',
@@ -101,20 +102,21 @@ function daysOf(q: StatsQuery): number {
   return 7
 }
 
-/** 概览时间范围对应的自然天数（今日=1，与 MT 管理端口径一致；all=历时全量，按近 90 天建模） */
+/** 概览时间范围对应的自然天数（今日=1，与 MT 管理端口径一致；3m=历时全量，按近 90 天建模） */
 function rangeDays(range: OverviewRange): number {
   if (range === 'today') return 1
   if (range === '3d') return 3
+  if (range === '7d') return 7
   if (range === '1m') return 30
-  if (range === 'all') return 90
-  return 7
+  if (range === '2m') return 60
+  return 90
 }
 
 export const v8Service = {
   paginate,
 
   // ── 概览 ──
-  overview(scope: string[] | '*', range: OverviewRange = '1w', granularity: 'day' | 'month' = 'day'): Overview {
+  overview(scope: string[] | '*', range: OverviewRange = '7d'): Overview {
     const ids = scopeSupplierIds(scope)
     const scopedSuppliers = suppliersSeed.filter((s) => ids.includes(s.id))
     const days = rangeDays(range)
@@ -133,8 +135,8 @@ export const v8Service = {
     }
     const inboundMom = pctChange(periodInbound, prevPeriodInbound)
     const inboundYoy = pctChange(periodInbound, yearAgoInbound)
-    // 接入数据量趋势专用序列（随时间范围决定横坐标粒度；历时全量支持按天/按月）
-    const trendSeries = buildOverviewTrend(range, scope, range === 'all' ? granularity : 'day')
+    // 接入数据量趋势专用序列（随时间范围决定横坐标粒度）
+    const trendSeries = buildOverviewTrend(range, scope)
     const today = trend7[trend7.length - 1]
     const yesterday = trend7[trend7.length - 2] || { inbound: 0, reject: 0 }
     // 运行良好供方：活跃 + 健康（均为启用且非异常）
@@ -150,17 +152,7 @@ export const v8Service = {
     const batches24h = scopedBatches.filter((b) => b.pushedAt >= day24hStart)
 
     // 拒收原因分布：各供方拒收量按其主拒收原因归集（六类枚举）
-    const reasonAgg = {} as Record<RejectReason, number>
-    ;(Object.keys(rejectReasonLabels) as RejectReason[]).forEach((r) => { reasonAgg[r] = 0 })
-    const rejectTotal = trend.reduce((s, p) => s + p.reject, 0)
-    scopedSuppliers.forEach((s, si) => {
-      const share = s.id === 's1' ? 0.52 : s.id === 's2' ? 0.22 : s.id === 's4' ? 0.14 : s.id === 's5' ? 0.12 : 0
-      reasonAgg[rejectReasonOf(si + days)] += Math.round(rejectTotal * share)
-    })
-    const rejectReasons = (Object.keys(rejectReasonLabels) as RejectReason[])
-      .map((reason) => ({ reason, count: reasonAgg[reason] }))
-      .filter((r) => r.count > 0)
-      .sort((a, b) => b.count - a.count)
+    const rejectReasons = buildRejectReasons(days, scope)
 
     // 供方入库量 TOP 榜（降序 TOP 8；停用供方为 0）
     const topSuppliers = scopedSuppliers
@@ -284,6 +276,11 @@ export const v8Service = {
       activeSpec: { version: spec.version, publishedAt: spec.publishedAt, status: 'active' as const },
       siteDist,
     }
+  },
+
+  /** 拒收原因分布（近 7 天口径，供数方查看页用） */
+  rejectReasons(scope: string[] | '*'): OverviewRejectReason[] {
+    return buildRejectReasons(7, scope)
   },
 
   // ── 供数统计 ──

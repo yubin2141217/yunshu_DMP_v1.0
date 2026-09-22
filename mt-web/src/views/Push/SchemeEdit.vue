@@ -173,9 +173,7 @@
                     <div class="preview-action">
                       <a-button type="outline" @click="onPreviewData">预览数据</a-button>
                       <span class="preview-action__tip">
-                        点击后按当前字段映射展示接收方字段名及样例数据，最多展示前 {{ PREVIEW_MAX }} 条；所选数据来源目前全量范围数据
-                        <strong>{{ estimatedCount.toLocaleString() }}</strong>
-                        条，可在下方设置数据过滤与去重规则。
+                        按当前字段映射展示接收方字段名及样例数据，最多展示前 {{ PREVIEW_MAX }} 条，对于数据源数据仅配置有关键词的数据源可正常预览数据。
                       </span>
                     </div>
 
@@ -1352,12 +1350,6 @@ onMounted(load)
   font-size: 12px;
   line-height: 1.6;
   color: #86909c;
-}
-
-.preview-action__tip strong {
-  margin: 0 2px;
-  color: #1d2129;
-  font-weight: 600;
 }
 
 .preview-pane {

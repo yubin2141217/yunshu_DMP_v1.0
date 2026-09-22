@@ -10,13 +10,17 @@ import type {
   DataEntry,
   OrgInfo,
   OrgUser,
+  OverviewRange,
+  OverviewRejectReason,
+  OverviewTrendSeriesPoint,
+  OverviewTrendSupplierPoint,
   PushBatch,
   RejectReason,
   SpecVersion,
   Supplier,
   V8Message,
 } from './types'
-import { computeHealth } from './types'
+import { computeHealth, rejectReasonLabels } from './types'
 
 export const ORG_ID = 'org-wxb-01'
 
@@ -394,15 +398,9 @@ export function buildTrend(days: number, scope: string[] | '*') {
  * 概览「接入数据量趋势」专用构建器，按时间范围决定横坐标粒度：
  * - today：今日 00:00 至当前整点（每小时一个点）
  * - 3d：最近 3 天每天 00:00 / 12:00 两个点（共 6 个）
- * - 1w / 1m：按天
- * - all：按天（近 365 天）或按月（近 12 个月）
+ * - 7d / 1m / 2m / 3m：按天（近 7 / 30 / 60 / 90 天）
  */
 export type OverviewGranularity = 'hour' | '12h' | 'day' | 'month'
-export interface OverviewTrendSeriesPoint {
-  date: string
-  inbound: number
-  reject: number
-}
 
 /** 各供方单位时段入库基数（用于分时 / 12 小时点估算） */
 function supplierHourBase(sid: string): number {
@@ -414,19 +412,25 @@ function supplierDayBase(sid: string): number {
   return sid === 's1' ? 1200 : sid === 's2' ? 480 : sid === 's4' ? 240 : sid === 's5' ? 210 : 0
 }
 
-/** 计算若干供方在某个整点的入库量（夜间低峰、白天高峰的真实分时波动） */
+/** 单个供方在某个整点的入库量（夜间低峰、白天高峰的真实分时波动） */
+function hourInboundOf(sid: string, h: number, idx: number): number {
+  const factor = h >= 9 && h <= 21 ? 1 : h === 7 || h === 8 || h === 22 ? 0.55 : 0.18
+  return Math.round(supplierHourBase(sid) * factor * (0.8 + ((h + idx) % 4) * 0.1))
+}
+
+/** 计算若干供方在某个整点的入库量合计 */
 function hourInbound(scoped: string[], d: Date): number {
   const h = d.getHours()
-  const factor = h >= 9 && h <= 21 ? 1 : h === 7 || h === 8 || h === 22 ? 0.55 : 0.18
-  return scoped.reduce((sum, sid, idx) => {
-    return sum + Math.round(supplierHourBase(sid) * factor * (0.8 + ((h + idx) % 4) * 0.1))
-  }, 0)
+  return scoped.reduce((sum, sid, idx) => sum + hourInboundOf(sid, h, idx), 0)
+}
+
+function supplierNameOf(sid: string): string {
+  return suppliersSeed.find((s) => s.id === sid)?.name || ''
 }
 
 export function buildOverviewTrend(
-  range: string,
+  range: OverviewRange,
   scope: string[] | '*',
-  granularity: 'day' | 'month' = 'day',
 ): { granularity: OverviewGranularity; points: OverviewTrendSeriesPoint[] } {
   const scoped = scopeSupplierIds(scope)
   const today = trendToday()
@@ -434,13 +438,21 @@ export function buildOverviewTrend(
   const points: OverviewTrendSeriesPoint[] = []
 
   if (range === 'today') {
-    // 今日 00:00 到当前整点（含），共 currentHour+1 个点
+    // 今日 00:00 到当前整点（含），共 currentHour+1 个点；每小时各供方入库/拒收明细
     for (let h = 0; h <= currentHour; h += 1) {
       const d = new Date(today.getTime())
       d.setHours(h)
-      const inbound = hourInbound(scoped, d)
-      const reject = Math.round(inbound * (0.008 + (h % 5) * 0.004))
-      points.push({ date: `${pad(h)}:00`, inbound, reject })
+      const suppliers: OverviewTrendSupplierPoint[] = scoped.map((sid, idx) => {
+        const inbound = hourInboundOf(sid, h, idx)
+        const reject = Math.round(inbound * (0.008 + (h % 5) * 0.004))
+        return { supplierId: sid, supplierName: supplierNameOf(sid), inbound, reject }
+      })
+      points.push({
+        date: `${pad(h)}:00`,
+        inbound: suppliers.reduce((s, p) => s + p.inbound, 0),
+        reject: suppliers.reduce((s, p) => s + p.reject, 0),
+        suppliers,
+      })
     }
     return { granularity: 'hour', points }
   }
@@ -454,55 +466,49 @@ export function buildOverviewTrend(
         const d = new Date(day.getTime())
         d.setHours(h)
         // 00:00 点代表前 12 小时（夜间）累计，12:00 点代表白天 12 小时累计
-        const inbound = scoped.reduce((sum, sid, idx) => {
+        const suppliers: OverviewTrendSupplierPoint[] = scoped.map((sid, idx) => {
           const base = supplierHourBase(sid) * 12 * (h === 0 ? 0.45 : 1)
-          return sum + Math.round(base * (0.85 + ((i + idx + k) % 5) * 0.06))
-        }, 0)
-        const reject = Math.round(inbound * (0.008 + ((i + k) % 5) * 0.004))
+          const inbound = Math.round(base * (0.85 + ((i + idx + k) % 5) * 0.06))
+          const reject = Math.round(inbound * (0.008 + ((i + k) % 5) * 0.004))
+          return { supplierId: sid, supplierName: supplierNameOf(sid), inbound, reject }
+        })
         points.push({
           date: `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(h)}:00`,
-          inbound,
-          reject,
+          inbound: suppliers.reduce((s, p) => s + p.inbound, 0),
+          reject: suppliers.reduce((s, p) => s + p.reject, 0),
+          suppliers,
         })
       })
     }
     return { granularity: '12h', points }
   }
 
-  if (range === 'all' && granularity === 'month') {
-    // 按月：近 12 个月（含当月），最多展示近 1 年
-    for (let i = 11; i >= 0; i -= 1) {
-      const d = new Date(today.getFullYear(), today.getMonth(), 1)
-      d.setMonth(d.getMonth() - i)
-      const inbound = scoped.reduce((sum, sid, idx) => {
-        return sum + Math.round(supplierDayBase(sid) * 30 * (0.9 + ((i + idx) % 5) * 0.05))
-      }, 0)
-      const reject = Math.round(inbound * (0.01 + ((i % 6) * 0.003)))
-      points.push({ date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, inbound, reject })
-    }
-    return { granularity: 'month', points }
-  }
-
-  // 按天：近 1 周 7 天、近 1 月 30 天、历时全量近 365 天（最大近 1 年）
-  const days = range === '1w' ? 7 : range === '1m' ? 30 : 365
+  // 按天：近 7 天 / 近 1 月 30 天 / 近 2 月 60 天 / 近 3 月 90 天
+  const days = range === '7d' ? 7 : range === '1m' ? 30 : range === '2m' ? 60 : 90
   // 平滑的月级 + 周级波动包络（确定性，避免刷新跳变；长周期不再呈规则锯齿）
   const dayWave = (i: number, seed: number) =>
     0.92 + Math.sin(((i + seed) / 27) * Math.PI) * 0.1 + Math.sin(((i + seed) / 7) * Math.PI) * 0.05
   for (let i = days - 1; i >= 0; i -= 1) {
     const d = new Date(today.getTime())
     d.setDate(d.getDate() - i)
-    const inbound = scoped.reduce((sum, sid, idx) => {
-      return sum + Math.round(supplierDayBase(sid) * dayWave(i, idx))
-    }, 0)
-    const reject = Math.round(inbound * (0.01 + ((i % 6) * 0.004)))
-    points.push({ date: `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, inbound, reject })
+    const suppliers: OverviewTrendSupplierPoint[] = scoped.map((sid, idx) => {
+      const inbound = Math.round(supplierDayBase(sid) * dayWave(i, idx))
+      const reject = Math.round(inbound * (0.01 + ((i % 6) * 0.004)))
+      return { supplierId: sid, supplierName: supplierNameOf(sid), inbound, reject }
+    })
+    points.push({
+      date: `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      inbound: suppliers.reduce((s, p) => s + p.inbound, 0),
+      reject: suppliers.reduce((s, p) => s + p.reject, 0),
+      suppliers,
+    })
   }
   return { granularity: 'day', points }
 }
 
 /** 来源平台分布 TOP 5（固定 5 个平台的演示数据，随时间范围给不同量级） */
-export function buildSiteDistTop5(range: string, _scope: string[] | '*'): { site: string; count: number }[] {
-  const factor = range === 'today' ? 0.06 : range === '3d' ? 0.3 : range === '1m' ? 4 : range === 'all' ? 12 : 1
+export function buildSiteDistTop5(range: OverviewRange, _scope: string[] | '*'): { site: string; count: number }[] {
+  const factor = range === 'today' ? 0.06 : range === '3d' ? 0.3 : range === '7d' ? 1 : range === '1m' ? 4 : range === '2m' ? 8 : 12
   const list = [
     { site: '微信公众平台', count: 986 },
     { site: '新浪微博', count: 642 },
@@ -548,4 +554,25 @@ export function inScope(supplierId: string, scope: string[] | '*'): boolean {
 
 export function rejectReasonOf(seed: number): RejectReason {
   return rejectReasons[seed % rejectReasons.length]
+}
+
+/**
+ * 拒收原因分布：按给定自然天数内的趋势量，将各供方拒收量按其主拒收原因归集（六类枚举）。
+ * 概览页（随全局时间范围）与供数方查看页（近 7 天口径）共用。
+ */
+export function buildRejectReasons(days: number, scope: string[] | '*'): OverviewRejectReason[] {
+  const scoped = scopeSupplierIds(scope)
+  const scopedSuppliers = suppliersSeed.filter((s) => scoped.includes(s.id))
+  const trend = buildTrend(days, scope)
+  const rejectTotal = trend.reduce((s, p) => s + p.reject, 0)
+  const reasonAgg = {} as Record<RejectReason, number>
+  ;(Object.keys(rejectReasonLabels) as RejectReason[]).forEach((r) => { reasonAgg[r] = 0 })
+  scopedSuppliers.forEach((s, si) => {
+    const share = s.id === 's1' ? 0.52 : s.id === 's2' ? 0.22 : s.id === 's4' ? 0.14 : s.id === 's5' ? 0.12 : 0
+    reasonAgg[rejectReasonOf(si + days)] += Math.round(rejectTotal * share)
+  })
+  return (Object.keys(rejectReasonLabels) as RejectReason[])
+    .map((reason) => ({ reason, count: reasonAgg[reason] }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count)
 }

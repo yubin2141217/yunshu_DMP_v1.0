@@ -146,7 +146,7 @@ const router = createRouter({
       component: () => import('@/v8/layouts/V8Layout.vue'),
       children: [
         { path: '', redirect: '/v8/overview' },
-        { path: 'overview', name: 'V8Overview', component: () => import('@/v8/views/Overview/index.vue'), meta: { title: '数据概览', menuKey: 'overview' } },
+        { path: 'overview', name: 'V8Overview', component: () => import('@/v8/views/Overview/index.vue'), meta: { title: '首页', menuKey: 'overview' } },
         {
           path: 'stats',
           // 供数统计已并入「接入数据对账」，旧地址保留并透传查询参数（range/result/supplierId）

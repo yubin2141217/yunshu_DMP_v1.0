@@ -38,6 +38,31 @@
       </div>
     </section>
 
+    <!-- 供数方状态分布 + 拒收原因分布（自「首页」迁入） -->
+    <section class="v8-sup-dist">
+      <a-row :gutter="[16, 16]">
+        <a-col :xs="24" :lg="12">
+          <a-card class="content-card v8-panel-card" :bordered="false">
+            <div class="v8-card-head v8-card-head--inline">
+              <span class="section-title">供数方状态分布</span>
+              <span class="v8-card-head-sub">按供方实时接入状态统计</span>
+            </div>
+            <V8Chart :option="healthOption" height="240px" />
+          </a-card>
+        </a-col>
+        <a-col :xs="24" :lg="12">
+          <a-card class="content-card v8-panel-card" :bordered="false">
+            <div class="v8-card-head v8-card-head--inline">
+              <span class="section-title">拒收原因分布</span>
+              <span class="v8-card-head-sub">近 7 天接入失败原因统计分析</span>
+            </div>
+            <V8Chart v-if="rejectReasonTotal" :option="rejectReasonOption" height="240px" />
+            <div v-else class="v8-chart-empty v8-chart-empty-sm"><a-empty description="暂无拒收" /></div>
+          </a-card>
+        </a-col>
+      </a-row>
+    </section>
+
     <a-card class="content-card" :bordered="false">
       <div class="v8-filter-grid">
         <div class="v8-filter-item">
@@ -179,13 +204,15 @@ import {
 } from '@arco-design/web-vue/es/icon'
 import type { EChartsCoreOption } from 'echarts/core'
 import V8Chart from '@/v8/components/V8Chart.vue'
-import { getAllSuppliers, getSuppliers } from '@/v8/api/data'
+import { getAllSuppliers, getRejectReasons, getSuppliers } from '@/v8/api/data'
 import {
   healthMeta,
+  rejectReasonLabels,
   scoreGradeMeta,
   averageSupplierScores,
   computeSupplierScore,
   type Health,
+  type OverviewRejectReason,
   type Supplier,
   type SupplierScore,
 } from '@/v8/mock/types'
@@ -226,6 +253,57 @@ const healthCount = computed<Record<Health, number>>(() => {
   return dist
 })
 const supplierTotal = computed(() => getAllSuppliers().length)
+
+/* ===== 供数方状态分布 + 拒收原因分布（自「首页」迁入，状态为实时口径，拒收为近 7 天口径） ===== */
+const HEALTH_ORDER: Health[] = ['healthy', 'active', 'error', 'disabled']
+const HEALTH_COLOR: Record<Health, string> = {
+  healthy: '#00b42a',
+  active: '#1677ff',
+  error: '#f53f3f',
+  disabled: '#86909c',
+}
+const REASON_COLORS = ['#f53f3f', '#ff7d00', '#ffb400', '#1677ff', '#13c2c2', '#86909c']
+
+const healthOption = computed<EChartsCoreOption>(() => ({
+  tooltip: { trigger: 'item', formatter: '{b}: {c} 家 ({d}%)' },
+  legend: {
+    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
+    textStyle: { fontSize: 12, color: '#4e5969' },
+  },
+  color: HEALTH_ORDER.map((h) => HEALTH_COLOR[h]),
+  series: [
+    {
+      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
+      label: { show: false }, labelLine: { show: false },
+      data: HEALTH_ORDER.map((h) => ({ name: healthMeta[h].label, value: healthCount.value[h] })),
+    },
+  ],
+}))
+
+const rejectReasons = ref<OverviewRejectReason[]>([])
+const rejectReasonTotal = computed(() => rejectReasons.value.reduce((s, r) => s + r.count, 0))
+
+const rejectReasonOption = computed<EChartsCoreOption>(() => ({
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  legend: {
+    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
+    textStyle: { fontSize: 12, color: '#4e5969' },
+    formatter: (name: string) => {
+      const item = rejectReasons.value.find((r) => rejectReasonLabels[r.reason] === name)
+      const total = rejectReasonTotal.value
+      const pct = item && total ? ((item.count / total) * 100).toFixed(1) : '0'
+      return `${name}  ${Number(item?.count || 0).toLocaleString('zh-CN')} (${pct}%)`
+    },
+  },
+  color: REASON_COLORS,
+  series: [
+    {
+      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
+      label: { show: false }, labelLine: { show: false },
+      data: rejectReasons.value.map((r) => ({ name: rejectReasonLabels[r.reason], value: r.count })),
+    },
+  ],
+}))
 
 /** 点击统计卡片：联动下方「供数方状态」筛选；再次点击同一张状态卡可取消筛选 */
 function filterByHealth(h: Health | '') {
@@ -386,6 +464,8 @@ onMounted(() => {
   const h = route.query.health
   if (h === 'active' || h === 'healthy' || h === 'error' || h === 'disabled') health.value = h
   fetchData(1)
+  // 拒收原因分布（近 7 天口径）
+  getRejectReasons().then((r) => { rejectReasons.value = r })
   // 接入规范列表下钻回填：?supplierId=s1 自动打开对应供方详情
   const sid = route.query.supplierId
   if (typeof sid === 'string' && sid) {
@@ -522,5 +602,54 @@ onMounted(() => {
   flex: 0 0 auto;
   margin-top: 2px;
   font-size: 13px;
+}
+
+/* ── 供数方状态分布 + 拒收原因分布（自「首页」迁入） ── */
+.v8-sup-dist {
+  margin-bottom: 16px;
+}
+.v8-sup-dist :deep(.arco-row) {
+  align-items: stretch;
+}
+.v8-sup-dist :deep(.arco-col) {
+  display: flex;
+}
+:deep(.v8-panel-card) {
+  width: 100%;
+  height: 100%;
+}
+:deep(.v8-panel-card .arco-card-body) {
+  padding: 18px 20px;
+}
+.v8-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+  margin-bottom: 12px;
+}
+.v8-card-head .section-title {
+  margin: 0;
+  font-size: 15px;
+}
+.v8-card-head-sub {
+  font-size: 12px;
+  color: #a9aeb8;
+}
+/* 说明紧跟模块标题后方（不两端撑开） */
+.v8-card-head--inline {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.v8-card-head--inline .v8-card-head-sub {
+  white-space: nowrap;
+}
+.v8-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.v8-chart-empty-sm {
+  height: 240px;
 }
 </style>
