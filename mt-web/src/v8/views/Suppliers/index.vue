@@ -39,13 +39,13 @@
     </section>
 
     <a-card class="content-card" :bordered="false">
+      <!-- 时间范围：与首页一致的按钮组样式，点击即切换并联动列表指标，置于筛选区右侧 -->
+      <div class="v8-sup-range-bar">
+        <a-radio-group v-model:model-value="range" type="button" @change="fetchData(1)">
+          <a-radio v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
+        </a-radio-group>
+      </div>
       <div class="v8-filter-grid">
-        <div class="v8-filter-item">
-          <label>时间范围</label>
-          <a-select v-model="range" @change="fetchData(1)">
-            <a-option v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-option>
-          </a-select>
-        </div>
         <div class="v8-filter-item">
           <label>供数方名称</label>
           <a-input
@@ -495,6 +495,18 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .v8-text-warn { color: #ff7d00; }
+
+/* 时间范围按钮组工具行：置于筛选区右上，与首页口径一致；窄屏改左对齐避免顶边 */
+.v8-sup-range-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+@media (max-width: 640px) {
+  .v8-sup-range-bar {
+    justify-content: flex-start;
+  }
+}
 
 /* 供数方统计卡片：flex 均分一行五张，窄屏自动换行；整体可点击，选中态描边+轻微上浮 */
 .v8-sup-stat {
