@@ -3,7 +3,7 @@
     <div class="workplace-header">
       <div>
         <h2 class="workplace-title">接入日志</h2>
-        <p class="workplace-desc">查看数据接入的请求总量、入库与拒收情况，支持按时间范围（最长 3 天）、供数方、来源 URL 等维度筛选明细日志。同一来源数据被多家供数方分别报送时合为一条记录，供数方按推送时间先后标注 1st/2nd/3rd。</p>
+        <p class="workplace-desc">查看数据接入的请求总量、入库与拒收情况，支持按时间范围（最长 3 天）、供数方、来源 URL 等维度筛选明细日志。同一来源数据被多家供数方分别报送时合为一条记录，供数方按推送时间先后逐行展示。</p>
       </div>
     </div>
 
@@ -159,16 +159,13 @@
         <template #title="{ record }">
           <a-link class="v8-entry-title" @click="openDetail(record as DataEntry)">{{ record.title }}</a-link>
         </template>
-        <!-- 供数方：一条数据可被多家报送，逐行展示（角标为推送次序），各带自己的推送时间 -->
+        <!-- 供数方：一条数据可被多家报送，逐行展示（按推送时间先后），各带自己的推送时间 -->
         <template #supplierName="{ record }">
           <div class="v8-supplier-cell">
-            <div v-for="(s, i) in (record as DataEntry).suppliers" :key="s.supplierId" class="v8-supplier-row">
-              <span class="v8-supplier-ord-avatar">
-                <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
-                  {{ avatarText(s.supplierName) }}
-                </a-avatar>
-                <span class="v8-supplier-ord">{{ ordinal(i + 1) }}</span>
-              </span>
+            <div v-for="s in (record as DataEntry).suppliers" :key="s.supplierId" class="v8-supplier-row">
+              <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
+                {{ avatarText(s.supplierName) }}
+              </a-avatar>
               <a-link class="v8-supplier-link" @click="openSupplier(s)">{{ s.supplierName }}</a-link>
               <span class="v8-supplier-time">{{ s.inboundAt }}</span>
             </div>
@@ -227,13 +224,10 @@
           <a-descriptions-item label="标题">{{ current.title }}</a-descriptions-item>
           <a-descriptions-item label="供数方">
             <div class="v8-supplier-cell">
-              <div v-for="(s, i) in current.suppliers" :key="s.supplierId" class="v8-supplier-row">
-                <span class="v8-supplier-ord-avatar">
-                  <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
-                    {{ avatarText(s.supplierName) }}
-                  </a-avatar>
-                  <span class="v8-supplier-ord">{{ ordinal(i + 1) }}</span>
-                </span>
+              <div v-for="s in current.suppliers" :key="s.supplierId" class="v8-supplier-row">
+                <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
+                  {{ avatarText(s.supplierName) }}
+                </a-avatar>
                 <a-link class="v8-supplier-link" @click="openSupplier(s)">{{ s.supplierName }}</a-link>
                 <span class="v8-supplier-time">{{ s.inboundAt }}</span>
               </div>
@@ -504,13 +498,6 @@ function logoOf(supplierId: string) {
   return getAllSuppliers().find((s) => s.id === supplierId)?.logo || ''
 }
 
-/** 推送次序角标：1st / 2nd / 3rd / 4th…（供数方列内已按推送时间升序排列） */
-function ordinal(n: number) {
-  const suffix = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return `${n}${suffix[(v - 20) % 10] || suffix[v] || suffix[0]}`
-}
-
 function healthBadge(h: Health) {
   const map: Record<Health, { status: 'success' | 'processing' | 'danger' | 'normal'; label: string }> = {
     healthy: { status: 'success', label: healthMeta.healthy.label },
@@ -739,22 +726,7 @@ onMounted(() => {
   gap: 4px;
   min-width: 0;
 }
-/* 角标容器：相对头像定位，角标贴在头像左上角，标识该供数方对该条数据的报送次序 */
-.v8-supplier-ord-avatar {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  margin-right: 4px;
-}
-.v8-supplier-ord {
-  position: absolute;
-  left: -5px;
-  top: -4px;
-  color: #1677ff;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-}
+/* 名称与时间贴得更近：行内 4px，头像另加 margin 补到 8px */
 .v8-supplier-time {
   flex: none;
   color: #86909c;
@@ -763,6 +735,7 @@ onMounted(() => {
 }
 .v8-supplier-logo {
   flex: none;
+  margin-right: 4px;
   background: #f2f3f5;
 }
 /* 来源 URL：最多两行，超长尾部省略号 */
