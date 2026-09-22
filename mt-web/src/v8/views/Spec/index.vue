@@ -22,15 +22,6 @@
           />
         </div>
         <div class="v8-filter-item">
-          <label>字段信息</label>
-          <a-input
-            v-model="filterForm.field"
-            placeholder="请输入字段名 / 描述"
-            allow-clear
-            @press-enter="applyFilters"
-          />
-        </div>
-        <div class="v8-filter-item">
           <label>供数方</label>
           <a-select v-model="filterForm.supplier" placeholder="全部供数方" allow-clear>
             <a-option v-for="s in supplierOptions" :key="s.value" :value="s.value">{{ s.label }}</a-option>
@@ -215,8 +206,8 @@ const specs = ref<Standard[]>([])
 const downloadingId = ref('')
 
 // ── 筛选（输入态与已应用条件分离，点查询后生效）──
-const filterForm = reactive({ name: '', field: '', supplier: undefined as string | undefined })
-const applied = reactive({ name: '', field: '', supplier: undefined as string | undefined })
+const filterForm = reactive({ name: '', supplier: undefined as string | undefined })
+const applied = reactive({ name: '', supplier: undefined as string | undefined })
 
 const supplierOptions = computed(() => {
   const map = new Map<string, string>()
@@ -229,20 +220,11 @@ const supplierOptions = computed(() => {
 
 const filteredSpecs = computed(() => {
   const nameKw = applied.name.trim().toLowerCase()
-  const fieldKw = applied.field.trim().toLowerCase()
   return specs.value.filter((s) => {
     if (nameKw && !(s.name || '').toLowerCase().includes(nameKw)) return false
     if (applied.supplier) {
       const key = s.supplierId || s.supplierName || ''
       if (key !== applied.supplier) return false
-    }
-    if (fieldKw) {
-      const hit = (s.fields || []).some(
-        (f) =>
-          (f.name || '').toLowerCase().includes(fieldKw) ||
-          (f.description || '').toLowerCase().includes(fieldKw),
-      )
-      if (!hit) return false
     }
     return true
   })
@@ -250,13 +232,11 @@ const filteredSpecs = computed(() => {
 
 function applyFilters() {
   applied.name = filterForm.name
-  applied.field = filterForm.field
   applied.supplier = filterForm.supplier
 }
 
 function resetFilters() {
   filterForm.name = ''
-  filterForm.field = ''
   filterForm.supplier = undefined
   applyFilters()
 }
