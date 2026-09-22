@@ -3,7 +3,7 @@
     <div class="workplace-header">
       <div>
         <h2 class="workplace-title">接入日志</h2>
-        <p class="workplace-desc">查看数据接入的请求总量、入库与拒收情况，支持按时间范围（最长 3 天）、供数方、来源 URL 等维度筛选明细日志。</p>
+        <p class="workplace-desc">查看数据接入的请求总量、入库与拒收情况，支持按时间范围（最长 3 天）、供数方、来源 URL 等维度筛选明细日志。同一来源数据被多家供数方分别报送时合为一条记录，供数方按推送时间先后标注 1st/2nd/3rd。</p>
       </div>
     </div>
 
@@ -159,18 +159,19 @@
         <template #title="{ record }">
           <a-link class="v8-entry-title" @click="openDetail(record as DataEntry)">{{ record.title }}</a-link>
         </template>
+        <!-- 供数方：一条数据可被多家报送，逐行展示（角标为推送次序），各带自己的推送时间 -->
         <template #supplierName="{ record }">
           <div class="v8-supplier-cell">
-            <a-avatar
-              :size="24"
-              class="v8-supplier-logo"
-              :image-url="logoOf((record as DataEntry).supplierId)"
-            >
-              {{ avatarText((record as DataEntry).supplierName) }}
-            </a-avatar>
-            <a-link class="v8-supplier-link" @click="openSupplier(record as DataEntry)">
-              {{ (record as DataEntry).supplierName }}
-            </a-link>
+            <div v-for="(s, i) in (record as DataEntry).suppliers" :key="s.supplierId" class="v8-supplier-row">
+              <span class="v8-supplier-ord-avatar">
+                <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
+                  {{ avatarText(s.supplierName) }}
+                </a-avatar>
+                <span class="v8-supplier-ord">{{ ordinal(i + 1) }}</span>
+              </span>
+              <a-link class="v8-supplier-link" @click="openSupplier(s)">{{ s.supplierName }}</a-link>
+              <span class="v8-supplier-time">{{ shortTime(s.inboundAt) }}</span>
+            </div>
           </div>
         </template>
         <template #authorName="{ record }">
@@ -225,12 +226,23 @@
         <a-descriptions :column="1" bordered size="large" class="v8-detail-desc">
           <a-descriptions-item label="标题">{{ current.title }}</a-descriptions-item>
           <a-descriptions-item label="供数方">
-            <a-link class="v8-supplier-link" @click="openSupplier(current)">{{ current.supplierName }}</a-link>
+            <div class="v8-supplier-cell">
+              <div v-for="(s, i) in current.suppliers" :key="s.supplierId" class="v8-supplier-row">
+                <span class="v8-supplier-ord-avatar">
+                  <a-avatar :size="24" class="v8-supplier-logo" :image-url="logoOf(s.supplierId)">
+                    {{ avatarText(s.supplierName) }}
+                  </a-avatar>
+                  <span class="v8-supplier-ord">{{ ordinal(i + 1) }}</span>
+                </span>
+                <a-link class="v8-supplier-link" @click="openSupplier(s)">{{ s.supplierName }}</a-link>
+                <span class="v8-supplier-time">{{ s.inboundAt }}</span>
+              </div>
+            </div>
           </a-descriptions-item>
           <a-descriptions-item label="作者/署名">{{ current.authorName }}</a-descriptions-item>
           <a-descriptions-item label="来源平台">{{ current.sourceSite }}</a-descriptions-item>
           <a-descriptions-item label="发布时间">{{ current.publishedAt }}</a-descriptions-item>
-          <a-descriptions-item label="入库时间">{{ current.inboundAt }}</a-descriptions-item>
+          <a-descriptions-item label="入库时间（首发）">{{ current.inboundAt }}</a-descriptions-item>
           <a-descriptions-item label="来源 URL">
             <a-link class="v8-url-detail" @click="openUrl(current.sourceUrl)">{{ current.sourceUrl }}</a-link>
           </a-descriptions-item>
@@ -286,6 +298,7 @@ import {
 import {
   healthMeta,
   type DataEntry,
+  type DataEntrySupplier,
   type Health,
   type StatsQuery,
   type StatsRange,
@@ -468,11 +481,11 @@ function validateRange(label: string, range: string[], withOneYear: boolean) {
 
 const columns = [
   { title: '标题', dataIndex: 'title', slotName: 'title', ellipsis: true, tooltip: true },
-  { title: '供数方', dataIndex: 'supplierName', slotName: 'supplierName', width: 180, ellipsis: true, tooltip: true },
+  { title: '供数方', dataIndex: 'suppliers', slotName: 'supplierName', width: 240 },
   { title: '来源 URL', dataIndex: 'sourceUrl', slotName: 'sourceUrl', width: 220 },
   { title: '作者', dataIndex: 'authorName', slotName: 'authorName', width: 180 },
   { title: '发布时间', dataIndex: 'publishedAt', width: 160 },
-  { title: '入库时间', dataIndex: 'inboundAt', width: 160 },
+  { title: '入库时间（首发）', dataIndex: 'inboundAt', width: 160 },
 ]
 
 const detailVisible = ref(false)
@@ -491,6 +504,18 @@ function logoOf(supplierId: string) {
   return getAllSuppliers().find((s) => s.id === supplierId)?.logo || ''
 }
 
+/** 推送次序角标：1st / 2nd / 3rd / 4th…（供数方列内已按推送时间升序排列） */
+function ordinal(n: number) {
+  const suffix = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return `${n}${suffix[(v - 20) % 10] || suffix[v] || suffix[0]}`
+}
+
+/** 单元格内紧凑时间：MM-DD HH:mm（完整时间在「入库时间」列与详情抽屉展示） */
+function shortTime(t: string) {
+  return (t || '').slice(5, 16)
+}
+
 function healthBadge(h: Health) {
   const map: Record<Health, { status: 'success' | 'processing' | 'danger' | 'normal'; label: string }> = {
     healthy: { status: 'success', label: healthMeta.healthy.label },
@@ -507,7 +532,7 @@ function openDetail(row: DataEntry) {
 }
 
 /** 供数方点击：查出供方详情并打开抽屉 */
-function openSupplier(row: DataEntry) {
+function openSupplier(row: DataEntrySupplier) {
   const target = getAllSuppliers().find((s) => s.id === row.supplierId)
   if (!target) return
   currentSupplier.value = target
@@ -706,12 +731,44 @@ onMounted(() => {
 .v8-supplier-link {
   font-size: 13px;
 }
-/* 供数方：logo + 名称，logo 便于在密集列表中快速区分供稿来源 */
+/* 供数方：一条数据可被多家报送，逐行展示 logo + 名称 + 各自推送时间 */
 .v8-supplier-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.v8-supplier-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+/* 角标容器：相对头像定位，角标贴在头像右下角，标识该供数方对该条数据的报送次序 */
+.v8-supplier-ord-avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.v8-supplier-ord {
+  position: absolute;
+  right: -8px;
+  bottom: -5px;
+  padding: 0 3px;
+  border: 1px solid #fff;
+  border-radius: 7px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 13px;
+}
+.v8-supplier-time {
+  margin-left: auto;
+  flex: none;
+  color: #86909c;
+  font-size: 12px;
+  white-space: nowrap;
 }
 .v8-supplier-logo {
   flex: none;

@@ -209,7 +209,32 @@ export interface StatsRow {
 }
 
 // ── 入库条目（仅索引） ───────────────────────────────────────
+/** 一条数据上的单家供数方报送记录（同一来源数据可能被多家分别报送） */
+export interface DataEntrySupplier {
+  supplierId: string
+  supplierName: string
+  /** 该供数方报送此条数据的推送（入库）时间 */
+  inboundAt: string
+}
+
+/**
+ * 入库条目（列表口径）：一条数据 = 一行。
+ * 同一来源数据的多次报送聚合在 suppliers 中，按推送时间升序（1st 为最早推送）。
+ */
 export interface DataEntry {
+  id: string
+  title: string
+  authorName: string
+  publishedAt: string
+  sourceSite: string
+  sourceUrl: string
+  /** 首发（最早）推送时间：列表展示与整体排序基准 */
+  inboundAt: string
+  suppliers: DataEntrySupplier[]
+}
+
+/** 报送明细（种子/统计口径）：供数方报送一次 = 一条，同一数据可有多条 */
+export interface DataSubmission {
   id: string
   title: string
   supplierId: string

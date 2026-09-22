@@ -7,7 +7,7 @@ import type {
   AlertRecord,
   AlertRule,
   AlertSubscription,
-  DataEntry,
+  DataSubmission,
   OrgInfo,
   OrgUser,
   OverviewRange,
@@ -121,14 +121,15 @@ const authors = ['城市观察员', '民生直通车', '舆情放大镜', '政�
 const sourceSites = ['微信公众平台', '新浪微博', '今日头条', '百度百家号', '抖音短视频', '网易新闻']
 
 /**
- * 入库条目（仅索引信息）。
+ * 报送明细种子（报送口径：供数方报送一次 = 一条）。
  * 一篇文章常被多家供数方分别报送，故同一 sourceUrl 会产生多条记录：
- * 标题/作者/发布时间/来源平台相同，供数方与入库时间各不相同。
+ * 标题/作者/发布时间/来源平台相同，供数方与推送（入库）时间各不相同。
  * 36 篇文章各被 1~3 家报送，合计 72 条。
+ * 聚合为列表条目（一条数据 = 一行）与排序见 service.ts → buildEntries。
  * 已停用的供数方（s3 数美科技）不再产生入库数据。
  */
-export const entriesSeed: DataEntry[] = (() => {
-  const list: DataEntry[] = []
+export const submissionsSeed: DataSubmission[] = (() => {
+  const list: DataSubmission[] = []
   const activeSids = ['s1', 's2', 's4', 's5']
   const seq = 1000
   for (let a = 0; a < 36; a += 1) {
@@ -159,7 +160,6 @@ export const entriesSeed: DataEntry[] = (() => {
     }
   }
 
-  // 列表顺序由查询层统一处理（同源记录相邻 + 组内按入库时间倒序），见 service.ts → sortEntries
   return list
 })()
 
@@ -605,7 +605,7 @@ export function rejectReasonOf(seed: number): RejectReason {
 
 /**
  * 拒收原因分布：按给定自然天数内的趋势量，将各供方拒收量按其主拒收原因归集（六类枚举）。
- * 概览页（随全局时间范围）与供数方查看页（近 7 天口径）共用。
+ * 概览页（随全局时间范围）使用。
  */
 export function buildRejectReasons(days: number, scope: string[] | '*'): OverviewRejectReason[] {
   const scoped = scopeSupplierIds(scope)

@@ -11,6 +11,7 @@ import type {
   AlertType,
   DataEntry,
   DataEntryQuery,
+  DataSubmission,
   DisposePayload,
   DownloadLog,
   Health,
@@ -39,7 +40,6 @@ import {
   buildRejectReasons,
   buildSiteDistTop5,
   buildTrend,
-  entriesSeed,
   inScope,
   messagesSeed,
   orgInfoSeed,
@@ -49,6 +49,7 @@ import {
   rulesSeed,
   scopeSupplierIds,
   specVersionsSeed,
+  submissionsSeed,
   subscriptionsSeed,
   suppliersSeed,
 } from './data'
@@ -87,28 +88,40 @@ function paginate<T>(list: T[], page: number, pageSize: number): PageResult<T> {
 }
 
 /**
- * 入库条目排序：同一来源数据（同 URL，缺 URL 时以文章属性兜底）的多条报送记录必须相邻，
- * 否则「一条数据对应多个供数方、多个入库时间」在列表里会被其它文章插散、看不出来。
- * 组间按组内最新入库时间倒序（整体仍是新数据在前），组内按入库时间倒序。
+ * 入库条目聚合（列表口径：一条数据 = 一行）。
+ * 同一来源数据（同 URL，缺 URL 时以「标题|作者|发布时间」兜底）的多家报送合并到 suppliers，
+ * 按推送时间升序排列（1st = 最早推送），条目本身取首发时间；
+ * 列表整体按首发时间倒序，新数据在前。
  */
-function sortEntries(list: DataEntry[]): DataEntry[] {
-  const keyOf = (e: DataEntry) => e.sourceUrl || `${e.title}|${e.authorName}|${e.publishedAt}`
-  const latest = new Map<string, string>()
-  for (const e of list) {
-    const k = keyOf(e)
-    const prev = latest.get(k)
-    if (!prev || e.inboundAt > prev) latest.set(k, e.inboundAt)
+function buildEntries(scope: string[] | '*', source: DataSubmission[]): DataEntry[] {
+  const groups = new Map<string, DataSubmission[]>()
+  for (const s of source) {
+    if (!inScope(s.supplierId, scope)) continue
+    const key = s.sourceUrl || `${s.title}|${s.authorName}|${s.publishedAt}`
+    const arr = groups.get(key)
+    if (arr) arr.push(s)
+    else groups.set(key, [s])
   }
-  return [...list].sort((x, y) => {
-    const kx = keyOf(x)
-    const ky = keyOf(y)
-    if (kx !== ky) {
-      const lx = latest.get(kx) || ''
-      const ly = latest.get(ky) || ''
-      if (lx !== ly) return lx < ly ? 1 : -1
-    }
-    return x.inboundAt < y.inboundAt ? 1 : -1
-  })
+  return [...groups.values()]
+    .map((subs) => {
+      const sorted = [...subs].sort((a, b) => (a.inboundAt < b.inboundAt ? -1 : a.inboundAt > b.inboundAt ? 1 : 0))
+      const first = sorted[0]
+      return {
+        id: first.id,
+        title: first.title,
+        authorName: first.authorName,
+        publishedAt: first.publishedAt,
+        sourceSite: first.sourceSite,
+        sourceUrl: first.sourceUrl,
+        inboundAt: first.inboundAt,
+        suppliers: sorted.map((s) => ({
+          supplierId: s.supplierId,
+          supplierName: s.supplierName,
+          inboundAt: s.inboundAt,
+        })),
+      }
+    })
+    .sort((a, b) => (a.inboundAt < b.inboundAt ? 1 : a.inboundAt > b.inboundAt ? -1 : 0))
 }
 
 function nowText(): string {
@@ -256,11 +269,8 @@ export const v8Service = {
     })
     const waitingReceiptAll = scopedBatches.filter((b) => b.receiptStatus === 'waiting').length
 
-    // 最近入库动态（固定最近 8 条索引）
-    const recentEntries = [...entriesSeed]
-      .filter((e) => inScope(e.supplierId, scope))
-      .sort((a, b) => (a.inboundAt < b.inboundAt ? 1 : -1))
-      .slice(0, 8)
+    // 最近入库动态（固定最近 8 条，与列表同口径：一条数据 = 一行）
+    const recentEntries = buildEntries(scope, submissionsSeed).slice(0, 8)
 
     // 来源平台分布 TOP 5（随时间范围给不同量级）
     const siteDist = buildSiteDistTop5(range, scope)
@@ -369,19 +379,22 @@ export const v8Service = {
 
   // ── 入库条目 ──
   entries(q: DataEntryQuery, scope: string[] | '*'): PageResult<DataEntry> {
-    let list = entriesSeed.filter((e) => inScope(e.supplierId, scope))
+    let list = buildEntries(scope, submissionsSeed)
     const kw = q.keyword.trim()
     if (kw) list = list.filter((e) => e.title.includes(kw))
-    if (q.supplierId && q.supplierId !== 'all') list = list.filter((e) => e.supplierId === q.supplierId)
+    // 供方筛选：保留该供方参与的数据；供数方列仍展示该条数据的全部报送供方
+    if (q.supplierId && q.supplierId !== 'all') {
+      list = list.filter((e) => e.suppliers.some((s) => s.supplierId === q.supplierId))
+    }
     if (q.authorName.trim()) list = list.filter((e) => e.authorName.includes(q.authorName.trim()))
     // 来源 URL：忽略大小写的模糊匹配
     const urlKw = (q.sourceUrl || '').trim().toLowerCase()
     if (urlKw) list = list.filter((e) => e.sourceUrl.toLowerCase().includes(urlKw))
     if (q.publishStart) list = list.filter((e) => e.publishedAt >= q.publishStart)
     if (q.publishEnd) list = list.filter((e) => e.publishedAt <= `${q.publishEnd} 23:59:59`)
-    if (q.inboundStart) list = list.filter((e) => e.inboundAt >= q.inboundStart)
-    if (q.inboundEnd) list = list.filter((e) => e.inboundAt <= `${q.inboundEnd} 23:59:59`)
-    list = sortEntries(list)
+    // 入库时间：任一供数方的推送时间落在区间内即命中该条数据
+    if (q.inboundStart) list = list.filter((e) => e.suppliers.some((s) => s.inboundAt >= q.inboundStart))
+    if (q.inboundEnd) list = list.filter((e) => e.suppliers.some((s) => s.inboundAt <= `${q.inboundEnd} 23:59:59`))
     return paginate(list, q.page, q.pageSize)
   },
 
