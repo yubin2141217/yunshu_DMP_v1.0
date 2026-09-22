@@ -391,10 +391,11 @@ export const v8Service = {
     const urlKw = (q.sourceUrl || '').trim().toLowerCase()
     if (urlKw) list = list.filter((e) => e.sourceUrl.toLowerCase().includes(urlKw))
     if (q.publishStart) list = list.filter((e) => e.publishedAt >= q.publishStart)
-    if (q.publishEnd) list = list.filter((e) => e.publishedAt <= `${q.publishEnd} 23:59:59`)
+    if (q.publishEnd) list = list.filter((e) => e.publishedAt <= q.publishEnd)
     // 入库时间：任一供数方的推送时间落在区间内即命中该条数据
+    // （起止值均为「YYYY-MM-DD HH:mm:ss」，与种子同格式，可直接字符串比较）
     if (q.inboundStart) list = list.filter((e) => e.suppliers.some((s) => s.inboundAt >= q.inboundStart))
-    if (q.inboundEnd) list = list.filter((e) => e.suppliers.some((s) => s.inboundAt <= `${q.inboundEnd} 23:59:59`))
+    if (q.inboundEnd) list = list.filter((e) => e.suppliers.some((s) => s.inboundAt <= q.inboundEnd))
     return paginate(list, q.page, q.pageSize)
   },
 

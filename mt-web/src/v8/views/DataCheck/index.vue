@@ -110,34 +110,36 @@
         <div class="v8-filter-item">
           <label>
             发布时间
-            <a-tooltip content="时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
+            <a-tooltip content="时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于当前时间" mini>
               <IconExclamationCircle class="v8-date-info" />
             </a-tooltip>
           </label>
           <a-range-picker
             v-model="publishRange"
             style="width: 100%"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledPublishDate"
-            @select="onPublishSelect"
-            @popup-visible-change="onPublishPopupToggle"
+            show-time
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :disabled-date="disabledRangeDate"
+            :disabled-time="disabledRangeTime"
             @change="onPublishChange"
           />
         </div>
         <div class="v8-filter-item">
           <label>
             入库时间
-            <a-tooltip content="最早支持 1 年内数据查询，时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
+            <a-tooltip content="时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于当前时间" mini>
               <IconExclamationCircle class="v8-date-info" />
             </a-tooltip>
           </label>
           <a-range-picker
             v-model="inboundRange"
             style="width: 100%"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledInboundDate"
-            @select="onInboundSelect"
-            @popup-visible-change="onInboundPopupToggle"
+            show-time
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :disabled-date="disabledRangeDate"
+            :disabled-time="disabledRangeTime"
             @change="onInboundChange"
           />
         </div>
@@ -365,91 +367,83 @@ const query = reactive({
   inboundEnd: '',
 })
 
-// ── 明细日期范围限制：跨度≤3天、不可选未来；入库时间最早1年内 ──
-const MAX_SPAN_DAYS = 3
+// ── 明细时间范围限制：跨度 ≤ 3 天，且不早于「当前时间 - 3 天」、不晚于当前时间 ──
+/** 跨度上限 3 天（含起止）；因下界＝当前时间 - 3 天，跨度天然不会超限，此处仅作兜底校验 */
+const MAX_SPAN_MS = 3 * 24 * 60 * 60 * 1000
 function startOfDay(d: Date) {
   const x = new Date(d)
   x.setHours(0, 0, 0, 0)
   return x
 }
-/** 日期加减天数（用于收窄终点可选范围，保证含首尾最多 3 天） */
-function addDays(base: Date, delta: number) {
-  const d = new Date(base)
-  d.setDate(d.getDate() + delta)
-  return startOfDay(d)
-}
 function todayStart() {
   return startOfDay(new Date())
 }
-function oneYearAgoStart() {
-  const t = todayStart()
-  t.setFullYear(t.getFullYear() - 1)
-  return t
+/** 可选时间下界：当前时间往前整 3 天（时刻与当前一致） */
+function rangeLowerBound() {
+  return new Date(Date.now() - MAX_SPAN_MS)
 }
 
-// ── 明细「发布时间」：最晚今天、跨度 ≤3 天（不限最早时间） ──
-const publishPickedStart = ref<Date | null>(null)
-function disabledPublishDate(current: Date, type: 'start' | 'end') {
+/** 日期粒度限制：只允许落在 [下界当天, 今天] */
+function disabledRangeDate(current: Date, _type: 'start' | 'end') {
   const day = startOfDay(current)
   if (day.getTime() > todayStart().getTime()) return true
-  if (type === 'end' && publishPickedStart.value) {
-    if (
-      day.getTime() < publishPickedStart.value.getTime() ||
-      day.getTime() > addDays(publishPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
-    ) {
-      return true
-    }
-  }
-  return false
-}
-function onPublishSelect(_v: unknown, date: unknown) {
-  const arr = Array.isArray(date) ? (date as (Date | undefined)[]) : []
-  publishPickedStart.value = arr[0] && !arr[1] ? startOfDay(arr[0]) : null
-}
-function onPublishPopupToggle(visible: boolean) {
-  if (!visible) publishPickedStart.value = null
+  return day.getTime() < startOfDay(rangeLowerBound()).getTime()
 }
 
-// ── 明细「入库时间」：最早 1 年前、最晚今天、跨度 ≤3 天 ──
-const inboundPickedStart = ref<Date | null>(null)
-function disabledInboundDate(current: Date, type: 'start' | 'end') {
-  const day = startOfDay(current)
-  if (day.getTime() < oneYearAgoStart().getTime() || day.getTime() > todayStart().getTime()) {
-    return true
-  }
-  if (type === 'end' && inboundPickedStart.value) {
-    if (
-      day.getTime() < inboundPickedStart.value.getTime() ||
-      day.getTime() > addDays(inboundPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
-    ) {
-      return true
-    }
-  }
-  return false
-}
-function onInboundSelect(_v: unknown, date: unknown) {
-  const arr = Array.isArray(date) ? (date as (Date | undefined)[]) : []
-  inboundPickedStart.value = arr[0] && !arr[1] ? startOfDay(arr[0]) : null
-}
-function onInboundPopupToggle(visible: boolean) {
-  if (!visible) inboundPickedStart.value = null
+/** 生成 [from, to] 的整数序列（用于禁用时分秒列表） */
+function intRange(from: number, to: number, max: number) {
+  const res: number[] = []
+  for (let i = Math.max(0, from); i <= Math.min(max, to); i += 1) res.push(i)
+  return res
 }
 
-/** 校验一段日期范围是否合规，违规时提示并返回 false */
-function checkRange(label: string, range: string[], withOneYear: boolean) {
+/**
+ * 时刻粒度限制：起点不可早于「当前时间 - 3 天」、终点不可晚于当前时间。
+ * 仅当面板所在日期正好是相应边界当天时生效，其余日期全天可选。
+ */
+function disabledRangeTime(current: Date, type: 'start' | 'end') {
+  const bound = type === 'start' ? rangeLowerBound() : new Date()
+  if (startOfDay(current).getTime() !== startOfDay(bound).getTime()) return {}
+  const h = bound.getHours()
+  const m = bound.getMinutes()
+  const s = bound.getSeconds()
+  const later = type === 'end'
+  return {
+    disabledHours: () => (later ? intRange(h + 1, 23, 23) : intRange(0, h - 1, 23)),
+    disabledMinutes: (hour?: number) =>
+      hour === h ? (later ? intRange(m + 1, 59, 59) : intRange(0, m - 1, 59)) : [],
+    disabledSeconds: (hour?: number, minute?: number) =>
+      hour === h && minute === m ? (later ? intRange(s + 1, 59, 59) : intRange(0, s - 1, 59)) : [],
+  }
+}
+
+/** 解析 value-format 输出的「YYYY-MM-DD HH:mm:ss」（避免空格分隔在各浏览器的解析差异） */
+function parseTime(v: string) {
+  return new Date(v.replace(' ', 'T'))
+}
+/** 提示用短格式：YYYY-MM-DD HH:mm */
+function fmtTime(d: Date) {
+  const p = (n: number) => `${n}`.padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** 校验一段时间范围是否合规，违规时提示并返回 false */
+function checkRange(label: string, range: string[]) {
   const [s, e] = range || []
   if (!s || !e) return true
-  const start = startOfDay(new Date(s))
-  const end = startOfDay(new Date(e))
-  if (withOneYear && start.getTime() < oneYearAgoStart().getTime()) {
-    Message.warning(`${label}最早仅支持查询 1 年内的数据`)
+  const start = parseTime(s)
+  const end = parseTime(e)
+  const now = new Date()
+  const lower = rangeLowerBound()
+  if (start.getTime() < lower.getTime()) {
+    Message.warning(`${label}最早不能早于 ${fmtTime(lower)}（当前时间前 3 天）`)
     return false
   }
-  if (end.getTime() > todayStart().getTime()) {
-    Message.warning(`${label}结束日期不能晚于今天`)
+  if (end.getTime() > now.getTime()) {
+    Message.warning(`${label}结束时间不能晚于当前时间`)
     return false
   }
-  if (end.getTime() > addDays(start, MAX_SPAN_DAYS - 1).getTime()) {
+  if (end.getTime() - start.getTime() > MAX_SPAN_MS) {
     Message.warning(`${label}时间跨度最大支持 3 天`)
     return false
   }
@@ -458,19 +452,12 @@ function checkRange(label: string, range: string[], withOneYear: boolean) {
 
 /** 选择/输入完成即校验（Arco change 第三参为格式化后的字符串区间） */
 function onPublishChange(_v: unknown, _d: unknown, dateString?: (string | undefined)[]) {
-  publishPickedStart.value = null
   const range = (dateString || []).map((x) => x || '')
-  if (!checkRange('发布时间', range, false)) publishRange.value = []
+  if (!checkRange('发布时间', range)) publishRange.value = []
 }
 function onInboundChange(_v: unknown, _d: unknown, dateString?: (string | undefined)[]) {
-  inboundPickedStart.value = null
   const range = (dateString || []).map((x) => x || '')
-  if (!checkRange('入库时间', range, true)) inboundRange.value = []
-}
-
-/** 查询前兜底校验（防止异常值绕过 change 校验） */
-function validateRange(label: string, range: string[], withOneYear: boolean) {
-  return checkRange(label, range, withOneYear)
+  if (!checkRange('入库时间', range)) inboundRange.value = []
 }
 
 const columns = [
@@ -528,8 +515,8 @@ function openUrl(url: string) {
 
 async function fetchDetail(page = pagination.current) {
   if (
-    !validateRange('发布时间', publishRange.value || [], false) ||
-    !validateRange('入库时间', inboundRange.value || [], true)
+    !checkRange('发布时间', publishRange.value || []) ||
+    !checkRange('入库时间', inboundRange.value || [])
   ) {
     return
   }
@@ -564,8 +551,6 @@ function resetAll() {
   query.sourceUrl = ''
   publishRange.value = []
   inboundRange.value = []
-  publishPickedStart.value = null
-  inboundPickedStart.value = null
   rejectDrill.value = false
   fetchAgg()
   fetchDetail(1)
