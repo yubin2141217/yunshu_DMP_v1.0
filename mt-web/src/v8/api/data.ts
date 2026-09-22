@@ -9,7 +9,6 @@ import type {
   DataEntryQuery,
   Overview,
   OverviewRange,
-  OverviewRejectReason,
   PageResult,
   StatsQuery,
   StatsRow,
@@ -22,12 +21,6 @@ import type {
 export async function getOverview(range: OverviewRange = '7d'): Promise<Overview> {
   await delay()
   return v8Service.overview(currentScope(), range)
-}
-
-/** 拒收原因分布（近 7 天口径，供数方查看页用） */
-export async function getRejectReasons(): Promise<OverviewRejectReason[]> {
-  await delay()
-  return v8Service.rejectReasons(currentScope())
 }
 
 /** 供数统计：汇总指标 */
@@ -53,13 +46,13 @@ export async function getDataEntries(q: DataEntryQuery): Promise<PageResult<Data
   return v8Service.entries(q, currentScope())
 }
 
-/** 供数方查看：分页 */
+/** 供数方管理：分页 */
 export async function getSuppliers(q: SupplierQuery): Promise<PageResult<Supplier>> {
   await delay()
   return v8Service.suppliers(q, currentScope())
 }
 
-/** 供数方查看：不分页（统计/下拉用） */
+/** 供数方管理：不分页（统计/下拉用） */
 export function getAllSuppliers(): Supplier[] {
   return v8Service.allSuppliers(currentScope())
 }

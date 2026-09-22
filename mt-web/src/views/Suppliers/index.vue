@@ -82,15 +82,29 @@
           </a-form-item>
           <a-form-item field="logo">
             <template #label>
-              <FormFieldLabel title="供数方 logo" desc="图片地址；机构端（V8）供数方查看与接入日志中展示，留空则显示名称首字" />
+              <FormFieldLabel title="供数方 logo" desc="供机构端（V8）供数方管理与接入日志展示；未上传时展示名称首字" />
             </template>
-            <a-input v-model="editor.logo" placeholder="请输入 logo 图片地址" allow-clear>
-              <template #prefix>
-                <a-avatar :size="20" class="sup-logo" :image-url="editor.logo">
-                  {{ editor.name.charAt(0) || '?' }}
-                </a-avatar>
-              </template>
-            </a-input>
+            <div class="logo-uploader">
+              <a-avatar :size="56" class="sup-logo logo-uploader__preview" :image-url="editor.logo">
+                {{ editor.name.charAt(0) || '?' }}
+              </a-avatar>
+              <div class="logo-uploader__main">
+                <a-space :size="8">
+                  <a-upload
+                    :accept="LOGO_ACCEPT"
+                    :show-file-list="false"
+                    :custom-request="uploadLogo"
+                    :disabled="logoUploading"
+                  >
+                    <a-button size="small" :loading="logoUploading">
+                      {{ editor.logo ? '更换图片' : '上传图片' }}
+                    </a-button>
+                  </a-upload>
+                  <a-button v-if="editor.logo" size="small" :disabled="logoUploading" @click="removeLogo">移除</a-button>
+                </a-space>
+                <p class="logo-uploader__tip">支持 PNG / JPG / SVG，建议 1:1 正方形，大小不超过 500KB</p>
+              </div>
+            </div>
           </a-form-item>
           <a-form-item field="status" required>
             <template #label>

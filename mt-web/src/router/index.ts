@@ -153,7 +153,7 @@ const router = createRouter({
           redirect: (to) => ({ path: '/v8/data-check', query: to.query }),
         },
         { path: 'data-check', name: 'V8DataCheck', component: () => import('@/v8/views/DataCheck/index.vue'), meta: { title: '接入日志', menuKey: 'dataCheck' } },
-        { path: 'suppliers', name: 'V8Suppliers', component: () => import('@/v8/views/Suppliers/index.vue'), meta: { title: '供数方查看', menuKey: 'suppliers' } },
+        { path: 'suppliers', name: 'V8Suppliers', component: () => import('@/v8/views/Suppliers/index.vue'), meta: { title: '供数方管理', menuKey: 'suppliers' } },
         { path: 'monitor', name: 'V8Monitor', component: () => import('@/v8/views/Monitor/index.vue'), meta: { title: '供数监控', menuKey: 'monitor' } },
         { path: 'pushback', name: 'V8Pushback', component: () => import('@/v8/views/Pushback/index.vue'), meta: { title: '推送回流查看', menuKey: 'pushback' } },
         { path: 'message', name: 'V8Message', component: () => import('@/v8/views/Message/index.vue'), meta: { title: '消息中心', menuKey: 'message' } },

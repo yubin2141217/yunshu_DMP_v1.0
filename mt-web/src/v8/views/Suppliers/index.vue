@@ -2,8 +2,8 @@
   <div class="workplace-page">
     <div class="workplace-header">
       <div>
-        <h2 class="workplace-title">供数方查看</h2>
-        <p class="workplace-desc">查看本机构供数方及其供给状态。</p>
+        <h2 class="workplace-title">供数方管理</h2>
+        <p class="workplace-desc">管理本机构供数方及其供数表现。</p>
       </div>
     </div>
 
@@ -38,33 +38,14 @@
       </div>
     </section>
 
-    <!-- 供数方状态分布 + 拒收原因分布（自「首页」迁入） -->
-    <section class="v8-sup-dist">
-      <a-row :gutter="[16, 16]">
-        <a-col :xs="24" :lg="12">
-          <a-card class="content-card v8-panel-card" :bordered="false">
-            <div class="v8-card-head v8-card-head--inline">
-              <span class="section-title">供数方状态分布</span>
-              <span class="v8-card-head-sub">按供方实时接入状态统计</span>
-            </div>
-            <V8Chart :option="healthOption" height="240px" />
-          </a-card>
-        </a-col>
-        <a-col :xs="24" :lg="12">
-          <a-card class="content-card v8-panel-card" :bordered="false">
-            <div class="v8-card-head v8-card-head--inline">
-              <span class="section-title">拒收原因分布</span>
-              <span class="v8-card-head-sub">近 7 天接入失败原因统计分析</span>
-            </div>
-            <V8Chart v-if="rejectReasonTotal" :option="rejectReasonOption" height="240px" />
-            <div v-else class="v8-chart-empty v8-chart-empty-sm"><a-empty description="暂无拒收" /></div>
-          </a-card>
-        </a-col>
-      </a-row>
-    </section>
-
     <a-card class="content-card" :bordered="false">
       <div class="v8-filter-grid">
+        <div class="v8-filter-item">
+          <label>时间范围</label>
+          <a-select v-model="range" @change="fetchData(1)">
+            <a-option v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+          </a-select>
+        </div>
         <div class="v8-filter-item">
           <label>供数方名称</label>
           <a-input
@@ -105,11 +86,11 @@
             <a-avatar :size="26" class="v8-sup-logo" :image-url="record.logo">
               {{ record.name.charAt(0) }}
             </a-avatar>
-            <a-link @click="openDetail(record)">{{ record.name }}</a-link>
+            <div class="v8-sup-cell-main">
+              <a-link @click="openDetail(record)">{{ record.name }}</a-link>
+              <a class="v8-sup-cell-code" title="点击复制编码" @click="copyCode(record.code)">{{ record.code }}</a>
+            </div>
           </div>
-        </template>
-        <template #code="{ record }">
-          <a-link @click="copyCode(record.code)">{{ record.code }}</a-link>
         </template>
         <template #health="{ record }">
           <a-badge :status="badgeOf(record.health).status" :text="badgeOf(record.health).label" />
@@ -120,10 +101,16 @@
           </a-tag>
         </template>
         <template #todayCount="{ record }">
-          <a-link @click="goDataCheck(record)">{{ record.todayCount }}</a-link>
+          <a-link @click="goDataCheck(record)">{{ Number(metricsOf(record).count).toLocaleString('zh-CN') }}</a-link>
         </template>
-        <template #todayRejectRate="{ record }">
-          <span :class="record.todayRejectRate > 5 ? 'v8-text-warn' : ''">{{ record.todayRejectRate }}%</span>
+        <template #firstRate="{ record }">
+          <span>{{ metricsOf(record).firstRate }}%</span>
+        </template>
+        <template #uniqueRate="{ record }">
+          <span>{{ metricsOf(record).uniqueRate }}%</span>
+        </template>
+        <template #rejectRate="{ record }">
+          <span :class="metricsOf(record).rejectRate > 5 ? 'v8-text-warn' : ''">{{ metricsOf(record).rejectRate }}%</span>
         </template>
         <template #empty><a-empty description="尚未配置供数方或不在您的可见范围内" /></template>
       </a-table>
@@ -184,23 +171,34 @@
             供方已停用，以下评分为停用前最后 7 日数据的历史参考
           </div>
 
-          <V8Chart :option="radarOption" height="248px" />
+          <!-- 雷达图：维度名称由覆盖层渲染（名称后 ⓘ 为口径说明 tooltip），与 canvas 图形对齐 -->
+          <div ref="radarWrap" class="v8-radar-wrap">
+            <V8Chart :option="radarOption" height="248px" />
+            <div
+              v-for="(dim, i) in SCORE_DIMS"
+              :key="dim"
+              class="v8-radar-axis"
+              :style="axisStyle(i)"
+            >
+              <span>{{ scoreDimensionMeta[dim].label }}</span>
+              <a-tooltip :content="scoreDimensionMeta[dim].tip" mini position="top">
+                <IconQuestionCircle class="v8-radar-axis-info" @click.stop />
+              </a-tooltip>
+            </div>
+          </div>
 
           <div v-if="weakTip" class="v8-sup-eval-weak">
             <IconExclamationCircle class="v8-sup-eval-weak-icon" />
             <span>{{ weakTip }}</span>
           </div>
         </div>
-
-        <div class="v8-sup-trend-title">近 7 日入库趋势</div>
-        <V8Chart :option="weekOption" height="180px" />
       </template>
     </a-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import {
@@ -212,21 +210,19 @@ import {
   IconPauseCircle,
   IconQuestionCircle,
 } from '@arco-design/web-vue/es/icon'
-import type { EChartsCoreOption } from 'echarts/core'
 import V8Chart from '@/v8/components/V8Chart.vue'
-import { getAllSuppliers, getRejectReasons, getSuppliers } from '@/v8/api/data'
+import { getAllSuppliers, getSuppliers } from '@/v8/api/data'
 import {
   healthMeta,
-  rejectReasonLabels,
+  scoreDimensionMeta,
   scoreGradeMeta,
   averageSupplierScores,
   computeSupplierScore,
   type Health,
-  type OverviewRejectReason,
   type Supplier,
   type SupplierScore,
 } from '@/v8/mock/types'
-import { buildRadarOption, weakTipOf } from '@/v8/utils/supplierRadar'
+import { buildRadarOption, weakTipOf, SCORE_DIMS } from '@/v8/utils/supplierRadar'
 
 const route = useRoute()
 const router = useRouter()
@@ -246,15 +242,60 @@ const badgeMap: Record<Health, { status: 'success' | 'processing' | 'danger' | '
 }
 const badgeOf = (h: Health) => ({ ...badgeMap[h], label: healthMeta[h].label })
 
-const columns = [
+/* ===== 时间范围筛选：列表指标列随范围切换（演示口径：今日为种子值，其余范围按固定系数派生） ===== */
+const RANGE_OPTIONS = [
+  { value: 'today', label: '今日' },
+  { value: '3d', label: '近3天' },
+  { value: '7d', label: '近7天' },
+  { value: '1m', label: '近1月' },
+  { value: 'year', label: '本年度' },
+] as const
+type SupplierRange = (typeof RANGE_OPTIONS)[number]['value']
+
+const range = ref<SupplierRange>('7d')
+const rangeLabel = computed(() => RANGE_OPTIONS.find((o) => o.value === range.value)?.label ?? '')
+
+interface RangeMetrics {
+  /** 范围内入库量 */
+  count: number
+  /** 范围内首发占比（%） */
+  firstRate: number
+  /** 范围内独有占比（%） */
+  uniqueRate: number
+  /** 范围内拒收率（%） */
+  rejectRate: number
+}
+
+/** 列表指标按时间范围派生：今日直接取种子值，更长周期基于近 7 日趋势按系数放大 / 占比小幅回落 */
+function metricsOf(s: Supplier): RangeMetrics {
+  const week = (s.weekTrend || []).map((n) => Number(n) || 0)
+  const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
+  const weekTotal = sum(week)
+  const r1 = (n: number) => Math.round(n * 10) / 10
+  switch (range.value) {
+    case 'today':
+      return { count: s.todayCount, firstRate: s.todayFirstRate, uniqueRate: s.todayUniqueRate, rejectRate: s.todayRejectRate }
+    case '3d':
+      return { count: sum(week.slice(-3)), firstRate: Math.round(s.todayFirstRate * 0.92), uniqueRate: Math.round(s.todayUniqueRate * 0.9), rejectRate: r1(s.todayRejectRate * 0.9) }
+    case '7d':
+      return { count: weekTotal, firstRate: Math.round(s.todayFirstRate * 0.88), uniqueRate: Math.round(s.todayUniqueRate * 0.86), rejectRate: r1(s.todayRejectRate * 0.85) }
+    case '1m':
+      return { count: Math.round(weekTotal * 4.3), firstRate: Math.round(s.todayFirstRate * 0.85), uniqueRate: Math.round(s.todayUniqueRate * 0.82), rejectRate: r1(s.todayRejectRate * 0.8) }
+    case 'year':
+      return { count: Math.round(weekTotal * 52), firstRate: Math.round(s.todayFirstRate * 0.8), uniqueRate: Math.round(s.todayUniqueRate * 0.78), rejectRate: r1(s.todayRejectRate * 0.75) }
+  }
+}
+
+const columns = computed(() => [
   { title: '供数方名称', dataIndex: 'name', slotName: 'name', ellipsis: true, tooltip: true },
-  { title: '编码', dataIndex: 'code', slotName: 'code', width: 120 },
   { title: '供数方状态', dataIndex: 'health', slotName: 'health', width: 110 },
   { title: '启用状态', dataIndex: 'status', slotName: 'status', width: 90 },
-  { title: '今日入库', dataIndex: 'todayCount', slotName: 'todayCount', width: 110 },
-  { title: '今日拒收率', dataIndex: 'todayRejectRate', slotName: 'todayRejectRate', width: 110 },
+  { title: `${rangeLabel.value}入库`, dataIndex: 'todayCount', slotName: 'todayCount', width: 110 },
+  { title: `${rangeLabel.value}首发占比`, dataIndex: 'firstRate', slotName: 'firstRate', width: 120 },
+  { title: `${rangeLabel.value}独有占比`, dataIndex: 'uniqueRate', slotName: 'uniqueRate', width: 120 },
+  { title: '拒收率', dataIndex: 'rejectRate', slotName: 'rejectRate', width: 100 },
   { title: '最近推送', dataIndex: 'lastPushAt', width: 160 },
-]
+])
 
 /** 按当前登录机构可见范围汇总供数方状态（口径全局统一：健康/活跃/异常/停用） */
 const healthCount = computed<Record<Health, number>>(() => {
@@ -263,57 +304,6 @@ const healthCount = computed<Record<Health, number>>(() => {
   return dist
 })
 const supplierTotal = computed(() => getAllSuppliers().length)
-
-/* ===== 供数方状态分布 + 拒收原因分布（自「首页」迁入，状态为实时口径，拒收为近 7 天口径） ===== */
-const HEALTH_ORDER: Health[] = ['healthy', 'active', 'error', 'disabled']
-const HEALTH_COLOR: Record<Health, string> = {
-  healthy: '#00b42a',
-  active: '#1677ff',
-  error: '#f53f3f',
-  disabled: '#86909c',
-}
-const REASON_COLORS = ['#f53f3f', '#ff7d00', '#ffb400', '#1677ff', '#13c2c2', '#86909c']
-
-const healthOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} 家 ({d}%)' },
-  legend: {
-    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
-    textStyle: { fontSize: 12, color: '#4e5969' },
-  },
-  color: HEALTH_ORDER.map((h) => HEALTH_COLOR[h]),
-  series: [
-    {
-      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
-      label: { show: false }, labelLine: { show: false },
-      data: HEALTH_ORDER.map((h) => ({ name: healthMeta[h].label, value: healthCount.value[h] })),
-    },
-  ],
-}))
-
-const rejectReasons = ref<OverviewRejectReason[]>([])
-const rejectReasonTotal = computed(() => rejectReasons.value.reduce((s, r) => s + r.count, 0))
-
-const rejectReasonOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-  legend: {
-    orient: 'vertical', right: 0, top: 'middle', itemWidth: 10, itemHeight: 10,
-    textStyle: { fontSize: 12, color: '#4e5969' },
-    formatter: (name: string) => {
-      const item = rejectReasons.value.find((r) => rejectReasonLabels[r.reason] === name)
-      const total = rejectReasonTotal.value
-      const pct = item && total ? ((item.count / total) * 100).toFixed(1) : '0'
-      return `${name}  ${Number(item?.count || 0).toLocaleString('zh-CN')} (${pct}%)`
-    },
-  },
-  color: REASON_COLORS,
-  series: [
-    {
-      type: 'pie', radius: ['52%', '74%'], center: ['34%', '50%'], avoidLabelOverlap: false,
-      label: { show: false }, labelLine: { show: false },
-      data: rejectReasons.value.map((r) => ({ name: rejectReasonLabels[r.reason], value: r.count })),
-    },
-  ],
-}))
 
 /** 点击统计卡片：联动下方「供数方状态」筛选；再次点击同一张状态卡可取消筛选 */
 function filterByHealth(h: Health | '') {
@@ -435,25 +425,6 @@ function goDataCheck(row: Supplier) {
   router.push({ path: '/v8/data-check', query: { supplierId: row.id } })
 }
 
-const weekOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 12, top: 16, bottom: 24 },
-  xAxis: {
-    type: 'category',
-    data: (current.value?.weekTrend || []).map((_, i) => `D${i + 1}`),
-    axisLine: { lineStyle: { color: '#e5e6eb' } },
-  },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f3f5' } } },
-  series: [
-    {
-      type: 'line', smooth: true, showSymbol: false,
-      data: current.value?.weekTrend || [],
-      lineStyle: { width: 2, color: '#1677ff' },
-      areaStyle: { color: 'rgba(22,119,255,0.12)' },
-    },
-  ],
-}))
-
 /* ===== 供方能力五维评估（详情雷达） ===== */
 /** 当前供方评分 */
 const currentScore = computed<SupplierScore | null>(() => (current.value ? computeSupplierScore(current.value) : null))
@@ -465,18 +436,55 @@ const orgAvgScore = computed<SupplierScore>(() => {
 /** 短板针对性提示（最低维 <60 分才提示） */
 const weakTip = computed(() => (currentScore.value ? weakTipOf(currentScore.value) : ''))
 /** 五维雷达：当前供方 vs 机构均值 */
-const radarOption = computed<EChartsCoreOption>(() =>
-  currentScore.value ? buildRadarOption(currentScore.value, orgAvgScore.value, current.value?.name ?? '') : {}
+const radarOption = computed(() =>
+  currentScore.value ? buildRadarOption(currentScore.value, orgAvgScore.value, current.value?.name ?? '') : {},
 )
 
+/* ===== 雷达维度名称覆盖层：ECharts 自带名称已关闭，名称 + ⓘ 说明由 HTML 渲染以支持 tooltip ===== */
+const radarWrap = ref<HTMLDivElement | null>(null)
+const radarSize = ref({ w: 0, h: 248 })
+let radarRO: ResizeObserver | null = null
+
+function syncRadarSize() {
+  if (radarWrap.value) radarSize.value = { w: radarWrap.value.clientWidth, h: radarWrap.value.clientHeight }
+}
+
+// 抽屉内容首次挂载后才存在 wrap，故在每次打开时挂观察器（observe 幂等）
+watch(detailVisible, (open) => {
+  if (!open) return
+  nextTick(() => {
+    if (!radarWrap.value) return
+    radarRO ??= new ResizeObserver(syncRadarSize)
+    radarRO.observe(radarWrap.value)
+    syncRadarSize()
+  })
+})
+onBeforeUnmount(() => {
+  radarRO?.disconnect()
+  radarRO = null
+})
+
+/**
+ * 维度名称定位：与 buildRadarOption 的 center ['50%','48%'] / radius '62%' 几何参数保持一致。
+ * ECharts 雷达默认 startAngle=90°、clockwise=false（屏幕逆时针），
+ * 第 i 维数学角 = 90° + i·(360/n)，屏幕坐标 y 轴向下（与 echarts coordToPoint 的 y=c-r·sinθ 一致）。
+ */
+function axisStyle(i: number): Record<string, string> {
+  const { w, h } = radarSize.value
+  if (!w || !h) return { visibility: 'hidden' }
+  const cx = w * 0.5
+  const cy = h * 0.48
+  const r = (Math.min(w, h) / 2) * 0.62 + 18
+  const angle = ((90 + (360 / SCORE_DIMS.length) * i) * Math.PI) / 180
+  return {
+    left: `${cx + r * Math.cos(angle)}px`,
+    top: `${cy - r * Math.sin(angle)}px`,
+  }
+}
+
 onMounted(() => {
-  // 数据概览环图下钻回填：?health=active|healthy|error|disabled
-  const h = route.query.health
-  if (h === 'active' || h === 'healthy' || h === 'error' || h === 'disabled') health.value = h
   fetchData(1)
-  // 拒收原因分布（近 7 天口径）
-  getRejectReasons().then((r) => { rejectReasons.value = r })
-  // 接入规范列表下钻回填：?supplierId=s1 自动打开对应供方详情
+  // URL 深链直达：?supplierId=s1 自动打开对应供方详情
   const sid = route.query.supplierId
   if (typeof sid === 'string' && sid) {
     const target = getAllSuppliers().find((s) => s.id === sid)
@@ -550,6 +558,23 @@ onMounted(() => {
   flex: none;
   background: #f2f3f5;
 }
+/* 名称列：名称 + 编码副信息（编码点击可复制） */
+.v8-sup-cell-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.v8-sup-cell-code {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #86909c;
+  cursor: pointer;
+}
+.v8-sup-cell-code:hover {
+  color: #165dff;
+  text-decoration: underline;
+}
 .v8-sup-name {
   font-size: 18px;
   font-weight: 600;
@@ -559,11 +584,6 @@ onMounted(() => {
   margin-top: 4px;
   font-size: 13px;
   color: #86909c;
-}
-.v8-sup-trend-title {
-  font-weight: 600;
-  color: #1d2129;
-  margin: 20px 0 8px;
 }
 
 /* 供方能力评估区块 */
@@ -631,52 +651,29 @@ onMounted(() => {
   font-size: 13px;
 }
 
-/* ── 供数方状态分布 + 拒收原因分布（自「首页」迁入） ── */
-.v8-sup-dist {
-  margin-bottom: 16px;
+/* 雷达维度名称覆盖层：绝对定位在 canvas 之上，名称后 ⓘ 可查看口径说明 */
+.v8-radar-wrap {
+  position: relative;
 }
-.v8-sup-dist :deep(.arco-row) {
-  align-items: stretch;
-}
-.v8-sup-dist :deep(.arco-col) {
-  display: flex;
-}
-:deep(.v8-panel-card) {
-  width: 100%;
-  height: 100%;
-}
-:deep(.v8-panel-card .arco-card-body) {
-  padding: 18px 20px;
-}
-.v8-card-head {
-  display: flex;
+.v8-radar-axis {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 26px;
-  margin-bottom: 12px;
-}
-.v8-card-head .section-title {
-  margin: 0;
-  font-size: 15px;
-}
-.v8-card-head-sub {
+  gap: 3px;
   font-size: 12px;
-  color: #a9aeb8;
-}
-/* 说明紧跟模块标题后方（不两端撑开） */
-.v8-card-head--inline {
-  justify-content: flex-start;
-  gap: 8px;
-}
-.v8-card-head--inline .v8-card-head-sub {
+  line-height: 1;
+  color: #4e5969;
   white-space: nowrap;
 }
-.v8-chart-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.v8-radar-axis-info {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: #c9cdd4;
+  cursor: help;
+  transition: color 0.18s ease;
 }
-.v8-chart-empty-sm {
-  height: 240px;
+.v8-radar-axis-info:hover {
+  color: #4096ff;
 }
 </style>

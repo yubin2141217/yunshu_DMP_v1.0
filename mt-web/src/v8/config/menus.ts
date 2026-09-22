@@ -24,7 +24,7 @@ export type V8NavNode = V8MenuItem | V8NavGroup
 export const V8_NAV: V8NavNode[] = [
   { key: 'overview', title: '首页', path: '/v8/overview' },
   { key: 'dataCheck', title: '接入日志', path: '/v8/data-check' },
-  { key: 'suppliers', title: '供数方查看', path: '/v8/suppliers' },
+  { key: 'suppliers', title: '供数方管理', path: '/v8/suppliers' },
   { key: 'spec', title: '接入规范', path: '/v8/spec' },
   { key: 'monitor', title: '供数监控', path: '/v8/monitor' },
   // 推送回流（pushback）本期主导航隐藏：路由与权限点保留，供数据概览推送对账分区下钻
@@ -42,7 +42,7 @@ export const V8_NAV: V8NavNode[] = [
 export const V8_MENUS: V8MenuItem[] = [
   { key: 'overview', title: '首页', path: '/v8/overview' },
   { key: 'dataCheck', title: '接入日志', path: '/v8/data-check' },
-  { key: 'suppliers', title: '供数方查看', path: '/v8/suppliers' },
+  { key: 'suppliers', title: '供数方管理', path: '/v8/suppliers' },
   { key: 'spec', title: '接入规范', path: '/v8/spec' },
   { key: 'monitor', title: '供数监控', path: '/v8/monitor' },
   { key: 'pushback', title: '推送回流', path: '/v8/pushback' },

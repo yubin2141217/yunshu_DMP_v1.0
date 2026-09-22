@@ -193,9 +193,6 @@
           <a-descriptions-item label="最近推送">{{ supplierActive.lastPushAt || '暂无' }}</a-descriptions-item>
           <a-descriptions-item label="信息更新时间">{{ supplierActive.updatedAt }}</a-descriptions-item>
         </a-descriptions>
-
-        <div class="v8-sup-trend-title">近 7 日入库趋势</div>
-        <V8Chart :option="supplierWeekOption" height="180px" />
       </template>
     </a-drawer>
   </div>
@@ -204,8 +201,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import type { EChartsCoreOption } from 'echarts/core'
-import V8Chart from '@/v8/components/V8Chart.vue'
 import { getEnabledStandards } from '@/v8/api/v8'
 import { getAllSuppliers } from '@/v8/api/data'
 import { logSpecDownload } from '@/v8/api/system'
@@ -305,25 +300,6 @@ const supplierBadgeMap: Record<Health, { status: 'success' | 'processing' | 'dan
 function badgeOf(h: Health) {
   return { ...supplierBadgeMap[h], label: healthMeta[h].label }
 }
-
-const supplierWeekOption = computed<EChartsCoreOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { left: 40, right: 12, top: 16, bottom: 24 },
-  xAxis: {
-    type: 'category',
-    data: (supplierActive.value?.weekTrend || []).map((_, i) => `D${i + 1}`),
-    axisLine: { lineStyle: { color: '#e5e6eb' } },
-  },
-  yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f3f5' } } },
-  series: [
-    {
-      type: 'line', smooth: true, showSymbol: false,
-      data: supplierActive.value?.weekTrend || [],
-      lineStyle: { width: 2, color: '#1677ff' },
-      areaStyle: { color: 'rgba(22,119,255,0.12)' },
-    },
-  ],
-}))
 
 function openSupplier(record: Standard) {
   if (!record.supplierId) return
@@ -486,10 +462,5 @@ onMounted(async () => {
   margin-top: 4px;
   font-size: 13px;
   color: #86909c;
-}
-.v8-sup-trend-title {
-  font-weight: 600;
-  color: #1d2129;
-  margin: 20px 0 8px;
 }
 </style>
