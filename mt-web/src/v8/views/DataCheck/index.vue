@@ -95,6 +95,15 @@
           <a-input v-model="query.keyword" placeholder="请输入标题" allow-clear @press-enter="fetchDetail(1)" />
         </div>
         <div class="v8-filter-item">
+          <label>来源 URL</label>
+          <a-input
+            v-model="query.sourceUrl"
+            placeholder="请输入来源 URL 关键词"
+            allow-clear
+            @press-enter="fetchDetail(1)"
+          />
+        </div>
+        <div class="v8-filter-item">
           <label>作者</label>
           <a-input v-model="query.authorName" placeholder="作者/来源署名" allow-clear @press-enter="fetchDetail(1)" />
         </div>
@@ -132,15 +141,6 @@
             @change="onInboundChange"
           />
         </div>
-        <div class="v8-filter-item">
-          <label>来源 URL</label>
-          <a-input
-            v-model="query.sourceUrl"
-            placeholder="请输入来源 URL 关键词"
-            allow-clear
-            @press-enter="fetchDetail(1)"
-          />
-        </div>
         <div class="v8-filter-actions">
           <a-button type="primary" @click="fetchDetail(1)">查询</a-button>
           <a-button @click="resetAll">重置</a-button>
@@ -160,9 +160,18 @@
           <a-link class="v8-entry-title" @click="openDetail(record as DataEntry)">{{ record.title }}</a-link>
         </template>
         <template #supplierName="{ record }">
-          <a-link class="v8-supplier-link" @click="openSupplier(record as DataEntry)">
-            {{ (record as DataEntry).supplierName }}
-          </a-link>
+          <div class="v8-supplier-cell">
+            <a-avatar
+              :size="24"
+              class="v8-supplier-logo"
+              :image-url="logoOf((record as DataEntry).supplierId)"
+            >
+              {{ avatarText((record as DataEntry).supplierName) }}
+            </a-avatar>
+            <a-link class="v8-supplier-link" @click="openSupplier(record as DataEntry)">
+              {{ (record as DataEntry).supplierName }}
+            </a-link>
+          </div>
         </template>
         <template #authorName="{ record }">
           <div class="v8-author">
@@ -459,11 +468,11 @@ function validateRange(label: string, range: string[], withOneYear: boolean) {
 
 const columns = [
   { title: '标题', dataIndex: 'title', slotName: 'title', ellipsis: true, tooltip: true },
-  { title: '供数方', dataIndex: 'supplierName', slotName: 'supplierName', width: 150, ellipsis: true, tooltip: true },
+  { title: '供数方', dataIndex: 'supplierName', slotName: 'supplierName', width: 180, ellipsis: true, tooltip: true },
+  { title: '来源 URL', dataIndex: 'sourceUrl', slotName: 'sourceUrl', width: 220 },
   { title: '作者', dataIndex: 'authorName', slotName: 'authorName', width: 180 },
   { title: '发布时间', dataIndex: 'publishedAt', width: 160 },
   { title: '入库时间', dataIndex: 'inboundAt', width: 160 },
-  { title: '来源 URL', dataIndex: 'sourceUrl', slotName: 'sourceUrl', width: 220 },
 ]
 
 const detailVisible = ref(false)
@@ -475,6 +484,11 @@ const currentSupplier = ref<Supplier | null>(null)
 function avatarText(name: string) {
   const trimmed = (name || '').trim()
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?'
+}
+
+/** 供数方 logo：由 MT 管理端维护，机构端按供方 id 取用；缺图时回退首字头像 */
+function logoOf(supplierId: string) {
+  return getAllSuppliers().find((s) => s.id === supplierId)?.logo || ''
 }
 
 function healthBadge(h: Health) {
@@ -691,6 +705,17 @@ onMounted(() => {
 }
 .v8-supplier-link {
   font-size: 13px;
+}
+/* 供数方：logo + 名称，logo 便于在密集列表中快速区分供稿来源 */
+.v8-supplier-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.v8-supplier-logo {
+  flex: none;
+  background: #f2f3f5;
 }
 /* 来源 URL：最多两行，超长尾部省略号 */
 .v8-url-cell {

@@ -43,7 +43,7 @@ export async function listSuppliers(params: { name: string; status: string; page
   return mtMock.paginate(list, params.page, params.pageSize)
 }
 
-export async function saveSupplier(payload: { id?: string; name: string; code: string; status: Status }) {
+export async function saveSupplier(payload: { id?: string; name: string; code: string; status: Status; logo: string }) {
   await delay()
   if (mtMock.nameExists(payload.name, payload.id)) throw new Error('供数方名称已存在')
   if (mtMock.codeExists(payload.code, payload.id)) throw new Error('编码已存在')

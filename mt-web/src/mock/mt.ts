@@ -9,11 +9,25 @@ import { dictMock } from './dict'
 export type Status = 'enabled' | 'disabled'
 export type StandardScope = 'global' | 'org'
 
+/**
+ * 供数方 logo：由供数方管理模块维护，机构端（V8）只读展示。
+ * 用统一的文生图接口生成方形标识图，各家色系不同，便于列表与明细中快速区分。
+ */
+const LOGO_API = 'https://console.enterprise.trae.cn/api/ide/v1/text_to_image?image_size=square&prompt='
+const SUPPLIER_LOGOS: Record<string, string> = {
+  s1: `${LOGO_API}minimal%20flat%20square%20app%20icon%2C%20deep%20blue%20gradient%2C%20white%20abstract%20bar%20chart%20with%20magnifier%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s2: `${LOGO_API}minimal%20flat%20square%20app%20icon%2C%20teal%20cyan%20gradient%2C%20white%20abstract%20starburst%20with%20signal%20wave%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s3: `${LOGO_API}minimal%20flat%20square%20app%20icon%2C%20slate%20gray%20gradient%2C%20white%20abstract%20shield%20with%20check%20mark%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s4: `${LOGO_API}minimal%20flat%20square%20app%20icon%2C%20blue%20indigo%20gradient%2C%20white%20abstract%20flame%20with%20magnifier%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+}
+
 export interface Supplier {
   id: string
   name: string
   code: string
   status: Status
+  /** 供数方 logo 图片地址，由本模块维护，机构端（V8）只读展示 */
+  logo: string
   appkey: string
   updatedAt: string
 }
@@ -1731,10 +1745,10 @@ const seed = {
     { id: 'oc9', name: '银川教科', code: 'CUST-NX-YC-010' },
   ] as OrgCatalogItem[],
   suppliers: [
-    { id: 's1', name: '清博智能', code: 'QB001', status: 'enabled' as Status, appkey: 'ak_QB001_demo01', updatedAt: '2026-09-01 14:20:00' },
-    { id: 's2', name: '智慧星光', code: 'ZX001', status: 'enabled' as Status, appkey: 'ak_ZX001_demo02', updatedAt: '2026-08-28 09:10:00' },
-    { id: 's3', name: '数美科技', code: 'SM001', status: 'disabled' as Status, appkey: 'ak_SM001_demo03', updatedAt: '2026-09-02 18:06:00' },
-    { id: 's4', name: '百度舆情', code: 'BD001', status: 'enabled' as Status, appkey: 'ak_BD001_demo04', updatedAt: '2026-08-15 11:00:00' },
+    { id: 's1', name: '清博智能', code: 'QB001', status: 'enabled' as Status, logo: SUPPLIER_LOGOS.s1, appkey: 'ak_QB001_demo01', updatedAt: '2026-09-01 14:20:00' },
+    { id: 's2', name: '智慧星光', code: 'ZX001', status: 'enabled' as Status, logo: SUPPLIER_LOGOS.s2, appkey: 'ak_ZX001_demo02', updatedAt: '2026-08-28 09:10:00' },
+    { id: 's3', name: '数美科技', code: 'SM001', status: 'disabled' as Status, logo: SUPPLIER_LOGOS.s3, appkey: 'ak_SM001_demo03', updatedAt: '2026-09-02 18:06:00' },
+    { id: 's4', name: '百度舆情', code: 'BD001', status: 'enabled' as Status, logo: SUPPLIER_LOGOS.s4, appkey: 'ak_BD001_demo04', updatedAt: '2026-08-15 11:00:00' },
   ] as Supplier[],
   orgs: [
     orgRecord({
@@ -2812,12 +2826,13 @@ export const mtMock = {
   codeExists: (code: string, exceptId?: string) =>
     state.suppliers.some((s) => s.code === code.trim() && s.id !== exceptId),
   isReferenced: (id: string) => state.orgs.some((org) => org.supplierIds.includes(id)),
-  createSupplier(payload: { name: string; code: string; status: Status }) {
+  createSupplier(payload: { name: string; code: string; status: Status; logo: string }) {
     const item: Supplier = {
       id: 's' + Date.now(),
       name: payload.name.trim(),
       code: payload.code.trim(),
       status: payload.status,
+      logo: payload.logo.trim(),
       appkey: genAppkey(payload.code.trim()),
       updatedAt: nowText(),
     }
@@ -2825,13 +2840,14 @@ export const mtMock = {
     save()
     return item
   },
-  updateSupplier(id: string, payload: { name: string; code: string; status: Status }) {
+  updateSupplier(id: string, payload: { name: string; code: string; status: Status; logo: string }) {
     const item = state.suppliers.find((s) => s.id === id)
     if (!item) return null
     Object.assign(item, {
       name: payload.name.trim(),
       code: payload.code.trim(),
       status: payload.status,
+      logo: payload.logo.trim(),
       updatedAt: nowText(),
     })
     save()

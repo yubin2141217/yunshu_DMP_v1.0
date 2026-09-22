@@ -101,7 +101,12 @@
 
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" stripe>
         <template #name="{ record }">
-          <a-link @click="openDetail(record)">{{ record.name }}</a-link>
+          <div class="v8-sup-cell">
+            <a-avatar :size="26" class="v8-sup-logo" :image-url="record.logo">
+              {{ record.name.charAt(0) }}
+            </a-avatar>
+            <a-link @click="openDetail(record)">{{ record.name }}</a-link>
+          </div>
         </template>
         <template #code="{ record }">
           <a-link @click="copyCode(record.code)">{{ record.code }}</a-link>
@@ -142,9 +147,14 @@
       <template #title>供数方详情</template>
       <template v-if="current">
         <div class="v8-sup-head">
-          <div>
-            <div class="v8-sup-name">{{ current.name }}</div>
-            <div class="v8-sup-code">编码：{{ current.code }}</div>
+          <div class="v8-sup-head-main">
+            <a-avatar :size="44" class="v8-sup-logo" :image-url="current.logo">
+              {{ current.name.charAt(0) }}
+            </a-avatar>
+            <div>
+              <div class="v8-sup-name">{{ current.name }}</div>
+              <div class="v8-sup-code">编码：{{ current.code }}</div>
+            </div>
           </div>
           <a-badge :status="badgeOf(current.health).status" :text="badgeOf(current.health).label" />
         </div>
@@ -522,6 +532,23 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 18px;
+}
+/* 列表名称列与详情头部：logo + 文字横向排列 */
+.v8-sup-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.v8-sup-head-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.v8-sup-logo {
+  flex: none;
+  background: #f2f3f5;
 }
 .v8-sup-name {
   font-size: 18px;

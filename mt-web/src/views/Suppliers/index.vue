@@ -21,6 +21,14 @@
         <a-button @click="onReset">重置</a-button>
       </div>
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" :bordered="false" stripe>
+        <template #name="{ record }">
+          <div class="sup-cell">
+            <a-avatar :size="26" class="sup-logo" :image-url="record.logo">
+              {{ record.name.charAt(0) }}
+            </a-avatar>
+            <span class="sup-name">{{ record.name }}</span>
+          </div>
+        </template>
         <template #code="{ record }">
           <a-space>
             <span class="mono">{{ record.code }}</span>
@@ -72,6 +80,18 @@
             </template>
             <a-input v-model="editor.code" :max-length="32" placeholder="请输入" />
           </a-form-item>
+          <a-form-item field="logo">
+            <template #label>
+              <FormFieldLabel title="供数方 logo" desc="图片地址；机构端（V8）供数方查看与接入日志中展示，留空则显示名称首字" />
+            </template>
+            <a-input v-model="editor.logo" placeholder="请输入 logo 图片地址" allow-clear>
+              <template #prefix>
+                <a-avatar :size="20" class="sup-logo" :image-url="editor.logo">
+                  {{ editor.name.charAt(0) || '?' }}
+                </a-avatar>
+              </template>
+            </a-input>
+          </a-form-item>
           <a-form-item field="status" required>
             <template #label>
               <FormFieldLabel title="状态" desc="开启后可被接入方案勾选；停用后不可被新方案勾选" />
@@ -110,14 +130,14 @@ const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const visible = ref(false)
 const mode = ref<'create' | 'edit'>('create')
 const formRef = ref<FormInstance>()
-const editor = reactive({ id: '', name: '', code: '', status: 'enabled' as Status })
+const editor = reactive({ id: '', name: '', code: '', status: 'enabled' as Status, logo: '' })
 const rules = {
   name: [{ required: true, message: '请填写供数方名称' }],
   code: [{ required: true, message: '请填写供数方编码' }],
   status: [{ required: true, message: '请设置状态' }],
 }
 const columns = [
-  { title: '供数方名称', dataIndex: 'name', width: 180, ellipsis: true, tooltip: true },
+  { title: '供数方名称', dataIndex: 'name', slotName: 'name', width: 220, ellipsis: true, tooltip: true },
   { title: '供数方编码', dataIndex: 'code', slotName: 'code', width: 180 },
   { title: '状态', dataIndex: 'status', slotName: 'status', width: 88 },
   { title: '更新时间', dataIndex: 'updatedAt', width: 160 },
@@ -168,14 +188,14 @@ function onReset() {
 
 function openCreate() {
   mode.value = 'create'
-  Object.assign(editor, { id: '', name: '', code: '', status: 'enabled' as Status })
+  Object.assign(editor, { id: '', name: '', code: '', status: 'enabled' as Status, logo: '' })
   visible.value = true
   nextTick(() => clearFormValidate(formRef.value))
 }
 
 function openEdit(record: Supplier) {
   mode.value = 'edit'
-  Object.assign(editor, { id: record.id, name: record.name, code: record.code, status: record.status })
+  Object.assign(editor, { id: record.id, name: record.name, code: record.code, status: record.status, logo: record.logo || '' })
   visible.value = true
   nextTick(() => clearFormValidate(formRef.value))
 }
@@ -188,6 +208,7 @@ async function onSubmit() {
       name: editor.name,
       code: editor.code,
       status: editor.status,
+      logo: editor.logo,
     })
     Message.success(mode.value === 'create' ? `新增成功「${editor.name}」` : `保存成功「${editor.name}」`)
     fetchData(mode.value === 'create' ? 1 : pagination.current)
@@ -263,6 +284,22 @@ onMounted(() => fetchData(1))
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
+}
+/* 供数方名称列：logo + 名称横向排列 */
+.sup-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sup-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sup-logo {
+  flex: none;
+  background: #f2f3f5;
 }
 .del-disabled-wrap {
   display: inline-block;

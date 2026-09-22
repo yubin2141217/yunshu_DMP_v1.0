@@ -433,6 +433,8 @@ export interface Supplier {
   name: string
   code: string
   status: AccountStatus
+  /** 供数方 logo 图片地址，由 MT 管理端维护，机构端仅查看 */
+  logo: string
   updatedAt: string
   health: Health
   schemeName: string

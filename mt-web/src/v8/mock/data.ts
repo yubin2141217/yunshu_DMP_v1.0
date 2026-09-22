@@ -25,36 +25,49 @@ import { computeHealth, rejectReasonLabels } from './types'
 export const ORG_ID = 'org-wxb-01'
 
 /**
+ * 供数方 logo：由 MT 管理端维护，机构端仅展示。
+ * 用统一的文生图接口生成方形标识图，色系各不相同以便在列表/表格中快速区分。
+ */
+const LOGO_BASE = 'https://console.enterprise.trae.cn/api/ide/v1/text_to_image?image_size=square&prompt='
+const supplierLogos: Record<string, string> = {
+  s1: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20deep%20blue%20gradient%2C%20white%20abstract%20bar%20chart%20with%20magnifier%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s2: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20teal%20cyan%20gradient%2C%20white%20abstract%20starburst%20with%20signal%20wave%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s3: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20slate%20gray%20gradient%2C%20white%20abstract%20shield%20with%20check%20mark%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s4: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20blue%20indigo%20gradient%2C%20white%20abstract%20flame%20with%20magnifier%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s5: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20red%20orange%20gradient%2C%20white%20abstract%20cloud%20with%20radio%20signal%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+}
+
+/**
  * 供数方原始种子（不含 health）；health 由统一口径 computeHealth 派生，
  * 全工程不再人工指定，确保停用/异常/活跃/健康四态口径一致。
  */
 const rawSuppliers: Omit<Supplier, 'health'>[] = [
   {
-    id: 's1', name: '清博智能', code: 'QB001', status: 'enabled', updatedAt: '2026-09-01 14:20:00',
+    id: 's1', name: '清博智能', code: 'QB001', logo: supplierLogos.s1, status: 'enabled', updatedAt: '2026-09-01 14:20:00',
     schemeName: '舆情库表增量接入', schemeVersion: 'v2.3', appKeyMasked: 'ak-qb••••6688',
     // 近 1 周 7 天均有接入（活跃天数达标）→ 活跃
     todayCount: 1286, lastPushAt: '2026-09-20 09:12:00', todayRejectRate: 1.2, weekTrend: [980, 1024, 1102, 968, 1205, 1320, 1286],
   },
   {
-    id: 's2', name: '智慧星光', code: 'ZX001', status: 'enabled', updatedAt: '2026-08-28 09:10:00',
+    id: 's2', name: '智慧星光', code: 'ZX001', logo: supplierLogos.s2, status: 'enabled', updatedAt: '2026-08-28 09:10:00',
     schemeName: '接口实时推送', schemeVersion: 'v1.8', appKeyMasked: 'ak-zx••••2046',
     // 拒收率 6.8% > 5% 阈值 → 异常
     todayCount: 402, lastPushAt: '2026-09-20 08:58:00', todayRejectRate: 6.8, weekTrend: [520, 488, 460, 510, 470, 440, 402],
   },
   {
-    id: 's3', name: '数美科技', code: 'SM001', status: 'disabled', updatedAt: '2026-09-02 18:06:00',
+    id: 's3', name: '数美科技', code: 'SM001', logo: supplierLogos.s3, status: 'disabled', updatedAt: '2026-09-02 18:06:00',
     schemeName: '舆情库表全量接入', schemeVersion: 'v1.1', appKeyMasked: 'ak-sm••••9132',
     // MT 端已关停 → 停用
     todayCount: 0, lastPushAt: '2026-09-02 18:06:00', todayRejectRate: 0, weekTrend: [0, 0, 0, 0, 0, 0, 0],
   },
   {
-    id: 's4', name: '百度舆情', code: 'BD001', status: 'enabled', updatedAt: '2026-08-15 11:00:00',
+    id: 's4', name: '百度舆情', code: 'BD001', logo: supplierLogos.s4, status: 'enabled', updatedAt: '2026-08-15 11:00:00',
     schemeName: '接口实时推送', schemeVersion: 'v3.0', appKeyMasked: 'ak-bd••••5570',
     // 最后接入 09-17，近 3 天无数据接入且拒收率 100% → 异常
     todayCount: 0, lastPushAt: '2026-09-17 22:40:00', todayRejectRate: 100, weekTrend: [300, 320, 280, 210, 120, 40, 0],
   },
   {
-    id: 's5', name: '人民众云', code: 'RM001', status: 'enabled', updatedAt: '2026-09-10 10:30:00',
+    id: 's5', name: '人民众云', code: 'RM001', logo: supplierLogos.s5, status: 'enabled', updatedAt: '2026-09-10 10:30:00',
     schemeName: '舆情库表增量接入', schemeVersion: 'v1.5', appKeyMasked: 'ak-rm••••3321',
     // 近 1 周仅近 3 天有量（<5 天）且累计 <1 万，拒收率低 → 健康（非活跃、非异常）
     todayCount: 216, lastPushAt: '2026-09-20 09:05:00', todayRejectRate: 0.8, weekTrend: [0, 0, 0, 0, 190, 210, 216],
@@ -67,13 +80,6 @@ const rejectReasons: RejectReason[] = [
   'scheme_disabled', 'appkey_invalid', 'ip_denied', 'field_invalid', 'owner_mismatch', 'other',
 ]
 
-const sites: Record<string, string> = {
-  s1: '微信公众平台',
-  s2: '新浪微博',
-  s3: '今日头条',
-  s4: '百度百家号',
-}
-
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
@@ -82,42 +88,70 @@ function fmt(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-const titlePool: Record<string, string[]> = {
-  s1: ['某市启动网络空间清朗专项行动', '政务新媒体传播力周榜发布', '某地数据要素改革方案解读', '城市数字化治理典型案例公布'],
-  s2: ['网传某路段交通管制信息核实', '一民生政策调整引发网友讨论', '某行业协会发布消费提示', '本地文旅活动宣传稿受热捧'],
-  s3: ['某企业产品质量舆情追踪', '区域营商环境优化措施盘点', '社区便民服务升级获好评', '一不实信息被依法处置'],
-  s4: ['某热点事件多平台传播分析', '政务服务满意度调查结果', '城市品牌形象传播报告', '一网络谣言澄清通告'],
-}
+// 文章维度数据池：同一 URL 的文章，其标题/作者/发布时间/来源平台固定，与报送的供数方无关
+const articleTitles = [
+  '某市启动网络空间清朗专项行动',
+  '政务新媒体传播力周榜发布',
+  '某地数据要素改革方案解读',
+  '城市数字化治理典型案例公布',
+  '网传某路段交通管制信息核实',
+  '一民生政策调整引发网友讨论',
+  '某行业协会发布消费提示',
+  '本地文旅活动宣传稿受热捧',
+  '某企业产品质量舆情追踪',
+  '区域营商环境优化措施盘点',
+  '社区便民服务升级获好评',
+  '一不实信息被依法处置',
+  '某热点事件多平台传播分析',
+  '政务服务满意度调查结果',
+  '城市品牌形象传播报告',
+  '一网络谣言澄清通告',
+]
 
 const authors = ['城市观察员', '民生直通车', '舆情放大镜', '政务前沿', '网友爆料', '热点追踪员']
 
-// 生成 60 条入库条目（仅索引）
+const sourceSites = ['微信公众平台', '新浪微博', '今日头条', '百度百家号', '抖音短视频', '网易新闻']
+
+/**
+ * 入库条目（仅索引信息）。
+ * 一篇文章常被多家供数方分别报送，故同一 sourceUrl 会产生多条记录：
+ * 标题/作者/发布时间/来源平台相同，供数方与入库时间各不相同。
+ * 30 篇文章各被 1~3 家报送，合计约 60 条。
+ * 已停用的供数方（s3 数美科技）不再产生入库数据。
+ */
 export const entriesSeed: DataEntry[] = (() => {
   const list: DataEntry[] = []
-  const sids = ['s1', 's2', 's3', 's4']
-  let seq = 1000
-  for (let i = 0; i < 60; i += 1) {
-    const sid = sids[i % sids.length]
-    const titles = titlePool[sid]
-    const title = titles[i % titles.length]
-    const inbound = new Date(2026, 8, 20, 9, 12, 0)
-    inbound.setMinutes(inbound.getMinutes() - i * 47)
-    const published = new Date(inbound.getTime())
-    published.setMinutes(published.getMinutes() - 30 - (i % 5) * 12)
-    const hasUrl = i % 9 !== 0
-    list.push({
-      id: `e${seq + i}`,
-      title: i % 7 === 0 ? `${title}（多地网友持续关注事件进展）` : title,
-      supplierId: sid,
-      supplierName: suppliersSeed.find((s) => s.id === sid)?.name || '',
-      authorName: authors[i % authors.length],
-      publishedAt: fmt(published),
-      inboundAt: fmt(inbound),
-      sourceSite: sites[sid],
-      sourceUrl: hasUrl ? `https://source.example.com/article/${seq + i}` : '',
-    })
+  const activeSids = ['s1', 's2', 's4', 's5']
+  const seq = 1000
+  for (let a = 0; a < 30; a += 1) {
+    const published = new Date(2026, 8, 20, 8, 0, 0)
+    published.setMinutes(published.getMinutes() - a * 173)
+    const title = articleTitles[a % articleTitles.length]
+    const authorName = authors[a % authors.length]
+    const sourceSite = sourceSites[a % sourceSites.length]
+    // 少数文章无来源 URL，用于覆盖空值展示
+    const sourceUrl = a % 8 === 7 ? '' : `https://source.example.com/article/${seq + a}`
+    // 报送家数在 1~3 家之间轮转，既有单供方也有多供方
+    const deliveries = (a % 3) + 1
+    for (let k = 0; k < deliveries; k += 1) {
+      const sid = activeSids[(a + k) % activeSids.length]
+      const inbound = new Date(2026, 8, 20, 9, 12, 0)
+      inbound.setMinutes(inbound.getMinutes() - (a * 37 + k * 19))
+      list.push({
+        id: `e${seq + a}_${k}`,
+        title,
+        supplierId: sid,
+        supplierName: suppliersSeed.find((s) => s.id === sid)?.name || '',
+        authorName,
+        publishedAt: fmt(published),
+        inboundAt: fmt(inbound),
+        sourceSite,
+        sourceUrl,
+      })
+    }
   }
-  return list
+  // 按入库时间倒序，贴近真实日志
+  return list.sort((x, y) => (x.inboundAt < y.inboundAt ? 1 : -1))
 })()
 
 /**
