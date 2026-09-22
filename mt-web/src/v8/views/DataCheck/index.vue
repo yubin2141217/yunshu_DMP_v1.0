@@ -170,7 +170,7 @@
                 <span class="v8-supplier-ord">{{ ordinal(i + 1) }}</span>
               </span>
               <a-link class="v8-supplier-link" @click="openSupplier(s)">{{ s.supplierName }}</a-link>
-              <span class="v8-supplier-time">{{ shortTime(s.inboundAt) }}</span>
+              <span class="v8-supplier-time">{{ s.inboundAt }}</span>
             </div>
           </div>
         </template>
@@ -481,7 +481,7 @@ function validateRange(label: string, range: string[], withOneYear: boolean) {
 
 const columns = [
   { title: '标题', dataIndex: 'title', slotName: 'title', ellipsis: true, tooltip: true },
-  { title: '供数方', dataIndex: 'suppliers', slotName: 'supplierName', width: 240 },
+  { title: '供数方', dataIndex: 'suppliers', slotName: 'supplierName', width: 260 },
   { title: '来源 URL', dataIndex: 'sourceUrl', slotName: 'sourceUrl', width: 220 },
   { title: '作者', dataIndex: 'authorName', slotName: 'authorName', width: 180 },
   { title: '发布时间', dataIndex: 'publishedAt', width: 160 },
@@ -509,11 +509,6 @@ function ordinal(n: number) {
   const suffix = ['th', 'st', 'nd', 'rd']
   const v = n % 100
   return `${n}${suffix[(v - 20) % 10] || suffix[v] || suffix[0]}`
-}
-
-/** 单元格内紧凑时间：MM-DD HH:mm（完整时间在「入库时间」列与详情抽屉展示） */
-function shortTime(t: string) {
-  return (t || '').slice(5, 16)
 }
 
 function healthBadge(h: Health) {
@@ -741,33 +736,29 @@ onMounted(() => {
 .v8-supplier-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
 }
-/* 角标容器：相对头像定位，角标贴在头像右下角，标识该供数方对该条数据的报送次序 */
+/* 角标容器：相对头像定位，角标贴在头像左上角，标识该供数方对该条数据的报送次序 */
 .v8-supplier-ord-avatar {
   position: relative;
   flex: none;
   display: inline-flex;
+  margin-right: 4px;
 }
 .v8-supplier-ord {
   position: absolute;
-  right: -8px;
-  bottom: -5px;
-  padding: 0 3px;
-  border: 1px solid #fff;
-  border-radius: 7px;
-  background: #1677ff;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 13px;
+  left: -5px;
+  top: -4px;
+  color: #1677ff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }
 .v8-supplier-time {
-  margin-left: auto;
   flex: none;
   color: #86909c;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .v8-supplier-logo {
