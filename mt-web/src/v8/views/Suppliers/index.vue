@@ -5,6 +5,12 @@
         <h2 class="workplace-title">供数方管理</h2>
         <p class="workplace-desc">管理本机构供数方及其供数表现。</p>
       </div>
+      <!-- 时间范围：与首页一致的按钮组，置于页头右上角，点击即切换并联动列表指标 -->
+      <div class="v8-sup-range-bar">
+        <a-radio-group v-model:model-value="range" type="button" @change="fetchData(1)">
+          <a-radio v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
+        </a-radio-group>
+      </div>
     </div>
 
     <!-- 供数方统计：总数 + 各供给状态（状态口径全局统一），点击卡片联动下方筛选 -->
@@ -39,12 +45,6 @@
     </section>
 
     <a-card class="content-card" :bordered="false">
-      <!-- 时间范围：与首页一致的按钮组样式，点击即切换并联动列表指标，置于筛选区右侧 -->
-      <div class="v8-sup-range-bar">
-        <a-radio-group v-model:model-value="range" type="button" @change="fetchData(1)">
-          <a-radio v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
-        </a-radio-group>
-      </div>
       <div class="v8-filter-grid">
         <div class="v8-filter-item">
           <label>供数方名称</label>
@@ -496,15 +496,16 @@ onMounted(() => {
 <style lang="scss" scoped>
 .v8-text-warn { color: #ff7d00; }
 
-/* 时间范围按钮组工具行：置于筛选区右上，与首页口径一致；窄屏改左对齐避免顶边 */
+/* 时间范围按钮组：页头右上角，与标题行顶对齐；窄屏随页头换行后左对齐 */
 .v8-sup-range-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 14px;
+  flex: 0 0 auto;
 }
 @media (max-width: 640px) {
   .v8-sup-range-bar {
-    justify-content: flex-start;
+    width: 100%;
+  }
+  .v8-sup-range-bar :deep(.arco-radio-group) {
+    flex-wrap: wrap;
   }
 }
 
