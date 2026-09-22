@@ -39,8 +39,8 @@
       </div>
 
       <!-- 统计卡：仅随供数方 / 时间范围联动，不随下方明细筛选条件变化 -->
-      <a-spin :loading="aggLoading" style="width: 100%">
-        <a-row :gutter="[16, 16]" class="recon-summary-stats">
+      <a-spin class="recon-summary-stats" :loading="aggLoading">
+        <a-row :gutter="[16, 16]">
           <a-col :xs="24" :sm="12" :lg="6">
             <div class="v8-stat-box">
               <div class="v8-stat-label">
@@ -600,6 +600,7 @@ onMounted(() => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px 16px;
+  margin-bottom: 16px;
 }
 .recon-supplier {
   display: flex;
@@ -620,15 +621,17 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* 统计卡：与汇总行、明细筛选区各留出间距 */
+/* 统计卡容器：显式块级 + padding-top，阻断 Arco a-row 的 -8px 负边距与容器外边距合并 */
 .recon-summary-stats {
-  margin-top: 16px;
+  display: block;
+  padding-top: 12px;
+  padding-bottom: 4px;
 }
 
 /* 明细筛选：以分隔线区隔统计卡，突出「仅驱动下方列表」的边界 */
 .recon-detail-filter {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid #f0f1f3;
 }
 
