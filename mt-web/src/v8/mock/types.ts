@@ -264,6 +264,153 @@ export function computeHealth(s: {
   return 'healthy'
 }
 
+/* ===================== 供数方能力五维评估（P04 详情雷达，纯前端派生，不入库） ===================== */
+
+/** 评分维度 key */
+export type ScoreDimension = 'volume' | 'activity' | 'quality' | 'stability' | 'freshness'
+/** 综合等级 */
+export type ScoreGrade = 'excellent' | 'good' | 'medium' | 'poor'
+
+/** 评分阈值（与 HEALTH_RULE 对齐），全部为 0–100 口径 */
+export const SCORE_RULE = {
+  /** 演示固定时钟：评分「当前时刻」锚点，禁止使用 Date.now()，避免随真实日期漂移 */
+  nowBase: '2026-09-21 00:00:00',
+  /** 数据量满分所需近 7 日累计入库量（=活跃阈值） */
+  volumeFullCount: HEALTH_RULE.activeWeekCount,
+  /** 时效性分段（小时） */
+  freshFullHours: 24,
+  freshMidHours: 72,
+  freshZeroHours: 24 * 7,
+} as const
+
+export interface SupplierScore {
+  /** 数据量：近 7 日累计入库规模 */
+  volume: number
+  /** 活跃度：近 7 日有入库天数占比 */
+  activity: number
+  /** 数据质量：今日拒收率反向得分 */
+  quality: number
+  /** 供给稳定性：有入库日入库量平稳度 */
+  stability: number
+  /** 时效性：最近推送距基准时间 */
+  freshness: number
+  /** 综合总分（五维等权平均，0–100） */
+  total: number
+  /** 综合等级 */
+  grade: ScoreGrade
+  /** 最低分维度（短板） */
+  weakest: ScoreDimension
+}
+
+export const scoreDimensionMeta: Record<ScoreDimension, { label: string; tip: string }> = {
+  volume: { label: '数据量', tip: '近 7 日累计入库量，达到 10,000 条（活跃量级）记满分。' },
+  activity: { label: '活跃度', tip: '近 7 日中有数据接入的天数占比，7 天全接入记满分。' },
+  quality: { label: '数据质量', tip: '按今日拒收率反向计分：拒收 0% 记满分，每升高 1% 扣 10 分，≥10% 记 0 分。当前基于今日拒收率。' },
+  stability: { label: '供给稳定性', tip: '有接入数据的日期里，每日入库量是否平稳（变异系数越小越稳）；仅 1 天有数据时取中性 50 分。' },
+  freshness: { label: '时效性', tip: '最近一次推送距当前的时间：≤24 小时满分，72 小时约 60 分，超过 7 天或从未推送记 0 分。' },
+}
+
+export const scoreGradeMeta: Record<ScoreGrade, { label: string; color: string }> = {
+  excellent: { label: '优', color: 'green' },
+  good: { label: '良', color: 'blue' },
+  medium: { label: '中', color: 'orange' },
+  poor: { label: '差', color: 'red' },
+}
+
+/** 各维度低于该分时给出短板提示 */
+export const SCORE_WEAK_LINE = 60
+
+const clamp100 = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+
+/** 两个时间点相差小时数（b - a） */
+function hoursBetween(a: string, b: string): number {
+  return (new Date(b.replace(/-/g, '/')).getTime() - new Date(a.replace(/-/g, '/')).getTime()) / 3_600_000
+}
+
+/**
+ * 供数方五维能力评分（纯函数）。
+ * 数据来源全部为 Supplier 现有字段：weekTrend / todayRejectRate / lastPushAt。
+ */
+export function computeSupplierScore(s: Pick<Supplier, 'lastPushAt' | 'todayRejectRate' | 'weekTrend'>): SupplierScore {
+  const trend = (s.weekTrend || []).map((n) => Number(n) || 0)
+  const weekTotal = trend.reduce((sum, n) => sum + n, 0)
+  const positiveDays = trend.filter((n) => n > 0)
+
+  // 数据量：累计量 / 活跃阈值
+  const volume = clamp100((weekTotal / SCORE_RULE.volumeFullCount) * 100)
+  // 活跃度：有入库天数 / 7
+  const activity = clamp100((positiveDays.length / 7) * 100)
+  // 数据质量：拒收率反向
+  const quality = clamp100(100 - s.todayRejectRate * 10)
+  // 供给稳定性：有入库日的变异系数 CV（总体标准差/均值），仅 1 天取中性 50，全 0 记 0
+  let stability = 0
+  if (positiveDays.length >= 2) {
+    const mean = positiveDays.reduce((sum, n) => sum + n, 0) / positiveDays.length
+    const variance = positiveDays.reduce((sum, n) => sum + (n - mean) ** 2, 0) / positiveDays.length
+    const cv = Math.sqrt(variance) / mean
+    stability = clamp100((1 - cv) * 100)
+  } else if (positiveDays.length === 1) {
+    stability = 50
+  }
+  // 时效性：按距基准时刻的小时数分段线性
+  let freshness = 0
+  if (s.lastPushAt) {
+    const h = hoursBetween(s.lastPushAt, SCORE_RULE.nowBase)
+    if (h <= SCORE_RULE.freshFullHours) {
+      freshness = 100
+    } else if (h <= SCORE_RULE.freshMidHours) {
+      freshness = 100 - ((h - SCORE_RULE.freshFullHours) / (SCORE_RULE.freshMidHours - SCORE_RULE.freshFullHours)) * 40
+    } else if (h < SCORE_RULE.freshZeroHours) {
+      freshness = 60 - ((h - SCORE_RULE.freshMidHours) / (SCORE_RULE.freshZeroHours - SCORE_RULE.freshMidHours)) * 60
+    }
+  }
+  freshness = clamp100(freshness)
+
+  const dims: Record<ScoreDimension, number> = { volume, activity, quality, stability, freshness }
+  const total = clamp100((volume + activity + quality + stability + freshness) / 5)
+  const weakest = (Object.keys(dims) as ScoreDimension[]).reduce((min, k) => (dims[k] < dims[min] ? k : min), 'volume' as ScoreDimension)
+  return { volume, activity, quality, stability, freshness, total, grade: gradeOf(total), weakest }
+}
+
+/** 综合总分 → 等级：优≥85 / 良70-84 / 中55-69 / 差<55 */
+export function gradeOf(total: number): ScoreGrade {
+  if (total >= 85) return 'excellent'
+  if (total >= 70) return 'good'
+  if (total >= 55) return 'medium'
+  return 'poor'
+}
+
+/** 机构内启用供方的五维均值（停用供方不纳入），用于雷达参照层 */
+export function averageSupplierScores(scores: SupplierScore[]): SupplierScore {
+  const empty: SupplierScore = { volume: 0, activity: 0, quality: 0, stability: 0, freshness: 0, total: 0, grade: 'poor', weakest: 'volume' }
+  if (!scores.length) return empty
+  const sum = scores.reduce(
+    (acc, sc) => {
+      acc.volume += sc.volume
+      acc.activity += sc.activity
+      acc.quality += sc.quality
+      acc.stability += sc.stability
+      acc.freshness += sc.freshness
+      return acc
+    },
+    { volume: 0, activity: 0, quality: 0, stability: 0, freshness: 0 },
+  )
+  const n = scores.length
+  const avg: SupplierScore = {
+    volume: clamp100(sum.volume / n),
+    activity: clamp100(sum.activity / n),
+    quality: clamp100(sum.quality / n),
+    stability: clamp100(sum.stability / n),
+    freshness: clamp100(sum.freshness / n),
+    total: 0,
+    grade: 'poor',
+    weakest: 'volume',
+  }
+  avg.total = clamp100((avg.volume + avg.activity + avg.quality + avg.stability + avg.freshness) / 5)
+  avg.grade = gradeOf(avg.total)
+  return avg
+}
+
 export interface Supplier {
   id: string
   name: string

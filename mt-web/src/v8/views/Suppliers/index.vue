@@ -126,6 +126,31 @@
           <a-descriptions-item label="信息更新时间">{{ current.updatedAt }}</a-descriptions-item>
         </a-descriptions>
 
+        <!-- 供方能力五维评估：定量体检（与供数方状态标签并存，不替代） -->
+        <div class="v8-sup-eval">
+          <div class="v8-sup-eval-head">
+            <span class="v8-sup-eval-title">供方能力评估</span>
+            <span v-if="currentScore" class="v8-sup-eval-score">
+              <span class="v8-sup-eval-total">{{ currentScore.total }}</span>
+              <span class="v8-sup-eval-total-unit">分</span>
+              <a-tag :color="scoreGradeMeta[currentScore.grade].color" size="small" class="v8-sup-eval-grade">
+                {{ scoreGradeMeta[currentScore.grade].label }}
+              </a-tag>
+            </span>
+          </div>
+
+          <div v-if="current.status === 'disabled'" class="v8-sup-eval-history">
+            供方已停用，以下评分为停用前最后 7 日数据的历史参考
+          </div>
+
+          <V8Chart :option="radarOption" height="248px" />
+
+          <div v-if="weakTip" class="v8-sup-eval-weak">
+            <IconExclamationCircle class="v8-sup-eval-weak-icon" />
+            <span>{{ weakTip }}</span>
+          </div>
+        </div>
+
         <div class="v8-sup-trend-title">近 7 日入库趋势</div>
         <V8Chart :option="weekOption" height="180px" />
       </template>
@@ -148,7 +173,16 @@ import {
 import type { EChartsCoreOption } from 'echarts/core'
 import V8Chart from '@/v8/components/V8Chart.vue'
 import { getAllSuppliers, getSuppliers } from '@/v8/api/data'
-import { healthMeta, type Health, type Supplier } from '@/v8/mock/types'
+import {
+  healthMeta,
+  scoreGradeMeta,
+  averageSupplierScores,
+  computeSupplierScore,
+  type Health,
+  type Supplier,
+  type SupplierScore,
+} from '@/v8/mock/types'
+import { buildRadarOption, weakTipOf } from '@/v8/utils/supplierRadar'
 
 const route = useRoute()
 
@@ -287,6 +321,21 @@ const weekOption = computed<EChartsCoreOption>(() => ({
   ],
 }))
 
+/* ===== 供方能力五维评估（详情雷达） ===== */
+/** 当前供方评分 */
+const currentScore = computed<SupplierScore | null>(() => (current.value ? computeSupplierScore(current.value) : null))
+/** 机构内启用供方的五维均值（停用供方不纳入），作为雷达参照层 */
+const orgAvgScore = computed<SupplierScore>(() => {
+  const enabled = getAllSuppliers().filter((s) => s.status === 'enabled')
+  return averageSupplierScores(enabled.map((s) => computeSupplierScore(s)))
+})
+/** 短板针对性提示（最低维 <60 分才提示） */
+const weakTip = computed(() => (currentScore.value ? weakTipOf(currentScore.value) : ''))
+/** 五维雷达：当前供方 vs 机构均值 */
+const radarOption = computed<EChartsCoreOption>(() =>
+  currentScore.value ? buildRadarOption(currentScore.value, orgAvgScore.value, current.value?.name ?? '') : {}
+)
+
 onMounted(() => {
   // 数据概览环图下钻回填：?health=active|healthy|error|disabled
   const h = route.query.health
@@ -363,5 +412,70 @@ onMounted(() => {
   font-weight: 600;
   color: #1d2129;
   margin: 20px 0 8px;
+}
+
+/* 供方能力评估区块 */
+.v8-sup-eval {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #f0f1f3;
+  border-radius: 10px;
+  background: #fcfcfd;
+}
+.v8-sup-eval-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.v8-sup-eval-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1d2129;
+}
+.v8-sup-eval-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.v8-sup-eval-total {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  color: #165dff;
+}
+.v8-sup-eval-total-unit {
+  font-size: 12px;
+  color: #86909c;
+  margin-right: 6px;
+}
+.v8-sup-eval-grade {
+  margin: 0;
+  font-weight: 600;
+}
+.v8-sup-eval-history {
+  margin: 8px 0 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #86909c;
+  background: #f2f3f5;
+  border-radius: 6px;
+}
+.v8-sup-eval-weak {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #ff7d00;
+  background: #fff7e8;
+  border-radius: 6px;
+}
+.v8-sup-eval-weak-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-size: 13px;
 }
 </style>

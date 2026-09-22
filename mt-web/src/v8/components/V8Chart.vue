@@ -10,10 +10,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import { BarChart, LineChart, PieChart, RadarChart } from 'echarts/charts'
 import {
   GridComponent,
   LegendComponent,
+  RadarComponent,
   TitleComponent,
   TooltipComponent,
 } from 'echarts/components'
@@ -24,9 +25,11 @@ echarts.use([
   LineChart,
   BarChart,
   PieChart,
+  RadarChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  RadarComponent,
   TitleComponent,
   CanvasRenderer,
 ])
