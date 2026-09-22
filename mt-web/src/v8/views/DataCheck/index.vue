@@ -7,124 +7,16 @@
       </div>
     </div>
 
-    <!-- 上半区：聚合对账指标，时间范围与供方筛选仅驱动本区 -->
-    <a-card class="content-card" :bordered="false" :loading="aggLoading">
-      <template #title>
-        <span class="recon-section-title">对账总览</span>
-      </template>
-      <div class="v8-filter-grid recon-agg-filter">
-        <div class="v8-filter-item">
-          <label>时间范围</label>
-          <a-radio-group v-model="aggForm.range" type="button" @change="onAggRangeChange">
-            <a-radio value="today">今日</a-radio>
-            <a-radio value="3d">近3天</a-radio>
-            <a-radio value="custom">自定义</a-radio>
-          </a-radio-group>
-        </div>
-        <div v-if="aggForm.range === 'custom'" class="v8-filter-item">
-          <label>
-            自定义区间
-            <a-tooltip content="最早支持查询 1 年内的数据，单次时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
-              <IconExclamationCircle class="v8-date-info" />
-            </a-tooltip>
-          </label>
-          <a-range-picker
-            v-model="customRange"
-            value-format="YYYY-MM-DD"
-            :disabled-date="disabledCustomDate"
-            @select="onCustomSelect"
-            @popup-visible-change="onCustomPopupToggle"
-            @change="onCustomRangeChange"
-          />
-        </div>
-        <div class="v8-filter-item recon-supplier">
-          <label>供数方</label>
-          <div class="v8-supplier-tabs">
-            <a-button
-              size="small"
-              :type="aggSupplierId === '' ? 'primary' : 'outline'"
-              @click="onAggSupplierPick('')"
-            >
-              全部
-            </a-button>
-            <a-button
-              v-for="o in supplierOpts"
-              :key="o.value"
-              size="small"
-              :type="aggSupplierId === o.value ? 'primary' : 'outline'"
-              @click="onAggSupplierPick(o.value)"
-            >
-              {{ o.label }}
-            </a-button>
-          </div>
-        </div>
-        <div class="v8-filter-actions">
-          <a-button type="primary" @click="fetchAgg()">查询</a-button>
-          <a-button @click="resetAgg">重置</a-button>
-        </div>
-      </div>
-
-      <a-row :gutter="[16, 16]">
-        <a-col :xs="24" :sm="12" :lg="6">
-          <div class="v8-stat-box">
-            <div class="v8-stat-label">
-              请求总量
-              <a-tooltip content="所选时间范围内，供数方推送到云数中台的数据请求总条数（单位：条）" mini>
-                <IconExclamationCircle class="v8-stat-info" />
-              </a-tooltip>
-            </div>
-            <div class="v8-stat-num">{{ num(summary.total) }}<span class="v8-stat-unit">条</span></div>
-          </div>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <div class="v8-stat-box">
-            <div class="v8-stat-label">
-              成功入库
-              <a-tooltip content="通过全部校验并成功入库的数据条数（单位：条）" mini>
-                <IconExclamationCircle class="v8-stat-info" />
-              </a-tooltip>
-            </div>
-            <div class="v8-stat-num v8-text-ok">{{ num(summary.success) }}<span class="v8-stat-unit">条</span></div>
-          </div>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <div ref="rejectStatRef" class="v8-stat-box" :class="{ 'v8-stat-highlight': rejectDrill }">
-            <div class="v8-stat-label">
-              拒收数量
-              <a-tooltip content="未通过校验（如 AppKey 无效、IP 不在白名单等）被拒收的数据条数（单位：条）" mini>
-                <IconExclamationCircle class="v8-stat-info" />
-              </a-tooltip>
-            </div>
-            <div class="v8-stat-num v8-text-bad">{{ num(summary.reject) }}<span class="v8-stat-unit">条</span></div>
-          </div>
-        </a-col>
-        <a-col :xs="24" :sm="12" :lg="6">
-          <div class="v8-stat-box">
-            <div class="v8-stat-label">
-              拒收率
-              <a-tooltip content="拒收数量 ÷ 请求总量 × 100%；超过 5% 将以橙色预警提示（单位：%）" mini>
-                <IconExclamationCircle class="v8-stat-info" />
-              </a-tooltip>
-            </div>
-            <div class="v8-stat-num" :class="summary.rejectRate > 5 ? 'v8-text-warn' : ''">{{ summary.rejectRate }}<span class="v8-stat-unit">%</span></div>
-          </div>
-        </a-col>
-      </a-row>
-    </a-card>
-
-    <!-- 下半区：入库条目明细，筛选条件独立，仅驱动本区分页列表 -->
-    <a-card class="content-card recon-detail-card" :bordered="false">
-      <template #title>
-        <span class="recon-section-title">入库条目明细</span>
-      </template>
-      <div class="v8-filter-grid recon-detail-filter">
-        <div class="v8-filter-item recon-supplier">
+    <!-- 单模块：汇总口径（供数方 + 时间范围）→ 统计卡 → 明细筛选 → 列表 -->
+    <a-card class="content-card" :bordered="false">
+      <div class="recon-summary-bar">
+        <div class="recon-supplier">
           <label>供数方</label>
           <div class="v8-supplier-tabs">
             <a-button
               size="small"
               :type="query.supplierId === '' ? 'primary' : 'outline'"
-              @click="onDetailSupplierPick('')"
+              @click="onSupplierPick('')"
             >
               全部
             </a-button>
@@ -133,12 +25,71 @@
               :key="o.value"
               size="small"
               :type="query.supplierId === o.value ? 'primary' : 'outline'"
-              @click="onDetailSupplierPick(o.value)"
+              @click="onSupplierPick(o.value)"
             >
               {{ o.label }}
             </a-button>
           </div>
         </div>
+        <a-radio-group v-model="aggForm.range" type="button" @change="onRangeChange">
+          <a-radio value="today">今日</a-radio>
+          <a-radio value="yesterday">昨日</a-radio>
+          <a-radio value="3d">近3天</a-radio>
+        </a-radio-group>
+      </div>
+
+      <!-- 统计卡：仅随供数方 / 时间范围联动，不随下方明细筛选条件变化 -->
+      <a-spin :loading="aggLoading" style="width: 100%">
+        <a-row :gutter="[16, 16]" class="recon-summary-stats">
+          <a-col :xs="24" :sm="12" :lg="6">
+            <div class="v8-stat-box">
+              <div class="v8-stat-label">
+                请求总量
+                <a-tooltip content="所选供数方在所选时间范围内的数据请求总条数（单位：条）" mini>
+                  <IconExclamationCircle class="v8-stat-info" />
+                </a-tooltip>
+              </div>
+              <div class="v8-stat-num">{{ num(summary.total) }}<span class="v8-stat-unit">条</span></div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12" :lg="6">
+            <div class="v8-stat-box">
+              <div class="v8-stat-label">
+                成功入库
+                <a-tooltip content="通过全部校验并成功入库的数据条数（单位：条）" mini>
+                  <IconExclamationCircle class="v8-stat-info" />
+                </a-tooltip>
+              </div>
+              <div class="v8-stat-num v8-text-ok">{{ num(summary.success) }}<span class="v8-stat-unit">条</span></div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12" :lg="6">
+            <div ref="rejectStatRef" class="v8-stat-box" :class="{ 'v8-stat-highlight': rejectDrill }">
+              <div class="v8-stat-label">
+                拒收数量
+                <a-tooltip content="未通过校验（如 AppKey 无效、IP 不在白名单等）被拒收的数据条数（单位：条）" mini>
+                  <IconExclamationCircle class="v8-stat-info" />
+                </a-tooltip>
+              </div>
+              <div class="v8-stat-num v8-text-bad">{{ num(summary.reject) }}<span class="v8-stat-unit">条</span></div>
+            </div>
+          </a-col>
+          <a-col :xs="24" :sm="12" :lg="6">
+            <div class="v8-stat-box">
+              <div class="v8-stat-label">
+                拒收率
+                <a-tooltip content="拒收数量 ÷ 请求总量 × 100%；超过 5% 将以橙色预警提示（单位：%）" mini>
+                  <IconExclamationCircle class="v8-stat-info" />
+                </a-tooltip>
+              </div>
+              <div class="v8-stat-num" :class="summary.rejectRate > 5 ? 'v8-text-warn' : ''">{{ summary.rejectRate }}<span class="v8-stat-unit">%</span></div>
+            </div>
+          </a-col>
+        </a-row>
+      </a-spin>
+
+      <!-- 明细筛选：仅驱动下方列表，不影响上方统计卡 -->
+      <div class="v8-filter-grid recon-detail-filter">
         <div class="v8-filter-item">
           <label>标题</label>
           <a-input v-model="query.keyword" placeholder="请输入标题" allow-clear @press-enter="fetchDetail(1)" />
@@ -192,7 +143,7 @@
         </div>
         <div class="v8-filter-actions">
           <a-button type="primary" @click="fetchDetail(1)">查询</a-button>
-          <a-button @click="resetDetail">重置</a-button>
+          <a-button @click="resetAll">重置</a-button>
         </div>
       </div>
 
@@ -337,9 +288,8 @@ const route = useRoute()
 
 const supplierOpts = ref<{ label: string; value: string }[]>([])
 
-// ── 上半区：聚合对账 ─────────────────────────────────────────
+// ── 汇总统计：时间范围 + 供数方，仅驱动统计卡；供数方同时驱动下方列表 ──
 const aggLoading = ref(false)
-const customRange = ref<string[]>([])
 const summary = ref<StatsSummary>({ total: 0, success: 0, reject: 0, rejectRate: 0 })
 
 /** 概览「拒收」下钻：高亮拒收指标卡并定位 */
@@ -347,8 +297,6 @@ const rejectDrill = ref(false)
 const rejectStatRef = ref<HTMLElement | null>(null)
 
 const aggForm = reactive<{ range: StatsRange }>({ range: 'today' })
-/** 对账总览供方筛选：单选切换（空串 = 全部），与下方明细区筛选相互独立 */
-const aggSupplierId = ref('')
 
 function num(n: number) {
   return Number(n || 0).toLocaleString('zh-CN')
@@ -357,21 +305,21 @@ function num(n: number) {
 function buildAggQuery(): StatsQuery {
   return {
     range: aggForm.range,
-    start: aggForm.range === 'custom' ? customRange.value?.[0] || '' : '',
-    end: aggForm.range === 'custom' ? customRange.value?.[1] || '' : '',
-    supplierIds: aggSupplierId.value ? [aggSupplierId.value] : [],
+    supplierIds: query.supplierId ? [query.supplierId] : [],
     result: 'all',
   }
 }
 
-function onAggRangeChange() {
+/** 切换时间范围仅刷新统计卡，明细列表不受影响 */
+function onRangeChange() {
   fetchAgg()
 }
 
-/** 切换对账总览供方即刷新聚合指标 */
-function onAggSupplierPick(id: string) {
-  aggSupplierId.value = id
+/** 切换供数方：汇总统计与下方明细列表同步刷新（本页唯一的供方筛选入口） */
+function onSupplierPick(id: string) {
+  query.supplierId = id
   fetchAgg()
+  fetchDetail(1)
 }
 
 async function fetchAgg() {
@@ -383,15 +331,7 @@ async function fetchAgg() {
   }
 }
 
-function resetAgg() {
-  aggForm.range = 'today'
-  aggSupplierId.value = ''
-  customRange.value = []
-  rejectDrill.value = false
-  fetchAgg()
-}
-
-// ── 下半区：入库条目明细 ─────────────────────────────────────
+// ── 明细列表：筛选仅驱动列表，不影响上方统计卡 ─────────────
 const data = ref<DataEntry[]>([])
 const detailLoading = ref(false)
 const publishRange = ref<string[]>([])
@@ -408,12 +348,6 @@ const query = reactive({
   inboundStart: '',
   inboundEnd: '',
 })
-
-/** 明细区切换供方即刷新列表（与其余筛选项的「点查询」方式并存） */
-function onDetailSupplierPick(id: string) {
-  query.supplierId = id
-  fetchDetail(1)
-}
 
 // ── 明细日期范围限制：跨度≤3天、不可选未来；入库时间最早1年内 ──
 const MAX_SPAN_DAYS = 3
@@ -518,50 +452,6 @@ function onInboundChange(_v: unknown, _d: unknown, dateString?: (string | undefi
   if (!checkRange('入库时间', range, true)) inboundRange.value = []
 }
 
-// ── 对账总览「自定义区间」：最早 1 年前、最晚今天、跨度 ≤3 天 ──
-/** 面板半选起点：选完起点、终点未定态时用于动态收窄终点可选范围 */
-const customPickedStart = ref<Date | null>(null)
-
-/**
- * 面板置灰：1 年前之前与今天之后始终禁用；
- * 选定起点后，终点还需落在起点 ~ 起点+2 天内（含首尾共 3 天）。
- */
-function disabledCustomDate(current: Date, type: 'start' | 'end') {
-  const day = startOfDay(current)
-  if (day.getTime() < oneYearAgoStart().getTime() || day.getTime() > todayStart().getTime()) {
-    return true
-  }
-  if (type === 'end' && customPickedStart.value) {
-    if (
-      day.getTime() < customPickedStart.value.getTime() ||
-      day.getTime() > addDays(customPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
-    ) {
-      return true
-    }
-  }
-  return false
-}
-
-/** 每次点选单元格：仅选中起点（终点空缺）时记录半选起点，选中终点后清空 */
-function onCustomSelect(_v: unknown, date: unknown) {
-  const arr = Array.isArray(date) ? (date as (Date | undefined)[]) : []
-  customPickedStart.value = arr[0] && !arr[1] ? startOfDay(arr[0]) : null
-}
-
-/** 面板关闭：清空半选起点 */
-function onCustomPopupToggle(visible: boolean) {
-  if (!visible) customPickedStart.value = null
-}
-
-/** 选择/输入完成即校验（合法后才触发聚合查询） */
-function onCustomRangeChange(_v: unknown, _d: unknown, dateString?: (string | undefined)[]) {
-  customPickedStart.value = null
-  const range = (dateString || []).map((x) => x || '')
-  if (range.length < 2 || !range[0] || !range[1]) return
-  if (!checkRange('自定义区间', range, true)) customRange.value = []
-  else fetchAgg()
-}
-
 /** 查询前兜底校验（防止异常值绕过 change 校验） */
 function validateRange(label: string, range: string[], withOneYear: boolean) {
   return checkRange(label, range, withOneYear)
@@ -644,15 +534,19 @@ async function fetchDetail(page = pagination.current) {
   }
 }
 
-function resetDetail() {
-  query.keyword = ''
+/** 重置本模块全部筛选：时间范围恢复「今日」、供方恢复「全部」，明细条件清空 */
+function resetAll() {
+  aggForm.range = 'today'
   query.supplierId = ''
+  query.keyword = ''
   query.authorName = ''
   query.sourceUrl = ''
   publishRange.value = []
   inboundRange.value = []
   publishPickedStart.value = null
   inboundPickedStart.value = null
+  rejectDrill.value = false
+  fetchAgg()
   fetchDetail(1)
 }
 
@@ -664,14 +558,13 @@ function onDetailPageSize(size: number) {
 onMounted(() => {
   supplierOpts.value = supplierOptions()
   const q = route.query
-  // 数据概览下钻回填：?range=today|3d 驱动上半区时间范围（本页最多仅支持 3 天）
+  // 首页下钻回填：?range=today|3d 驱动时间范围（本页最多仅支持 3 天）
   if (['today', '3d'].includes(String(q.range))) {
     aggForm.range = q.range as StatsRange
   }
-  // TOP 供方下钻：上半区聚合供方与下半区明细供方同时回填（无效/越权 id 忽略）
+  // TOP 供方下钻：供方筛选唯一入口，统计卡与明细列表同时生效（无效 id 忽略）
   const drillSupplierId = String(q.supplierId || '')
   if (drillSupplierId && supplierOpts.value.some((o) => o.value === drillSupplierId)) {
-    aggSupplierId.value = drillSupplierId
     query.supplierId = drillSupplierId
   }
   fetchAgg()
@@ -700,30 +593,43 @@ onMounted(() => {
   color: #4096ff;
 }
 
-/* 自定义区间：占满所在列，避免被时间范围按钮组挤压缩宽 */
-.recon-agg-filter .arco-picker {
-  width: 100%;
+/* 汇总口径行：供数方按钮组靠左、时间范围靠右，同一行展示 */
+.recon-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.recon-supplier {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.recon-supplier > label {
+  flex: none;
+  margin-right: 12px;
+  font-size: 13px;
+  color: #4e5969;
 }
 
-/* 供数方改为横向按钮切换：整行铺开，按供方数量自动换行 */
+/* 供数方改为横向按钮切换：按供方数量自动换行 */
 .v8-supplier-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.recon-agg-filter .recon-supplier,
-.recon-detail-filter .recon-supplier {
-  grid-column: 1 / -1;
-}
 
-.recon-section-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1d2129;
-}
-
-.recon-detail-card {
+/* 统计卡：与汇总行、明细筛选区各留出间距 */
+.recon-summary-stats {
   margin-top: 16px;
+}
+
+/* 明细筛选：以分隔线区隔统计卡，突出「仅驱动下方列表」的边界 */
+.recon-detail-filter {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f1f3;
 }
 
 /* 拒收下钻时指标卡高亮 */

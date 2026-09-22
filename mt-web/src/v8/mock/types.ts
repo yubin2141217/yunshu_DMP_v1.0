@@ -160,14 +160,12 @@ export interface Overview {
 }
 
 // ── 供数统计 ─────────────────────────────────────────────────
-/** 接入日志时间范围：最多仅支持 3 天（今日 / 近3天 / 自定义≤3天） */
-export type StatsRange = 'today' | '3d' | 'custom'
+/** 接入日志时间范围：固定为今日 / 昨日 / 近3天（最多 3 天） */
+export type StatsRange = 'today' | 'yesterday' | '3d'
 export type StatsResult = 'all' | 'success' | 'reject'
 
 export interface StatsQuery {
   range: StatsRange
-  start?: string
-  end?: string
   supplierIds: string[]
   result: StatsResult
 }

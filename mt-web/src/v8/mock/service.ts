@@ -93,18 +93,16 @@ function nowText(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
-/** 接入日志时间范围对应天数：今日=1、近3天=3；自定义按其实际起止日期折算（最多 3 天） */
-function daysOf(q: StatsQuery): number {
-  if (q.range === 'today') return 1
-  if (q.range === '3d') return 3
-  if (q.range === 'custom' && q.start && q.end) {
-    const start = new Date(`${q.start}T00:00:00`).getTime()
-    const end = new Date(`${q.end}T00:00:00`).getTime()
-    if (!Number.isNaN(start) && !Number.isNaN(end) && end >= start) {
-      return Math.min(3, Math.round((end - start) / 86400000) + 1)
-    }
-  }
-  return 3
+/**
+ * 接入日志时间窗口对应的趋势点：
+ * - 近3天 → 含今天在内最近 3 天
+ * - 今日 → 仅今天
+ * - 昨日 → 仅今天前一天
+ * 同时按 query.supplierIds 收窄供方范围，使统计卡随供方切换联动。
+ */
+function logTrend(q: StatsQuery, scope: string[] | '*') {
+  if (q.range === 'yesterday') return buildTrend(2, scope, q.supplierIds).slice(0, 1)
+  return buildTrend(q.range === '3d' ? 3 : 1, scope, q.supplierIds)
 }
 
 /** 概览时间范围对应的自然天数（今日=1，与 MT 管理端口径一致；3m=历时全量，按近 90 天建模） */
@@ -290,15 +288,14 @@ export const v8Service = {
 
   // ── 供数统计 ──
   statsSummary(q: StatsQuery, scope: string[] | '*'): StatsSummary {
-    const days = daysOf(q)
-    const trend = buildTrend(days, scope)
+    const trend = logTrend(q, scope)
     const total = trend.reduce((s, p) => s + p.inbound, 0)
     const reject = trend.reduce((s, p) => s + p.reject, 0)
     return { total, success: total - reject, reject, rejectRate: total ? Number(((reject / total) * 100).toFixed(2)) : 0 }
   },
   statsRows(q: StatsQuery, scope: string[] | '*', page: number, pageSize: number): PageResult<StatsRow> & { trend: ReturnType<typeof buildTrend>; reasons: { reason: string; count: number }[] } {
-    const days = daysOf(q)
-    const trend = buildTrend(days, scope)
+    const trend = logTrend(q, scope)
+    const days = trend.length
     const ids = scopeSupplierIds(scope).filter((id) => !q.supplierIds.length || q.supplierIds.includes(id))
     const rows: StatsRow[] = []
     ids.forEach((sid, si) => {

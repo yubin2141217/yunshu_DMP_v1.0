@@ -376,9 +376,13 @@ function trendToday(): Date {
   return new Date(n.getFullYear(), n.getMonth(), n.getDate())
 }
 
-/** 近 N 天（含今天）的入库/拒收趋势，按供方范围 */
-export function buildTrend(days: number, scope: string[] | '*') {
-  const scoped = scopeSupplierIds(scope)
+/**
+ * 近 N 天（含今天）的入库/拒收趋势，按供方范围
+ * @param onlyIds 可选，进一步收窄到指定供方（接入日志供方筛选联动统计用）
+ */
+export function buildTrend(days: number, scope: string[] | '*', onlyIds?: string[]) {
+  const inScope = scopeSupplierIds(scope)
+  const scoped = onlyIds?.length ? inScope.filter((id) => onlyIds.includes(id)) : inScope
   const anchor = trendToday()
   const points: { date: string; inbound: number; reject: number }[] = []
   for (let i = days - 1; i >= 0; i -= 1) {
