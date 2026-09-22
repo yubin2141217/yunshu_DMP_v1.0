@@ -93,13 +93,18 @@ function nowText(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
+/** 接入日志时间范围对应天数：今日=1、近3天=3；自定义按其实际起止日期折算（最多 3 天） */
 function daysOf(q: StatsQuery): number {
   if (q.range === 'today') return 1
   if (q.range === '3d') return 3
-  if (q.range === '1w') return 7
-  if (q.range === '1m') return 30
-  if (q.range === 'custom') return 14
-  return 7
+  if (q.range === 'custom' && q.start && q.end) {
+    const start = new Date(`${q.start}T00:00:00`).getTime()
+    const end = new Date(`${q.end}T00:00:00`).getTime()
+    if (!Number.isNaN(start) && !Number.isNaN(end) && end >= start) {
+      return Math.min(3, Math.round((end - start) / 86400000) + 1)
+    }
+  }
+  return 3
 }
 
 /** 概览时间范围对应的自然天数（今日=1，与 MT 管理端口径一致；3m=历时全量，按近 90 天建模） */
@@ -353,6 +358,9 @@ export const v8Service = {
     if (kw) list = list.filter((e) => e.title.includes(kw))
     if (q.supplierId && q.supplierId !== 'all') list = list.filter((e) => e.supplierId === q.supplierId)
     if (q.authorName.trim()) list = list.filter((e) => e.authorName.includes(q.authorName.trim()))
+    // 来源 URL：忽略大小写的模糊匹配
+    const urlKw = (q.sourceUrl || '').trim().toLowerCase()
+    if (urlKw) list = list.filter((e) => e.sourceUrl.toLowerCase().includes(urlKw))
     if (q.publishStart) list = list.filter((e) => e.publishedAt >= q.publishStart)
     if (q.publishEnd) list = list.filter((e) => e.publishedAt <= `${q.publishEnd} 23:59:59`)
     if (q.inboundStart) list = list.filter((e) => e.inboundAt >= q.inboundStart)

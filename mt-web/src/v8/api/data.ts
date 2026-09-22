@@ -47,7 +47,7 @@ export function supplierOptions(): { label: string; value: string }[] {
   return v8Service.supplierOptions(currentScope())
 }
 
-/** 接入数据对账：入库条目明细分页（仅索引字段） */
+/** 接入日志：入库条目明细分页（仅索引字段） */
 export async function getDataEntries(q: DataEntryQuery): Promise<PageResult<DataEntry>> {
   await delay()
   return v8Service.entries(q, currentScope())

@@ -2,8 +2,8 @@
   <div class="workplace-page">
     <div class="workplace-header">
       <div>
-        <h2 class="workplace-title">接入数据对账</h2>
-        <p class="workplace-desc">按时间范围、供数方等维度筛选对账数据接入总量与明细情况。</p>
+        <h2 class="workplace-title">接入日志</h2>
+        <p class="workplace-desc">查看数据接入的请求总量、入库与拒收情况，支持按时间范围（最长 3 天）、供数方、来源 URL 等维度筛选明细日志。</p>
       </div>
     </div>
 
@@ -12,21 +12,19 @@
       <template #title>
         <span class="recon-section-title">对账总览</span>
       </template>
-      <div class="v8-filter-grid recon-agg-filter" :class="{ 'is-custom': aggForm.range === 'custom' }">
+      <div class="v8-filter-grid recon-agg-filter">
         <div class="v8-filter-item">
           <label>时间范围</label>
           <a-radio-group v-model="aggForm.range" type="button" @change="onAggRangeChange">
             <a-radio value="today">今日</a-radio>
             <a-radio value="3d">近3天</a-radio>
-            <a-radio value="1w">近1周</a-radio>
-            <a-radio value="1m">近1月</a-radio>
             <a-radio value="custom">自定义</a-radio>
           </a-radio-group>
         </div>
         <div v-if="aggForm.range === 'custom'" class="v8-filter-item">
           <label>
             自定义区间
-            <a-tooltip content="最早支持查询 1 年内的数据，单次时间跨度最大支持 1 个月，且结束日期不可晚于今天" mini>
+            <a-tooltip content="最早支持查询 1 年内的数据，单次时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
               <IconExclamationCircle class="v8-date-info" />
             </a-tooltip>
           </label>
@@ -41,9 +39,24 @@
         </div>
         <div class="v8-filter-item recon-supplier">
           <label>供数方</label>
-          <a-select v-model="aggForm.supplierIds" placeholder="全部供数方" multiple allow-clear :max-tag-count="2">
-            <a-option v-for="o in supplierOpts" :key="o.value" :value="o.value" :label="o.label" />
-          </a-select>
+          <div class="v8-supplier-tabs">
+            <a-button
+              size="small"
+              :type="aggSupplierId === '' ? 'primary' : 'outline'"
+              @click="onAggSupplierPick('')"
+            >
+              全部
+            </a-button>
+            <a-button
+              v-for="o in supplierOpts"
+              :key="o.value"
+              size="small"
+              :type="aggSupplierId === o.value ? 'primary' : 'outline'"
+              @click="onAggSupplierPick(o.value)"
+            >
+              {{ o.label }}
+            </a-button>
+          </div>
         </div>
         <div class="v8-filter-actions">
           <a-button type="primary" @click="fetchAgg()">查询</a-button>
@@ -104,16 +117,31 @@
       <template #title>
         <span class="recon-section-title">入库条目明细</span>
       </template>
-      <div class="v8-filter-grid">
+      <div class="v8-filter-grid recon-detail-filter">
+        <div class="v8-filter-item recon-supplier">
+          <label>供数方</label>
+          <div class="v8-supplier-tabs">
+            <a-button
+              size="small"
+              :type="query.supplierId === '' ? 'primary' : 'outline'"
+              @click="onDetailSupplierPick('')"
+            >
+              全部
+            </a-button>
+            <a-button
+              v-for="o in supplierOpts"
+              :key="o.value"
+              size="small"
+              :type="query.supplierId === o.value ? 'primary' : 'outline'"
+              @click="onDetailSupplierPick(o.value)"
+            >
+              {{ o.label }}
+            </a-button>
+          </div>
+        </div>
         <div class="v8-filter-item">
           <label>标题</label>
           <a-input v-model="query.keyword" placeholder="请输入标题" allow-clear @press-enter="fetchDetail(1)" />
-        </div>
-        <div class="v8-filter-item">
-          <label>供数方</label>
-          <a-select v-model="query.supplierId" placeholder="全部供数方" allow-clear>
-            <a-option v-for="o in supplierOpts" :key="o.value" :value="o.value" :label="o.label" />
-          </a-select>
         </div>
         <div class="v8-filter-item">
           <label>作者</label>
@@ -122,7 +150,7 @@
         <div class="v8-filter-item">
           <label>
             发布时间
-            <a-tooltip content="时间跨度最大支持1个月，且结束日期不可晚于今天" mini>
+            <a-tooltip content="时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
               <IconExclamationCircle class="v8-date-info" />
             </a-tooltip>
           </label>
@@ -139,7 +167,7 @@
         <div class="v8-filter-item">
           <label>
             入库时间
-            <a-tooltip content="最早支持1年内数据查询，时间跨度最大支持1个月，且结束日期不可晚于今天" mini>
+            <a-tooltip content="最早支持 1 年内数据查询，时间跨度最大支持 3 天（含起止日期），且结束日期不可晚于今天" mini>
               <IconExclamationCircle class="v8-date-info" />
             </a-tooltip>
           </label>
@@ -151,6 +179,15 @@
             @select="onInboundSelect"
             @popup-visible-change="onInboundPopupToggle"
             @change="onInboundChange"
+          />
+        </div>
+        <div class="v8-filter-item">
+          <label>来源 URL</label>
+          <a-input
+            v-model="query.sourceUrl"
+            placeholder="请输入来源 URL 关键词"
+            allow-clear
+            @press-enter="fetchDetail(1)"
           />
         </div>
         <div class="v8-filter-actions">
@@ -291,6 +328,7 @@ import {
   type DataEntry,
   type Health,
   type StatsQuery,
+  type StatsRange,
   type StatsSummary,
   type Supplier,
 } from '@/v8/mock/types'
@@ -308,13 +346,9 @@ const summary = ref<StatsSummary>({ total: 0, success: 0, reject: 0, rejectRate:
 const rejectDrill = ref(false)
 const rejectStatRef = ref<HTMLElement | null>(null)
 
-const aggForm = reactive<StatsQuery>({
-  range: 'today',
-  start: '',
-  end: '',
-  supplierIds: [],
-  result: 'all',
-})
+const aggForm = reactive<{ range: StatsRange }>({ range: 'today' })
+/** 对账总览供方筛选：单选切换（空串 = 全部），与下方明细区筛选相互独立 */
+const aggSupplierId = ref('')
 
 function num(n: number) {
   return Number(n || 0).toLocaleString('zh-CN')
@@ -325,12 +359,18 @@ function buildAggQuery(): StatsQuery {
     range: aggForm.range,
     start: aggForm.range === 'custom' ? customRange.value?.[0] || '' : '',
     end: aggForm.range === 'custom' ? customRange.value?.[1] || '' : '',
-    supplierIds: aggForm.supplierIds,
+    supplierIds: aggSupplierId.value ? [aggSupplierId.value] : [],
     result: 'all',
   }
 }
 
 function onAggRangeChange() {
+  fetchAgg()
+}
+
+/** 切换对账总览供方即刷新聚合指标 */
+function onAggSupplierPick(id: string) {
+  aggSupplierId.value = id
   fetchAgg()
 }
 
@@ -345,7 +385,7 @@ async function fetchAgg() {
 
 function resetAgg() {
   aggForm.range = 'today'
-  aggForm.supplierIds = []
+  aggSupplierId.value = ''
   customRange.value = []
   rejectDrill.value = false
   fetchAgg()
@@ -362,25 +402,30 @@ const query = reactive({
   keyword: '',
   supplierId: '',
   authorName: '',
+  sourceUrl: '',
   publishStart: '',
   publishEnd: '',
   inboundStart: '',
   inboundEnd: '',
 })
 
-// ── 明细日期范围限制：跨度≤1个月、不可选未来；入库时间最早1年内 ──
-const ONE_MONTH = 1
+/** 明细区切换供方即刷新列表（与其余筛选项的「点查询」方式并存） */
+function onDetailSupplierPick(id: string) {
+  query.supplierId = id
+  fetchDetail(1)
+}
+
+// ── 明细日期范围限制：跨度≤3天、不可选未来；入库时间最早1年内 ──
+const MAX_SPAN_DAYS = 3
 function startOfDay(d: Date) {
   const x = new Date(d)
   x.setHours(0, 0, 0, 0)
   return x
 }
-/** 自然月加减，处理月末溢出（如 1/31 + 1 月回退到 2 月末） */
-function addMonths(base: Date, delta: number) {
+/** 日期加减天数（用于收窄终点可选范围，保证含首尾最多 3 天） */
+function addDays(base: Date, delta: number) {
   const d = new Date(base)
-  const day = d.getDate()
-  d.setMonth(d.getMonth() + delta)
-  if (d.getDate() < day) d.setDate(0)
+  d.setDate(d.getDate() + delta)
   return startOfDay(d)
 }
 function todayStart() {
@@ -392,7 +437,7 @@ function oneYearAgoStart() {
   return t
 }
 
-// ── 明细「发布时间」：最晚今天、跨度 ≤1 个月（不限最早时间） ──
+// ── 明细「发布时间」：最晚今天、跨度 ≤3 天（不限最早时间） ──
 const publishPickedStart = ref<Date | null>(null)
 function disabledPublishDate(current: Date, type: 'start' | 'end') {
   const day = startOfDay(current)
@@ -400,7 +445,7 @@ function disabledPublishDate(current: Date, type: 'start' | 'end') {
   if (type === 'end' && publishPickedStart.value) {
     if (
       day.getTime() < publishPickedStart.value.getTime() ||
-      day.getTime() > addMonths(publishPickedStart.value, ONE_MONTH).getTime()
+      day.getTime() > addDays(publishPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
     ) {
       return true
     }
@@ -415,7 +460,7 @@ function onPublishPopupToggle(visible: boolean) {
   if (!visible) publishPickedStart.value = null
 }
 
-// ── 明细「入库时间」：最早 1 年前、最晚今天、跨度 ≤1 个月 ──
+// ── 明细「入库时间」：最早 1 年前、最晚今天、跨度 ≤3 天 ──
 const inboundPickedStart = ref<Date | null>(null)
 function disabledInboundDate(current: Date, type: 'start' | 'end') {
   const day = startOfDay(current)
@@ -425,7 +470,7 @@ function disabledInboundDate(current: Date, type: 'start' | 'end') {
   if (type === 'end' && inboundPickedStart.value) {
     if (
       day.getTime() < inboundPickedStart.value.getTime() ||
-      day.getTime() > addMonths(inboundPickedStart.value, ONE_MONTH).getTime()
+      day.getTime() > addDays(inboundPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
     ) {
       return true
     }
@@ -454,8 +499,8 @@ function checkRange(label: string, range: string[], withOneYear: boolean) {
     Message.warning(`${label}结束日期不能晚于今天`)
     return false
   }
-  if (end.getTime() > addMonths(start, ONE_MONTH).getTime()) {
-    Message.warning(`${label}时间跨度最大支持 1 个月`)
+  if (end.getTime() > addDays(start, MAX_SPAN_DAYS - 1).getTime()) {
+    Message.warning(`${label}时间跨度最大支持 3 天`)
     return false
   }
   return true
@@ -473,13 +518,13 @@ function onInboundChange(_v: unknown, _d: unknown, dateString?: (string | undefi
   if (!checkRange('入库时间', range, true)) inboundRange.value = []
 }
 
-// ── 对账总览「自定义区间」：最早 1 年前、最晚今天、跨度 ≤1 个月 ──
+// ── 对账总览「自定义区间」：最早 1 年前、最晚今天、跨度 ≤3 天 ──
 /** 面板半选起点：选完起点、终点未定态时用于动态收窄终点可选范围 */
 const customPickedStart = ref<Date | null>(null)
 
 /**
  * 面板置灰：1 年前之前与今天之后始终禁用；
- * 选定起点后，终点还需落在起点 ~ 起点+1 个月内。
+ * 选定起点后，终点还需落在起点 ~ 起点+2 天内（含首尾共 3 天）。
  */
 function disabledCustomDate(current: Date, type: 'start' | 'end') {
   const day = startOfDay(current)
@@ -489,7 +534,7 @@ function disabledCustomDate(current: Date, type: 'start' | 'end') {
   if (type === 'end' && customPickedStart.value) {
     if (
       day.getTime() < customPickedStart.value.getTime() ||
-      day.getTime() > addMonths(customPickedStart.value, ONE_MONTH).getTime()
+      day.getTime() > addDays(customPickedStart.value, MAX_SPAN_DAYS - 1).getTime()
     ) {
       return true
     }
@@ -583,6 +628,7 @@ async function fetchDetail(page = pagination.current) {
       keyword: query.keyword,
       supplierId: query.supplierId,
       authorName: query.authorName,
+      sourceUrl: query.sourceUrl,
       publishStart: publishRange.value?.[0] || '',
       publishEnd: publishRange.value?.[1] || '',
       inboundStart: inboundRange.value?.[0] || '',
@@ -602,6 +648,7 @@ function resetDetail() {
   query.keyword = ''
   query.supplierId = ''
   query.authorName = ''
+  query.sourceUrl = ''
   publishRange.value = []
   inboundRange.value = []
   publishPickedStart.value = null
@@ -617,14 +664,14 @@ function onDetailPageSize(size: number) {
 onMounted(() => {
   supplierOpts.value = supplierOptions()
   const q = route.query
-  // 数据概览下钻回填：?range=today|3d|1w|1m 驱动上半区时间范围
-  if (['today', '3d', '1w', '1m'].includes(String(q.range))) {
-    aggForm.range = q.range as StatsQuery['range']
+  // 数据概览下钻回填：?range=today|3d 驱动上半区时间范围（本页最多仅支持 3 天）
+  if (['today', '3d'].includes(String(q.range))) {
+    aggForm.range = q.range as StatsRange
   }
   // TOP 供方下钻：上半区聚合供方与下半区明细供方同时回填（无效/越权 id 忽略）
   const drillSupplierId = String(q.supplierId || '')
   if (drillSupplierId && supplierOpts.value.some((o) => o.value === drillSupplierId)) {
-    aggForm.supplierIds = [drillSupplierId]
+    aggSupplierId.value = drillSupplierId
     query.supplierId = drillSupplierId
   }
   fetchAgg()
@@ -653,25 +700,20 @@ onMounted(() => {
   color: #4096ff;
 }
 
-/* 自定义区间内联在时间范围右侧，宽度与供方下拉一致 */
+/* 自定义区间：占满所在列，避免被时间范围按钮组挤压缩宽 */
 .recon-agg-filter .arco-picker {
   width: 100%;
 }
-/* 选中自定义后：供数方固定第 3 列（被推到右侧），按钮第 4 列，布局不跳动 */
-.recon-agg-filter.is-custom .recon-supplier {
-  grid-column: 3;
-}
-.recon-agg-filter.is-custom .v8-filter-actions {
-  grid-column: 4;
-  justify-self: end;
-  align-self: end;
-}
 
-@media (max-width: 1200px) {
-  .recon-agg-filter.is-custom .recon-supplier,
-  .recon-agg-filter.is-custom .v8-filter-actions {
-    grid-column: auto;
-  }
+/* 供数方改为横向按钮切换：整行铺开，按供方数量自动换行 */
+.v8-supplier-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.recon-agg-filter .recon-supplier,
+.recon-detail-filter .recon-supplier {
+  grid-column: 1 / -1;
 }
 
 .recon-section-title {

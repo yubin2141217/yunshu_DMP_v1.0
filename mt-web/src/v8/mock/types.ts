@@ -160,7 +160,8 @@ export interface Overview {
 }
 
 // ── 供数统计 ─────────────────────────────────────────────────
-export type StatsRange = 'today' | '3d' | '1w' | '1m' | 'custom'
+/** 接入日志时间范围：最多仅支持 3 天（今日 / 近3天 / 自定义≤3天） */
+export type StatsRange = 'today' | '3d' | 'custom'
 export type StatsResult = 'all' | 'success' | 'reject'
 
 export interface StatsQuery {
@@ -226,6 +227,8 @@ export interface DataEntryQuery {
   keyword: string
   supplierId: string
   authorName: string
+  /** 来源 URL 模糊匹配 */
+  sourceUrl: string
   publishStart: string
   publishEnd: string
   inboundStart: string

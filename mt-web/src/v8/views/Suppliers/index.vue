@@ -420,7 +420,7 @@ function copyCode(code: string) {
   }
 }
 
-/** 今日入库：跳转接入数据对账并携带该供数方筛选（上区聚合 + 下区明细同时回填） */
+/** 今日入库：跳转接入日志并携带该供数方筛选（上区聚合 + 下区明细同时回填） */
 function goDataCheck(row: Supplier) {
   router.push({ path: '/v8/data-check', query: { supplierId: row.id } })
 }

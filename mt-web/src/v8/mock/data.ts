@@ -345,7 +345,7 @@ export const orgInfoSeed: OrgInfo = {
   region: '浙江省 杭州市',
   authStart: '2025-10-20',
   authEnd: '2026-10-20',
-  modules: ['数据概览', '接入数据对账', '供数监控', '推送回流', '接入规范'],
+  modules: ['数据概览', '接入日志', '供数监控', '推送回流', '接入规范'],
   usedQuota: 42600,
   totalQuota: 100000,
   appKeyMasked: 'ak-org••••0021',

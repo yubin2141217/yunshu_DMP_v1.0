@@ -149,12 +149,8 @@ function onRangeChange() {
   load()
 }
 
-/** 下钻到接入数据对账页时的时间范围映射：该页仅支持 今日/近3天/近1周/近1月/自定义，7天/2月/3月分别兜底为近1周/近1月 */
-const statsRange = computed(() => {
-  if (range.value === '7d') return '1w'
-  if (range.value === '2m' || range.value === '3m') return '1m'
-  return range.value
-})
+/** 下钻到接入日志页时的时间范围映射：该页最多仅支持 3 天（今日/近3天/自定义），超出的范围兜底为近3天 */
+const statsRange = computed(() => (range.value === 'today' ? 'today' : '3d'))
 
 function emptyOverview(): Overview {
   return {
@@ -235,7 +231,7 @@ const rejectRateOver = computed(() => summary.value.todayRejectRate > 5)
 const kpis = computed(() => [
   {
     key: 'total', title: '入库总量', value: inboundText.value,
-    tip: '所选时间范围内通过校验并成功入库的数据总条数；同比为较去年同期、环比为较上一等长周期的变化幅度，点击进入接入数据对账。',
+    tip: '所选时间范围内通过校验并成功入库的数据总条数；同比为较去年同期、环比为较上一等长周期的变化幅度，点击进入接入日志。',
     accent: 'linear-gradient(135deg, #73d897 0%, #38b864 100%)', icon: IconBarChart,
     to: { path: '/v8/data-check', query: { range: statsRange.value } },
   },
@@ -383,13 +379,13 @@ const trendOption = computed<EChartsCoreOption>(() => {
 })
 
 // ── 下钻 ────────────────────────────────────────────────────
-/** 查看接入明细：携带当前时间范围跳转接入数据对账 */
+/** 查看接入明细：携带当前时间范围跳转接入日志 */
 function goDataCheck() {
   router.push({ path: '/v8/data-check', query: { range: statsRange.value } })
 }
 
 function onTopSupplierClick(p: { dataIndex?: number }) {
-  // 图表为逆序展示，dataIndex 需映射回降序原数组；下钻至接入数据对账并带上时间范围 + 供方
+  // 图表为逆序展示，dataIndex 需映射回降序原数组；下钻至接入日志并带上时间范围 + 供方
   const list = top5Suppliers.value
   if (p.dataIndex == null || !list.length) return
   const target = list[list.length - 1 - p.dataIndex]
