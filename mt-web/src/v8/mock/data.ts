@@ -47,30 +47,38 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     schemeName: '舆情库表增量接入', schemeVersion: 'v2.3', appKeyMasked: 'ak-qb••••6688',
     // 近 1 周 7 天均有接入（活跃天数达标）→ 活跃
     todayCount: 1286, lastPushAt: '2026-09-20 09:12:00', todayRejectRate: 1.2, weekTrend: [980, 1024, 1102, 968, 1205, 1320, 1286],
+    // 头部供方：独有来源多、同源数据多为首发
+    todayUniqueRate: 72, todayFirstRate: 64,
   },
   {
     id: 's2', name: '智慧星光', code: 'ZX001', logo: supplierLogos.s2, status: 'enabled', updatedAt: '2026-08-28 09:10:00',
     schemeName: '接口实时推送', schemeVersion: 'v1.8', appKeyMasked: 'ak-zx••••2046',
     // 拒收率 6.8% > 5% 阈值 → 异常
     todayCount: 402, lastPushAt: '2026-09-20 08:58:00', todayRejectRate: 6.8, weekTrend: [520, 488, 460, 510, 470, 440, 402],
+    // 与头部供方重合度较高，首发略滞后
+    todayUniqueRate: 55, todayFirstRate: 38,
   },
   {
     id: 's3', name: '数美科技', code: 'SM001', logo: supplierLogos.s3, status: 'disabled', updatedAt: '2026-09-02 18:06:00',
     schemeName: '舆情库表全量接入', schemeVersion: 'v1.1', appKeyMasked: 'ak-sm••••9132',
     // MT 端已关停 → 停用
     todayCount: 0, lastPushAt: '2026-09-02 18:06:00', todayRejectRate: 0, weekTrend: [0, 0, 0, 0, 0, 0, 0],
+    todayUniqueRate: 0, todayFirstRate: 0,
   },
   {
     id: 's4', name: '百度舆情', code: 'BD001', logo: supplierLogos.s4, status: 'enabled', updatedAt: '2026-08-15 11:00:00',
     schemeName: '接口实时推送', schemeVersion: 'v3.0', appKeyMasked: 'ak-bd••••5570',
     // 最后接入 09-17，近 3 天无数据接入且拒收率 100% → 异常
     todayCount: 0, lastPushAt: '2026-09-17 22:40:00', todayRejectRate: 100, weekTrend: [300, 320, 280, 210, 120, 40, 0],
+    todayUniqueRate: 0, todayFirstRate: 0,
   },
   {
     id: 's5', name: '人民众云', code: 'RM001', logo: supplierLogos.s5, status: 'enabled', updatedAt: '2026-09-10 10:30:00',
     schemeName: '舆情库表增量接入', schemeVersion: 'v1.5', appKeyMasked: 'ak-rm••••3321',
     // 近 1 周仅近 3 天有量（<5 天）且累计 <1 万，拒收率低 → 健康（非活跃、非异常）
     todayCount: 216, lastPushAt: '2026-09-20 09:05:00', todayRejectRate: 0.8, weekTrend: [0, 0, 0, 0, 190, 210, 216],
+    // 小体量供方：来源多与头部重合、以转载为主
+    todayUniqueRate: 41, todayFirstRate: 26,
   },
 ]
 
@@ -116,14 +124,14 @@ const sourceSites = ['微信公众平台', '新浪微博', '今日头条', '百�
  * 入库条目（仅索引信息）。
  * 一篇文章常被多家供数方分别报送，故同一 sourceUrl 会产生多条记录：
  * 标题/作者/发布时间/来源平台相同，供数方与入库时间各不相同。
- * 30 篇文章各被 1~3 家报送，合计约 60 条。
+ * 36 篇文章各被 1~3 家报送，合计 72 条。
  * 已停用的供数方（s3 数美科技）不再产生入库数据。
  */
 export const entriesSeed: DataEntry[] = (() => {
   const list: DataEntry[] = []
   const activeSids = ['s1', 's2', 's4', 's5']
   const seq = 1000
-  for (let a = 0; a < 30; a += 1) {
+  for (let a = 0; a < 36; a += 1) {
     const published = new Date(2026, 8, 20, 8, 0, 0)
     published.setMinutes(published.getMinutes() - a * 173)
     const title = articleTitles[a % articleTitles.length]
@@ -131,8 +139,8 @@ export const entriesSeed: DataEntry[] = (() => {
     const sourceSite = sourceSites[a % sourceSites.length]
     // 少数文章无来源 URL，用于覆盖空值展示
     const sourceUrl = a % 8 === 7 ? '' : `https://source.example.com/article/${seq + a}`
-    // 报送家数在 1~3 家之间轮转，既有单供方也有多供方
-    const deliveries = (a % 3) + 1
+    // 报送家数在 1~3 家之间轮转；首篇即 3 家，保证首屏就能看到「一条数据多家报送」
+    const deliveries = ((a + 2) % 3) + 1
     for (let k = 0; k < deliveries; k += 1) {
       const sid = activeSids[(a + k) % activeSids.length]
       const inbound = new Date(2026, 8, 20, 9, 12, 0)
@@ -150,8 +158,9 @@ export const entriesSeed: DataEntry[] = (() => {
       })
     }
   }
-  // 按入库时间倒序，贴近真实日志
-  return list.sort((x, y) => (x.inboundAt < y.inboundAt ? 1 : -1))
+
+  // 列表顺序由查询层统一处理（同源记录相邻 + 组内按入库时间倒序），见 service.ts → sortEntries
+  return list
 })()
 
 /**

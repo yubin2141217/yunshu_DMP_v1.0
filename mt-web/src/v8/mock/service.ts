@@ -17,7 +17,6 @@ import type {
   OrgUser,
   Overview,
   OverviewRange,
-  OverviewRejectReason,
   PageResult,
   ProfileSetting,
   PushBatch,
@@ -85,6 +84,31 @@ function save(key: string, value: unknown) {
 function paginate<T>(list: T[], page: number, pageSize: number): PageResult<T> {
   const start = (page - 1) * pageSize
   return { list: list.slice(start, start + pageSize), total: list.length }
+}
+
+/**
+ * 入库条目排序：同一来源数据（同 URL，缺 URL 时以文章属性兜底）的多条报送记录必须相邻，
+ * 否则「一条数据对应多个供数方、多个入库时间」在列表里会被其它文章插散、看不出来。
+ * 组间按组内最新入库时间倒序（整体仍是新数据在前），组内按入库时间倒序。
+ */
+function sortEntries(list: DataEntry[]): DataEntry[] {
+  const keyOf = (e: DataEntry) => e.sourceUrl || `${e.title}|${e.authorName}|${e.publishedAt}`
+  const latest = new Map<string, string>()
+  for (const e of list) {
+    const k = keyOf(e)
+    const prev = latest.get(k)
+    if (!prev || e.inboundAt > prev) latest.set(k, e.inboundAt)
+  }
+  return [...list].sort((x, y) => {
+    const kx = keyOf(x)
+    const ky = keyOf(y)
+    if (kx !== ky) {
+      const lx = latest.get(kx) || ''
+      const ly = latest.get(ky) || ''
+      if (lx !== ly) return lx < ly ? 1 : -1
+    }
+    return x.inboundAt < y.inboundAt ? 1 : -1
+  })
 }
 
 function nowText(): string {
@@ -281,11 +305,6 @@ export const v8Service = {
     }
   },
 
-  /** 拒收原因分布（近 7 天口径，供数方查看页用） */
-  rejectReasons(scope: string[] | '*'): OverviewRejectReason[] {
-    return buildRejectReasons(7, scope)
-  },
-
   // ── 供数统计 ──
   statsSummary(q: StatsQuery, scope: string[] | '*'): StatsSummary {
     const trend = logTrend(q, scope)
@@ -362,7 +381,7 @@ export const v8Service = {
     if (q.publishEnd) list = list.filter((e) => e.publishedAt <= `${q.publishEnd} 23:59:59`)
     if (q.inboundStart) list = list.filter((e) => e.inboundAt >= q.inboundStart)
     if (q.inboundEnd) list = list.filter((e) => e.inboundAt <= `${q.inboundEnd} 23:59:59`)
-    list = [...list].sort((a, b) => (a.inboundAt < b.inboundAt ? 1 : -1))
+    list = sortEntries(list)
     return paginate(list, q.page, q.pageSize)
   },
 
