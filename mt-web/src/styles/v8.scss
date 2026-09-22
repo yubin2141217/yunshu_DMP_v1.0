@@ -7,13 +7,21 @@
 
 .v8-layout,
 .v8-login {
-  --v8-chrome-top: 56px;
-  --v8-nav-bar: 48px;
+  --v8-chrome-top: 64px;
+  --v8-nav-bar: 46px;
+  /* 深棕 + 暖金主题（对齐参考 UI 稿） */
+  --v8-brown-900: #3a2812;
+  --v8-brown-800: #463015;
+  --v8-brown-700: #57401d;
+  --v8-brown-600: #6b5028;
+  --v8-gold-600: #a8854e;
+  --v8-gold-500: #c2a06b;
+  --v8-gold-400: #d4b98a;
   --v8-nav-blue: #4c9aff;
-  --v8-nav-selected: rgba(255, 255, 255, 0.22);
-  --v8-page-bg: #f4f7fd;
-  --v8-card-radius: 8px;
-  --v8-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px rgba(0, 0, 0, 0.02);
+  --v8-nav-selected: rgba(0, 0, 0, 0.28);
+  --v8-page-bg: #f6f1e7;
+  --v8-card-radius: 10px;
+  --v8-card-shadow: 0 2px 14px rgba(107, 80, 40, 0.07), 0 1px 3px rgba(107, 80, 40, 0.05);
   --primary-1: 230, 244, 255;
   --primary-2: 186, 224, 255;
   --primary-3: 145, 202, 255;
@@ -31,10 +39,14 @@
   --login-bg-sat: 1.08;
 }
 
-/* ── 主框架：页面背景 ── */
+/* ── 主框架：暖米色页面背景（右侧带柔和暖光晕，贴合参考稿）── */
 .v8-layout {
   min-height: 100vh;
-  background: var(--v8-page-bg, #f0f2f5);
+  background:
+    radial-gradient(1100px 520px at 100% -8%, rgba(194, 160, 107, 0.22), rgba(246, 241, 231, 0) 62%),
+    radial-gradient(900px 620px at 104% 108%, rgba(168, 133, 78, 0.16), rgba(246, 241, 231, 0) 60%),
+    var(--v8-page-bg, #f6f1e7);
+  background-attachment: fixed;
   --v8-content-max: 1440px;
   --v8-content-pad-x: 24px;
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
@@ -50,12 +62,13 @@
   box-sizing: border-box;
 }
 
-/* ── 白顶栏（背景通栏，内容居中对齐）── */
+/* ── 浅色顶栏（暖白底，内容居中对齐）── */
 .v8-layout .chrome-top {
-  height: var(--v8-chrome-top, 56px);
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  height: var(--v8-chrome-top, 64px);
+  background: rgba(255, 252, 246, 0.86);
+  border-bottom: 1px solid rgba(168, 133, 78, 0.18);
   box-sizing: border-box;
+  backdrop-filter: blur(8px);
 }
 
 .v8-layout .chrome-top .chrome-inner {
@@ -75,40 +88,63 @@
 }
 
 .v8-layout .chrome-brand .pro-logo-mark {
-  width: 32px;
-  height: 32px;
-  font-size: 15px;
-  border-radius: 6px;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--v8-brown-700), var(--v8-brown-900));
+  color: var(--v8-gold-400);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .v8-layout .chrome-logo {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
-  color: #1d2129;
+  color: var(--v8-brown-900);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
-.v8-layout .chrome-tags {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+/* 平台名后 V8 角标 */
+.v8-layout .chrome-logo-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--v8-gold-500), var(--v8-gold-600));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
 }
 
-.v8-layout .chrome-tags .arco-tag {
-  border: none;
-  font-weight: 500;
+/* 品牌区竖向分隔线 */
+.v8-layout .chrome-brand-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgba(90, 64, 29, 0.2);
+}
+
+/* 机构名称：小字、灰色 */
+.v8-layout .chrome-org-name {
+  font-size: 13px;
+  color: #8a7a5e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .v8-layout .chrome-top-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
-/* 「MT管理端」入口按钮：位于顶栏右侧、机构头像左侧 */
+/* 「MT管理端」入口按钮：保持原蓝白样式不变 */
 .v8-layout .chrome-mt-entry {
   display: inline-flex;
   align-items: center;
@@ -134,23 +170,56 @@
   box-shadow: 0 2px 8px rgba(22, 119, 255, 0.28);
 }
 
+/* 顶栏圆形图标按钮：待办 / 消息 / 客户经理 */
+.v8-layout .chrome-icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(120, 96, 58, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  color: #6b5a3e;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.v8-layout .chrome-icon-btn:hover {
+  background: #fff;
+  color: var(--v8-brown-800);
+  border-color: var(--v8-gold-500);
+  box-shadow: 0 2px 10px rgba(120, 90, 40, 0.18);
+}
+
+/* 个人中心：头像 + 姓名 + 小箭头 */
 .v8-layout .chrome-user {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 4px 6px 4px 4px;
-  border-radius: 6px;
+  padding: 3px 8px 3px 3px;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  font: inherit;
   transition: background 0.2s ease;
 }
 
 .v8-layout .chrome-user:hover {
-  background: #f5f6f8;
+  background: rgba(168, 133, 78, 0.1);
+}
+
+.v8-layout .chrome-user-avatar {
+  background: linear-gradient(135deg, var(--v8-brown-700), var(--v8-brown-900));
+  color: var(--v8-gold-400);
+  flex: 0 0 auto;
 }
 
 .v8-layout .chrome-user-name {
   font-size: 14px;
-  color: #1d2129;
+  color: #4a3a22;
   max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -158,27 +227,39 @@
 }
 
 .v8-layout .chrome-user-caret {
-  color: #86909c;
+  color: #a08c6a;
   font-size: 12px;
 }
 
-/* ── 明快半透明蓝横导航（背景通栏，菜单与内容对齐）── */
+/* ── 深棕横导航（暖金渐变光带，菜单与内容对齐）── */
 .v8-layout .chrome-nav {
-  height: var(--v8-nav-bar, 48px);
-  background: linear-gradient(
-    100deg,
-    rgba(76, 154, 255, 0.92) 0%,
-    rgba(94, 166, 255, 0.88) 46%,
-    rgba(122, 186, 255, 0.85) 100%
-  );
-  box-shadow: 0 2px 10px rgba(76, 154, 255, 0.18);
-  backdrop-filter: blur(6px);
+  height: var(--v8-nav-bar, 46px);
+  background:
+    linear-gradient(100deg, var(--v8-brown-900) 0%, var(--v8-brown-800) 42%, var(--v8-brown-700) 72%, var(--v8-brown-600) 100%);
+  box-shadow: 0 3px 12px rgba(58, 40, 18, 0.28);
+  position: relative;
+}
+
+/* 导航右侧一道斜向暖金高光 */
+.v8-layout .chrome-nav::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  background: linear-gradient(100deg, rgba(212, 185, 138, 0) 0%, rgba(212, 185, 138, 0.16) 55%, rgba(212, 185, 138, 0.26) 100%);
+  transform: skewX(-18deg);
+  transform-origin: right top;
+  pointer-events: none;
 }
 
 .v8-layout .chrome-nav-inner {
   height: 100%;
   display: flex;
   align-items: stretch;
+  position: relative;
+  z-index: 1;
 }
 
 .v8-layout .chrome-nav a {
@@ -186,26 +267,37 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: auto 4px;
-  padding: 0 18px;
-  height: 34px;
-  border-radius: 17px;
-  color: rgba(255, 255, 255, 0.92);
+  margin: auto 2px;
+  padding: 0 20px;
+  height: 100%;
+  border-radius: 0;
+  color: rgba(240, 228, 206, 0.78);
   text-decoration: none;
   font-size: 14px;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .v8-layout .chrome-nav a:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .v8-layout .chrome-nav a.router-link-active {
   color: #fff;
   font-weight: 600;
-  background: var(--v8-nav-selected, rgba(255, 255, 255, 0.22));
-  box-shadow: 0 2px 8px rgba(64, 132, 230, 0.28);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* 选中项底部金色指示条 */
+.v8-layout .chrome-nav a.router-link-active::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--v8-gold-400), var(--v8-gold-500));
+  border-radius: 2px 2px 0 0;
 }
 
 /* 含二级菜单的一级分组（系统设置） */
@@ -213,19 +305,19 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin: auto 4px;
+  margin: auto 2px;
 }
 
 .v8-layout .chrome-nav-parent {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 18px;
-  border-radius: 17px;
+  height: 100%;
+  padding: 0 20px;
   border: none;
+  border-radius: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(240, 228, 206, 0.78);
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
@@ -235,31 +327,32 @@
 .v8-layout .chrome-nav-group:hover .chrome-nav-parent,
 .v8-layout .chrome-nav-group.is-active .chrome-nav-parent {
   color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .v8-layout .chrome-nav-group.is-active .chrome-nav-parent {
   font-weight: 600;
-  background: var(--v8-nav-selected, rgba(255, 255, 255, 0.22));
-  box-shadow: 0 2px 8px rgba(64, 132, 230, 0.28);
 }
 
 .v8-layout .chrome-nav-caret {
   font-size: 11px;
 }
 
+/* 下拉菜单：与导航同色的深棕实色面板，顶部无缝贴合导航 */
 .v8-layout .chrome-nav-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 148px;
-  padding: 6px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(29, 33, 41, 0.16);
+  min-width: 132px;
+  padding: 6px 0;
+  background: var(--v8-brown-800);
+  border: 1px solid rgba(212, 185, 138, 0.22);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 10px 28px rgba(40, 26, 10, 0.32);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px);
+  transform: translateY(4px);
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
   z-index: 100;
 }
@@ -273,9 +366,9 @@
 
 .v8-layout a.chrome-nav-sub {
   display: block;
-  padding: 9px 14px;
-  border-radius: 6px;
-  color: #4e5969 !important;
+  padding: 10px 18px;
+  border-radius: 0;
+  color: rgba(240, 228, 206, 0.82) !important;
   font-size: 13px;
   line-height: 1.4;
   white-space: nowrap;
@@ -283,14 +376,14 @@
 }
 
 .v8-layout a.chrome-nav-sub:hover {
-  color: var(--v8-nav-blue, #1677ff) !important;
-  background: #f2f7ff !important;
+  color: #fff !important;
+  background: rgba(0, 0, 0, 0.22) !important;
 }
 
 .v8-layout a.chrome-nav-sub.router-link-active {
-  color: var(--v8-nav-blue, #1677ff) !important;
+  color: var(--v8-gold-400) !important;
   font-weight: 600;
-  background: #e8f3ff !important;
+  background: rgba(0, 0, 0, 0.28) !important;
 }
 
 /* ── 内容区 ── */
@@ -357,14 +450,14 @@
 .v8-layout .kpi-card,
 .v8-layout .content-card {
   border: none !important;
-  border-radius: var(--v8-card-radius, 8px) !important;
-  background: #fff;
+  border-radius: var(--v8-card-radius, 10px) !important;
+  background: rgba(255, 253, 248, 0.92);
   box-shadow: var(--v8-card-shadow);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .v8-layout .kpi-card:hover {
-  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 6px 18px rgba(120, 90, 40, 0.12), 0 2px 6px rgba(107, 80, 40, 0.06);
 }
 
 .v8-layout .kpi-card .arco-card-body,
@@ -522,12 +615,40 @@
   font-size: 13px;
 }
 
-.v8-layout .arco-btn-primary {
+/* 主按钮：深棕底白字（对齐参考稿查询按钮）；仅默认 primary，danger 等状态色不受影响 */
+.v8-layout .arco-btn-primary:not(.arco-btn-status-danger):not(.arco-btn-status-warning):not(.arco-btn-status-success) {
+  border-radius: 6px;
+  border-color: var(--v8-brown-800);
+  background: var(--v8-brown-800);
+}
+
+.v8-layout .arco-btn-primary:not(.arco-btn-status-danger):not(.arco-btn-status-warning):not(.arco-btn-status-success):hover {
+  border-color: var(--v8-brown-600);
+  background: var(--v8-brown-600);
+}
+
+/* 次按钮：暖白描边，hover 染淡金 */
+.v8-layout .arco-btn-secondary {
+  border-radius: 6px;
+}
+
+/* 输入/选择控件：统一 6px 圆角与暖灰边框 */
+.v8-layout .arco-input-wrapper,
+.v8-layout .arco-select-view-single,
+.v8-layout .arco-picker {
   border-radius: 6px;
 }
 
 .v8-layout .arco-radio-group-button .arco-radio-button {
   border-radius: 0;
+}
+
+/* 按钮组选中态：深棕底白字（与导航主题一致） */
+.v8-layout .arco-radio-group-button .arco-radio-button.arco-radio-checked {
+  background: var(--v8-brown-800);
+  border-color: var(--v8-brown-800);
+  color: #fff;
+  z-index: 0;
 }
 
 .v8-layout .arco-radio-group-button .arco-radio-button:first-child {
@@ -586,9 +707,14 @@
     --v8-content-pad-x: 16px;
   }
 
-  .v8-layout .chrome-tags,
-  .v8-layout .chrome-user-name {
+  .v8-layout .chrome-user-name,
+  .v8-layout .chrome-brand-divider,
+  .v8-layout .chrome-org-name {
     display: none;
+  }
+
+  .v8-layout .chrome-top-actions {
+    gap: 8px;
   }
 
   .v8-layout .chrome-nav-inner {
@@ -1224,61 +1350,8 @@
 .v8-login.qr-login .qr-demo-btn:disabled { color: #a9aeb8; cursor: not-allowed; text-decoration: none; }
 
 /* ============================================================
- * V8 顶栏：消息铃铛 / 用户区 / 下拉图标
+ * V8 顶栏：个人中心下拉菜单项图标
  * ============================================================ */
-.v8-layout .chrome-bell-btn {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #4e5969;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: background 0.2s ease;
-}
-
-.v8-layout .chrome-bell-btn:hover {
-  background: #f5f6f8;
-  color: var(--v8-nav-blue, #1677ff);
-}
-
-/* 用户区：头像+姓名（点击进个人设置）与右侧小箭头（点击出菜单）组合 */
-.v8-layout .chrome-user-box {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.v8-layout button.chrome-user {
-  border: none;
-  background: transparent;
-  font: inherit;
-}
-
-.v8-layout .chrome-user-caret-btn {
-  width: 22px;
-  height: 34px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #86909c;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.v8-layout .chrome-user-caret-btn:hover {
-  background: #f5f6f8;
-  color: var(--v8-nav-blue, #1677ff);
-}
-
 .v8-layout .chrome-doption-icon {
   margin-right: 8px;
 }

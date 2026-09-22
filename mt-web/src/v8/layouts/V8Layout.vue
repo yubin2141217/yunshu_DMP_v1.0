@@ -2,45 +2,65 @@
   <div class="v8-layout">
     <header class="chrome-top">
       <div class="chrome-inner">
+        <!-- 左侧品牌区：平台 logo + 平台名 + V8 角标 + 分隔线 + 机构名称 -->
         <div class="chrome-brand">
           <span class="pro-logo-mark" aria-hidden="true"><IconThunderbolt /></span>
           <span class="chrome-logo">云数中台</span>
-          <div class="chrome-tags">
-            <a-tag color="arcoblue" size="small">{{ orgName }}</a-tag>
-            <a-tag color="arcoblue" size="small">机构端</a-tag>
-          </div>
+          <span class="chrome-logo-badge">V8</span>
+          <span class="chrome-brand-divider" aria-hidden="true"></span>
+          <span class="chrome-org-name">{{ orgName }}</span>
         </div>
         <div class="chrome-top-actions">
+          <!-- 保留既有「MT管理端」入口，样式不变 -->
           <button type="button" class="chrome-mt-entry" title="进入 MT 管理端综合看板" @click="goMtAdmin">
             <IconDashboard :size="14" />
             <span>MT管理端</span>
           </button>
 
-          <button type="button" class="chrome-bell-btn" title="消息中心" @click="goMessage">
-            <a-badge :count="unread" :max-count="99" :dot="false" :offset="[-2, 2]">
-              <IconNotification :size="18" />
-            </a-badge>
-          </button>
-
-          <div class="chrome-user-box">
-            <button type="button" class="chrome-user" title="个人设置" @click="goSettings">
-              <a-avatar :size="32" style="background: rgb(var(--primary-6))">{{ userInitial }}</a-avatar>
-              <span class="chrome-user-name">{{ userStore.userInfo?.name }}</span>
+          <!-- 待办通知 -->
+          <a-tooltip content="待办通知" mini position="br">
+            <button type="button" class="chrome-icon-btn" @click="goTodo">
+              <a-badge :count="todoCount" :max-count="99" :offset="[-3, 1]">
+                <IconCalendar :size="18" />
+              </a-badge>
             </button>
-            <a-dropdown trigger="click" position="br">
-              <button type="button" class="chrome-user-caret-btn" title="更多">
-                <IconDown class="chrome-user-caret" />
-              </button>
-              <template #content>
-                <a-doption @click="goSettings">
-                  <IconSettings class="chrome-doption-icon" />个人设置
-                </a-doption>
-                <a-doption @click="onLogout">
-                  <IconExport class="chrome-doption-icon" />退出登录
-                </a-doption>
-              </template>
-            </a-dropdown>
-          </div>
+          </a-tooltip>
+
+          <!-- 消息通知 -->
+          <a-tooltip content="消息通知" mini position="br">
+            <button type="button" class="chrome-icon-btn" @click="goMessage">
+              <a-badge :count="unread" :max-count="99" :offset="[-3, 1]">
+                <IconNotification :size="18" />
+              </a-badge>
+            </button>
+          </a-tooltip>
+
+          <!-- 联系客户经理 -->
+          <a-tooltip content="联系客户经理" mini position="br">
+            <button type="button" class="chrome-icon-btn" @click="contactManager">
+              <IconCustomerService :size="18" />
+            </button>
+          </a-tooltip>
+
+          <!-- 个人中心：头像 + 姓名 + 下拉 -->
+          <a-dropdown trigger="click" position="br">
+            <button type="button" class="chrome-user" title="个人中心">
+              <a-avatar :size="30" class="chrome-user-avatar">{{ userInitial }}</a-avatar>
+              <span class="chrome-user-name">{{ userStore.userInfo?.name }}</span>
+              <IconDown class="chrome-user-caret" />
+            </button>
+            <template #content>
+              <a-doption @click="goSettings">
+                <IconUser class="chrome-doption-icon" />个人中心
+              </a-doption>
+              <a-doption @click="switchOrg">
+                <IconSwap class="chrome-doption-icon" />切换机构
+              </a-doption>
+              <a-doption @click="onLogout">
+                <IconExport class="chrome-doption-icon" />退出登录
+              </a-doption>
+            </template>
+          </a-dropdown>
         </div>
       </div>
     </header>
@@ -78,18 +98,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Modal } from '@arco-design/web-vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import {
+  IconCalendar,
+  IconCustomerService,
   IconDashboard,
   IconDown,
   IconExport,
   IconNotification,
-  IconSettings,
+  IconSwap,
   IconThunderbolt,
+  IconUser,
 } from '@arco-design/web-vue/es/icon'
 import { useUserStore } from '@/v8/store/user'
-import { V8_NAV, isNavItem, isNavGroup, type V8NavGroup } from '@/v8/config/menus'
+import { V8_NAV, isNavItem, type V8NavGroup } from '@/v8/config/menus'
 import { getUnreadCount } from '@/v8/api/system'
+import { getOverview } from '@/v8/api/data'
 import V8Watermark from '@/v8/components/V8Watermark.vue'
 
 const route = useRoute()
@@ -99,6 +123,7 @@ const userStore = useUserStore()
 const orgName = computed(() => userStore.userInfo?.orgName || '本机构')
 const watermark = computed(() => userStore.watermarkText)
 const unread = ref(0)
+const todoCount = ref(0)
 
 /** 一级导航：按当前用户权限过滤；分组内子项全部无权限时整组隐藏 */
 const nav = computed(() =>
@@ -115,12 +140,19 @@ function groupActive(group: V8NavGroup) {
   return group.children.some((c) => route.path.startsWith(c.path))
 }
 
-async function refreshUnread() {
-  if (!userStore.can('message')) {
+async function refreshBadges() {
+  if (userStore.can('message')) {
+    unread.value = await getUnreadCount()
+  } else {
     unread.value = 0
-    return
   }
-  unread.value = await getUnreadCount()
+  // 待办数取首页待办聚合（待处理告警 + 待回执），无权限时静默为 0
+  try {
+    const overview = await getOverview('today')
+    todoCount.value = overview.todoSummary.pendingAlert + overview.todoSummary.waitingReceipt
+  } catch {
+    todoCount.value = 0
+  }
 }
 
 function goMtAdmin() {
@@ -129,8 +161,28 @@ function goMtAdmin() {
 function goMessage() {
   router.push('/v8/message')
 }
+/** 待办通知：待处理告警进入供数监控，无权限则进入首页待办分区 */
+function goTodo() {
+  if (userStore.can('monitor')) {
+    router.push('/v8/monitor')
+  } else {
+    router.push('/v8/overview')
+  }
+}
 function goSettings() {
   router.push('/v8/settings')
+}
+/** 切换机构：本期为单机构演示，给出轻提示 */
+function switchOrg() {
+  Message.info('当前账号仅绑定一个机构，如需切换请联系平台管理员')
+}
+/** 联系客户经理：原型阶段弹出联系方式提示 */
+function contactManager() {
+  Modal.info({
+    title: '联系客户经理',
+    content: '客户经理：王经理　服务热线：400-800-1688（工作日 9:00–18:00）',
+    okText: '我知道了',
+  })
 }
 
 function onLogout() {
@@ -144,5 +196,5 @@ function onLogout() {
   })
 }
 
-onMounted(refreshUnread)
+onMounted(refreshBadges)
 </script>
