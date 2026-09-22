@@ -125,7 +125,7 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, reactive, ref } from 'vue'
-import { Message, Modal, type FormInstance } from '@arco-design/web-vue'
+import { Message, Modal, type FormInstance, type RequestOption } from '@arco-design/web-vue'
 import FormFieldLabel from '@/components/FormFieldLabel.vue'
 import { deleteSupplier, listSuppliers, saveSupplier, toggleSupplier } from '@/api/mt'
 import type { Status, Supplier } from '@/mock/mt'
@@ -136,9 +136,14 @@ const statusOptions = [
   { label: '开启', value: 'enabled' },
   { label: '停用', value: 'disabled' },
 ]
+/** logo 上传限制：格式白名单 + 大小上限（原型阶段图片转 DataURL 存本地，需控制体积） */
+const LOGO_ACCEPT = 'image/png,image/jpeg,image/svg+xml'
+const LOGO_MIME = LOGO_ACCEPT.split(',')
+const LOGO_MAX_SIZE = 500 * 1024
 const form = reactive({ name: '', status: '' })
 const data = ref<Supplier[]>([])
 const loading = ref(false)
+const logoUploading = ref(false)
 const togglingId = ref('')
 const pagination = reactive({ current: 1, pageSize: 100, total: 0 })
 const visible = ref(false)
@@ -169,6 +174,56 @@ async function copyCode(code?: string) {
   } catch {
     Message.error('复制失败，请手动选择复制')
   }
+}
+
+/** 读取图片为 DataURL：原型阶段不走真实上传服务，直接本地预览并随表单保存 */
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('图片读取失败，请重新选择'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function uploadLogo(options: RequestOption) {
+  void applyLogoUpload(options)
+  return {}
+}
+
+async function applyLogoUpload(options: RequestOption) {
+  const file = options.fileItem.file
+  if (!file) {
+    Message.warning('未获取到图片文件，请重新选择')
+    options.onError()
+    return
+  }
+  if (!LOGO_MIME.includes(file.type)) {
+    Message.warning('仅支持 PNG / JPG / SVG 格式图片')
+    options.onError()
+    return
+  }
+  if (file.size > LOGO_MAX_SIZE) {
+    Message.warning('图片大小不能超过 500KB，请压缩后重新上传')
+    options.onError()
+    return
+  }
+  logoUploading.value = true
+  try {
+    editor.logo = await readImageAsDataUrl(file)
+    Message.success('图片已上传，保存后生效')
+    options.onSuccess()
+  } catch (e) {
+    Message.error((e as Error).message)
+    options.onError()
+  } finally {
+    logoUploading.value = false
+  }
+}
+
+function removeLogo() {
+  editor.logo = ''
+  Message.success('已移除图片，未上传时展示名称首字')
 }
 
 async function fetchData(page = pagination.current) {
@@ -314,6 +369,28 @@ onMounted(() => fetchData(1))
 .sup-logo {
   flex: none;
   background: #f2f3f5;
+}
+/* logo 上传：左侧预览 + 右侧操作与提示 */
+.logo-uploader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-uploader__preview {
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+}
+.logo-uploader__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.logo-uploader__tip {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #86909c;
 }
 .del-disabled-wrap {
   display: inline-block;
