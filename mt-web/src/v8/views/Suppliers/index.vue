@@ -75,6 +75,12 @@
       </div>
 
       <a-table :columns="columns" :data="data" :loading="loading" row-key="id" :pagination="false" stripe>
+        <template #name="{ record }">
+          <a-link @click="openDetail(record)">{{ record.name }}</a-link>
+        </template>
+        <template #code="{ record }">
+          <a-link @click="copyCode(record.code)">{{ record.code }}</a-link>
+        </template>
         <template #health="{ record }">
           <a-badge :status="badgeOf(record.health).status" :text="badgeOf(record.health).label" />
         </template>
@@ -83,11 +89,11 @@
             {{ record.status === 'enabled' ? '启用' : '停用' }}
           </a-tag>
         </template>
+        <template #todayCount="{ record }">
+          <a-link @click="goDataCheck(record)">{{ record.todayCount }}</a-link>
+        </template>
         <template #todayRejectRate="{ record }">
           <span :class="record.todayRejectRate > 5 ? 'v8-text-warn' : ''">{{ record.todayRejectRate }}%</span>
-        </template>
-        <template #operations="{ record }">
-          <a-link @click="openDetail(record)">详情</a-link>
         </template>
         <template #empty><a-empty description="尚未配置供数方或不在您的可见范围内" /></template>
       </a-table>
@@ -160,7 +166,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { Message } from '@arco-design/web-vue'
 import {
   IconSearch,
   IconUserGroup,
@@ -185,6 +192,7 @@ import {
 import { buildRadarOption, weakTipOf } from '@/v8/utils/supplierRadar'
 
 const route = useRoute()
+const router = useRouter()
 
 const keyword = ref('')
 const code = ref('')
@@ -202,14 +210,13 @@ const badgeMap: Record<Health, { status: 'success' | 'processing' | 'danger' | '
 const badgeOf = (h: Health) => ({ ...badgeMap[h], label: healthMeta[h].label })
 
 const columns = [
-  { title: '供数方名称', dataIndex: 'name', ellipsis: true, tooltip: true },
-  { title: '编码', dataIndex: 'code', width: 120 },
+  { title: '供数方名称', dataIndex: 'name', slotName: 'name', ellipsis: true, tooltip: true },
+  { title: '编码', dataIndex: 'code', slotName: 'code', width: 120 },
   { title: '供数方状态', dataIndex: 'health', slotName: 'health', width: 110 },
   { title: '启用状态', dataIndex: 'status', slotName: 'status', width: 90 },
-  { title: '今日入库', dataIndex: 'todayCount', width: 110 },
+  { title: '今日入库', dataIndex: 'todayCount', slotName: 'todayCount', width: 110 },
   { title: '今日拒收率', dataIndex: 'todayRejectRate', slotName: 'todayRejectRate', width: 110 },
   { title: '最近推送', dataIndex: 'lastPushAt', width: 160 },
-  { title: '操作', dataIndex: 'operations', slotName: 'operations', width: 80 },
 ]
 
 /** 按当前登录机构可见范围汇总供数方状态（口径全局统一：健康/活跃/异常/停用） */
@@ -300,6 +307,44 @@ const current = ref<Supplier | null>(null)
 function openDetail(row: Supplier) {
   current.value = row
   detailVisible.value = true
+}
+
+/** 复制兜底：execCommand 兼容无 Clipboard API 权限的嵌入/自动化环境 */
+function copyFallback(code: string): boolean {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = code
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+/** 复制供数方编码到剪贴板 */
+function copyCode(code: string) {
+  const done = () => Message.success(`已复制编码：${code}`)
+  const fail = () => Message.error('复制失败，请手动复制')
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard
+      .writeText(code)
+      .then(done)
+      .catch(() => (copyFallback(code) ? done() : fail()))
+  } else if (copyFallback(code)) {
+    done()
+  } else {
+    fail()
+  }
+}
+
+/** 今日入库：跳转接入数据对账并携带该供数方筛选（上区聚合 + 下区明细同时回填） */
+function goDataCheck(row: Supplier) {
+  router.push({ path: '/v8/data-check', query: { supplierId: row.id } })
 }
 
 const weekOption = computed<EChartsCoreOption>(() => ({

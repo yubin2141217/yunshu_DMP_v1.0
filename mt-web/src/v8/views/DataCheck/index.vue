@@ -238,9 +238,6 @@
             <a-link class="v8-url-detail" @click="openUrl(current.sourceUrl)">{{ current.sourceUrl }}</a-link>
           </a-descriptions-item>
         </a-descriptions>
-        <div class="v8-detail-actions">
-          <a-button type="primary" @click="openUrl(current.sourceUrl)">新标签打开来源链接</a-button>
-        </div>
       </template>
     </a-drawer>
 
@@ -312,7 +309,7 @@ const rejectDrill = ref(false)
 const rejectStatRef = ref<HTMLElement | null>(null)
 
 const aggForm = reactive<StatsQuery>({
-  range: '1w',
+  range: 'today',
   start: '',
   end: '',
   supplierIds: [],
@@ -347,7 +344,7 @@ async function fetchAgg() {
 }
 
 function resetAgg() {
-  aggForm.range = '1w'
+  aggForm.range = 'today'
   aggForm.supplierIds = []
   customRange.value = []
   rejectDrill.value = false
@@ -804,9 +801,5 @@ onMounted(() => {
 
 .v8-index-note {
   margin-bottom: 16px;
-}
-.v8-detail-actions {
-  margin-top: 20px;
-  text-align: right;
 }
 </style>
