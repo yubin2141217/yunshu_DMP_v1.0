@@ -657,7 +657,7 @@ onMounted(() => {
   margin-top: 20px;
   padding: 16px;
   border: 1px solid #f0f1f3;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fcfcfd;
 }
 .v8-sup-eval-head {
@@ -697,7 +697,7 @@ onMounted(() => {
   font-size: 12px;
   color: #86909c;
   background: #f2f3f5;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 .v8-sup-eval-weak {
   display: flex;
@@ -709,7 +709,7 @@ onMounted(() => {
   line-height: 1.5;
   color: #ff7d00;
   background: #fff7e8;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 .v8-sup-eval-weak-icon {
   flex: 0 0 auto;

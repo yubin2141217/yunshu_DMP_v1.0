@@ -19,7 +19,11 @@
   --v8-nav-blue: #4c9aff;
   --v8-nav-selected: rgba(0, 0, 0, 0.28);
   --v8-page-bg: #eef4fb;
-  --v8-card-radius: 10px;
+  /* 圆角体系（参考广域全媒体系统：卡片大圆角、控件中圆角、按钮小圆角） */
+  --v8-card-radius: 12px;
+  --v8-radius-card: 12px;
+  --v8-radius-control: 8px;
+  --v8-radius-btn: 6px;
   --v8-card-shadow: 0 2px 14px rgba(23, 76, 153, 0.07), 0 1px 3px rgba(23, 76, 153, 0.05);
   --primary-1: 230, 244, 255;
   --primary-2: 186, 224, 255;
@@ -36,6 +40,29 @@
   --pro-theme-color-soft: rgba(22, 119, 255, 0.22);
   --login-bg-hue: -28deg;
   --login-bg-sat: 1.08;
+}
+
+/* ============================================================
+ * Arco 圆角 token 覆盖（body 作用域）
+ * V8 页面挂载时 layout 会给 body 加 .v8-scope class；
+ * 下拉 / 日期面板等弹层 teleport 到 body，token 须置于 body 才能生效。
+ * 统一口径：按钮 6px，输入/下拉等控件 8px，卡片 12px（由各卡片规则引用变量）。
+ * ============================================================ */
+body.v8-scope {
+  --border-radius-small: 4px;
+  --border-radius-medium: 8px;
+  --border-radius-large: 10px;
+  --v8-radius-card: 12px;
+  --v8-radius-control: 8px;
+  --v8-radius-btn: 6px;
+}
+/* 弹层面板：与控件圆角保持一致 */
+body.v8-scope .arco-select-popup,
+body.v8-scope .arco-dropdown,
+body.v8-scope .arco-picker-container,
+body.v8-scope .arco-popover,
+body.v8-scope .arco-modal {
+  border-radius: var(--v8-radius-control, 8px);
 }
 
 /* ── 主框架：淡蓝色页面背景（右侧带柔和蓝光晕）── */
@@ -151,7 +178,7 @@
   height: 32px;
   padding: 0 14px;
   border: 1px solid rgba(22, 119, 255, 0.35);
-  border-radius: 6px;
+  border-radius: var(--v8-radius-btn);
   background: #fff;
   color: var(--v8-nav-blue, #1677ff);
   font-size: 13px;
@@ -338,17 +365,18 @@
   font-size: 11px;
 }
 
-/* 下拉菜单：与导航同色的深蓝实色面板，顶部无缝贴合导航 */
+/* 下拉菜单：与导航同色的深蓝实色面板，顶部无缝贴合导航；宽度与父级菜单项对齐 */
 .v8-layout .chrome-nav-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 132px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 6px 0;
   background: var(--v8-blue-800);
   border: 1px solid rgba(124, 184, 255, 0.25);
   border-top: none;
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 8px 8px;
   box-shadow: 0 10px 28px rgba(9, 30, 66, 0.32);
   opacity: 0;
   visibility: hidden;
@@ -450,7 +478,7 @@
 .v8-layout .kpi-card,
 .v8-layout .content-card {
   border: none !important;
-  border-radius: var(--v8-card-radius, 10px) !important;
+  border-radius: var(--v8-radius-card) !important;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--v8-card-shadow);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -474,7 +502,7 @@
 .v8-layout .kpi-icon {
   width: 52px;
   height: 52px;
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -531,11 +559,11 @@
 
 .v8-layout .page-search .arco-input-wrapper,
 .v8-layout .page-search .arco-select-view-single {
-  border-radius: 6px;
+  border-radius: var(--v8-radius-control);
 }
 
 .v8-layout .page-search .arco-btn {
-  border-radius: 6px;
+  border-radius: var(--v8-radius-btn);
 }
 
 .v8-layout .table-footer {
@@ -617,7 +645,7 @@
 
 /* 主按钮：平台蓝底白字（与全局 primary 一致）；仅默认 primary，danger 等状态色不受影响 */
 .v8-layout .arco-btn-primary:not(.arco-btn-status-danger):not(.arco-btn-status-warning):not(.arco-btn-status-success) {
-  border-radius: 6px;
+  border-radius: var(--v8-radius-btn);
   border-color: rgb(var(--primary-6));
   background: rgb(var(--primary-6));
 }
@@ -629,14 +657,14 @@
 
 /* 次按钮：沿用默认描边样式 */
 .v8-layout .arco-btn-secondary {
-  border-radius: 6px;
+  border-radius: var(--v8-radius-btn);
 }
 
-/* 输入/选择控件：统一 6px 圆角与暖灰边框 */
+/* 输入/选择控件：统一圆角与暖灰边框 */
 .v8-layout .arco-input-wrapper,
 .v8-layout .arco-select-view-single,
 .v8-layout .arco-picker {
-  border-radius: 6px;
+  border-radius: var(--v8-radius-control);
 }
 
 .v8-layout .arco-radio-group-button .arco-radio-button {
@@ -652,11 +680,11 @@
 }
 
 .v8-layout .arco-radio-group-button .arco-radio-button:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--v8-radius-control) 0 0 var(--v8-radius-control);
 }
 
 .v8-layout .arco-radio-group-button .arco-radio-button:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--v8-radius-control) var(--v8-radius-control) 0;
 }
 
 .v8-layout .status-dot {
@@ -797,7 +825,7 @@
   width: 400px;
   max-width: 100%;
   padding: 36px 32px 28px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow:
     0 16px 48px color-mix(in srgb, var(--pro-theme-color, #1890ff) 16%, rgba(15, 23, 42, 0.1)),
@@ -874,7 +902,7 @@
   height: 45px;
   padding: 0 15px;
   border: 1px solid transparent !important;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--color-fill-2) !important;
   box-shadow: none !important;
 }
@@ -953,7 +981,7 @@
   height: 45px;
   padding: 0 5px 0 15px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--color-fill-2);
   box-sizing: border-box;
 }
@@ -1442,7 +1470,7 @@
   gap: 6px;
   padding: 8px 12px;
   margin-bottom: 14px;
-  border-radius: 6px;
+  border-radius: var(--v8-radius-control);
   background: #eef5ff;
   color: #165dff;
   font-size: 13px;
@@ -1488,7 +1516,7 @@
   height: 32px;
   padding-right: 8px;
   border: 1px solid #e5e6eb;
-  border-radius: 6px;
+  border-radius: var(--v8-radius-control);
   background: #fff;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }

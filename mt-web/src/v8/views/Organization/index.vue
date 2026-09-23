@@ -184,7 +184,7 @@ onMounted(async () => {
   gap: 10px;
 }
 .v8-module-tag {
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 4px 12px;
 }
 .v8-no-module {

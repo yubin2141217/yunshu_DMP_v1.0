@@ -653,7 +653,7 @@ onMounted(() => {
 
 .v8-stat-box {
   border: 1px solid #f0f1f3;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 16px 18px;
   background: linear-gradient(180deg, #fbfcfe 0%, #f7f9fc 100%);
   transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;

@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import {
@@ -172,4 +172,12 @@ function onLogout() {
     },
   })
 }
+
+/* V8 子系统期间给 body 打作用域标记：teleport 到 body 的下拉/弹层据此应用 V8 圆角 token，离开时移除 */
+onMounted(() => {
+  document.body.classList.add('v8-scope')
+})
+onBeforeUnmount(() => {
+  document.body.classList.remove('v8-scope')
+})
 </script>

@@ -318,7 +318,7 @@ onMounted(async () => {
   color: #86909c;
   padding: 10px 12px;
   background: #f7f8fa;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 .v8-pending-body {
   display: flex;

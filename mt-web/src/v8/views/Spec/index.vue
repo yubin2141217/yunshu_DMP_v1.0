@@ -4,7 +4,7 @@
       <div>
         <h2 class="workplace-title">接入规范</h2>
         <p class="workplace-desc">
-          查看本机构已开通的接入方案，可预览下载并提供给各供数商。
+          查看本机构已开通的接入方案，可预览下载并提供给各供数方。
         </p>
       </div>
     </div>
