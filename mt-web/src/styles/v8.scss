@@ -1474,24 +1474,84 @@
 .v8-layout .v8-filter-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px 16px;
+  gap: 12px 16px;
   margin-bottom: 18px;
 }
 
+/* 筛选项：外框包裹 label + 控件，label 与输入值同一行、宽度自适应、内容紧贴 */
 .v8-layout .v8-filter-item {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
   min-width: 0;
+  height: 32px;
+  padding-right: 8px;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.v8-layout .v8-filter-item:hover {
+  border-color: #a9c9f5;
+}
+
+/* 控件聚焦时整框高亮（替代控件自身的聚焦描边） */
+.v8-layout .v8-filter-item:focus-within {
+  border-color: rgb(var(--primary-6));
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
 }
 
 .v8-layout .v8-filter-item label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 11px;
   font-size: 13px;
-  color: #4e5969;
+  color: #86909c;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* label 内的提示图标仍需可交互（hover 出 tooltip） */
+.v8-layout .v8-filter-item label .v8-date-info,
+.v8-layout .v8-filter-item label .arco-icon {
+  pointer-events: auto;
+}
+
+/* 控件去自身边框/底色/圆角，融入外框；输入内容紧跟 label */
+.v8-layout .v8-filter-item .arco-input-wrapper,
+.v8-layout .v8-filter-item .arco-select-view-single,
+.v8-layout .v8-filter-item .arco-picker {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  padding-left: 8px;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 控件内部聚焦时不再自发光，由整框 :focus-within 统一表现 */
+.v8-layout .v8-filter-item .arco-input-wrapper.arco-input-focus,
+.v8-layout .v8-filter-item .arco-select-view-single.arco-select-view-focus,
+.v8-layout .v8-filter-item .arco-picker.arco-picker-focused {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* 下拉控件外层撑满外框剩余宽度 */
+.v8-layout .v8-filter-item .arco-select {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .v8-layout .v8-filter-actions {
-  /* 始终落在当前行最右一列，与筛选项控件底边对齐 */
+  /* 始终落在当前行最右一列，与筛选项控件居中对齐 */
   grid-column-start: -2;
   justify-self: end;
   display: flex;
