@@ -23,7 +23,7 @@ npm install
 npm run dev
 ```
 
-- 预览：云数中台运营端，打开即为「供数方管理」（免登录）  
+- 预览：打开为「云数中台门户」入口页 —— 可进入 **MT管理端**（免登录演示）或 **V8机构端**（`/v8/login`，演示账号见登录页）  
 - 机构端：`cd v8-web && npm install && npm run dev`（`jigou` / `123456`）
 
 ### AI Studio 说明

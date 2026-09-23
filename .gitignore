@@ -36,3 +36,4 @@ mt-web/*.zip
 
 # 本地工程副本（不推送，避免 AI Studio 识别混乱）
 mt-web - 副本/
+mt-web/yunshuDMP/
