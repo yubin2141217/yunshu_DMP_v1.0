@@ -152,6 +152,19 @@ function rangeDays(range: OverviewRange): number {
   return 90
 }
 
+/**
+ * 供数方列表各时间范围起点（含起点当天），按最近推送时间 lastPushAt 过滤。
+ * 演示数据锚定基准日 2026-09-20：今日/近3天保留当日有推送的供方，近7天起含断流供方，近3月含已停用供方。
+ */
+const SUPPLIER_RANGE_START: Record<OverviewRange, string> = {
+  today: '2026-09-20 00:00:00',
+  '3d': '2026-09-18 00:00:00',
+  '7d': '2026-09-14 00:00:00',
+  '1m': '2026-08-21 00:00:00',
+  '2m': '2026-07-22 00:00:00',
+  '3m': '2026-06-22 00:00:00',
+}
+
 export const v8Service = {
   paginate,
 
@@ -402,6 +415,9 @@ export const v8Service = {
   // ── 供数方 ──
   suppliers(q: SupplierQuery, scope: string[] | '*'): PageResult<Supplier> & { list: Supplier[] } {
     let list = suppliersSeed.filter((s) => inScope(s.id, scope))
+    // 时间范围：最近推送时间落在范围内才保留（演示数据基准日 2026-09-20）
+    const rangeStart = SUPPLIER_RANGE_START[q.range || 'today']
+    if (rangeStart) list = list.filter((s) => s.lastPushAt && s.lastPushAt >= rangeStart)
     // 供数方名称（独立模糊匹配）
     const kw = (q.keyword || '').trim().toLowerCase()
     if (kw) list = list.filter((s) => s.name.toLowerCase().includes(kw))

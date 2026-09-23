@@ -5,11 +5,14 @@
         <h2 class="workplace-title">供数方管理</h2>
         <p class="workplace-desc">管理本机构供数方及其供数表现。</p>
       </div>
-      <!-- 时间范围：与首页一致的按钮组，置于页头右上角，点击即切换并联动列表指标 -->
-      <div class="v8-sup-range-bar">
+      <!-- 时间范围：与首页一致的按钮组 + 更新时间，置于页头右上角，切换即过滤列表 -->
+      <div class="v8-sup-head-right">
         <a-radio-group v-model:model-value="range" type="button" @change="fetchData(1)">
           <a-radio v-for="o in RANGE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
         </a-radio-group>
+        <div class="v8-summary-stats">
+          <span>更新时间<strong>{{ lastUpdated }}</strong></span>
+        </div>
       </div>
     </div>
 
@@ -219,6 +222,7 @@ import {
   averageSupplierScores,
   computeSupplierScore,
   type Health,
+  type OverviewRange,
   type Supplier,
   type SupplierScore,
 } from '@/v8/mock/types'
@@ -242,18 +246,28 @@ const badgeMap: Record<Health, { status: 'success' | 'processing' | 'danger' | '
 }
 const badgeOf = (h: Health) => ({ ...badgeMap[h], label: healthMeta[h].label })
 
-/* ===== 时间范围筛选：列表指标列随范围切换（演示口径：今日为种子值，其余范围按固定系数派生） ===== */
+/* ===== 时间范围筛选：选项与默认值与首页保持一致，列表供方及其指标列随范围联动 ===== */
 const RANGE_OPTIONS = [
   { value: 'today', label: '今日' },
   { value: '3d', label: '近3天' },
   { value: '7d', label: '近7天' },
   { value: '1m', label: '近1月' },
-  { value: 'year', label: '本年度' },
+  { value: '2m', label: '近2月' },
+  { value: '3m', label: '近3月' },
 ] as const
-type SupplierRange = (typeof RANGE_OPTIONS)[number]['value']
 
-const range = ref<SupplierRange>('7d')
+const range = ref<OverviewRange>('today')
 const rangeLabel = computed(() => RANGE_OPTIONS.find((o) => o.value === range.value)?.label ?? '')
+
+/** 更新时间：当前范围内列表供方的最近一次推送时间（与首页「更新时间」同义） */
+const lastUpdated = computed(() => {
+  const latest = data.value
+    .map((s) => s.lastPushAt)
+    .filter(Boolean)
+    .sort()
+    .pop()
+  return latest || '暂无入库'
+})
 
 interface RangeMetrics {
   /** 范围内入库量 */
@@ -281,8 +295,10 @@ function metricsOf(s: Supplier): RangeMetrics {
       return { count: weekTotal, firstRate: Math.round(s.todayFirstRate * 0.88), uniqueRate: Math.round(s.todayUniqueRate * 0.86), rejectRate: r1(s.todayRejectRate * 0.85) }
     case '1m':
       return { count: Math.round(weekTotal * 4.3), firstRate: Math.round(s.todayFirstRate * 0.85), uniqueRate: Math.round(s.todayUniqueRate * 0.82), rejectRate: r1(s.todayRejectRate * 0.8) }
-    case 'year':
-      return { count: Math.round(weekTotal * 52), firstRate: Math.round(s.todayFirstRate * 0.8), uniqueRate: Math.round(s.todayUniqueRate * 0.78), rejectRate: r1(s.todayRejectRate * 0.75) }
+    case '2m':
+      return { count: Math.round(weekTotal * 8.6), firstRate: Math.round(s.todayFirstRate * 0.82), uniqueRate: Math.round(s.todayUniqueRate * 0.8), rejectRate: r1(s.todayRejectRate * 0.78) }
+    case '3m':
+      return { count: Math.round(weekTotal * 12.9), firstRate: Math.round(s.todayFirstRate * 0.8), uniqueRate: Math.round(s.todayUniqueRate * 0.78), rejectRate: r1(s.todayRejectRate * 0.75) }
   }
 }
 
@@ -366,7 +382,7 @@ const statCards = computed(() => [
 async function fetchData(page = pagination.current) {
   loading.value = true
   try {
-    const res = await getSuppliers({ keyword: keyword.value, code: code.value, health: health.value, page, pageSize: pagination.pageSize })
+    const res = await getSuppliers({ keyword: keyword.value, code: code.value, health: health.value, range: range.value, page, pageSize: pagination.pageSize })
     data.value = res.list
     pagination.current = page
     pagination.total = res.total
@@ -496,15 +512,28 @@ onMounted(() => {
 <style lang="scss" scoped>
 .v8-text-warn { color: #ff7d00; }
 
-/* 时间范围按钮组：页头右上角，与标题行顶对齐；窄屏随页头换行后左对齐 */
-.v8-sup-range-bar {
+/* 页头右侧：时间按钮组在上、更新时间在下，右对齐，与首页页头布局一致 */
+.v8-sup-head-right {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 8px;
 }
+
+.v8-sup-head-right .v8-summary-stats {
+  justify-content: flex-end;
+  padding-top: 0;
+}
+
 @media (max-width: 640px) {
-  .v8-sup-range-bar {
+  .v8-sup-head-right {
     width: 100%;
+    align-items: flex-start;
   }
-  .v8-sup-range-bar :deep(.arco-radio-group) {
+  .v8-sup-head-right :deep(.arco-radio-group) {
     flex-wrap: wrap;
   }
 }

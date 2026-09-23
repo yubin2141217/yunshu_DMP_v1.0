@@ -450,6 +450,8 @@ export interface SupplierQuery {
   /** 供数方编码（可选，模糊匹配） */
   code?: string
   health: Health | ''
+  /** 时间范围：与首页一致，按供数方最近推送时间是否落在范围内过滤 */
+  range?: OverviewRange
   page: number
   pageSize: number
 }
