@@ -9,19 +9,18 @@
 .v8-login {
   --v8-chrome-top: 64px;
   --v8-nav-bar: 46px;
-  /* 深棕 + 暖金主题（对齐参考 UI 稿） */
-  --v8-brown-900: #3a2812;
-  --v8-brown-800: #463015;
-  --v8-brown-700: #57401d;
-  --v8-brown-600: #6b5028;
-  --v8-gold-600: #a8854e;
-  --v8-gold-500: #c2a06b;
-  --v8-gold-400: #d4b98a;
+  /* 蓝色主题：页面淡蓝、导航与 logo 深蓝 */
+  --v8-blue-900: #0b2b5e;
+  --v8-blue-800: #123f7e;
+  --v8-blue-700: #1b56a0;
+  --v8-blue-600: #1e63b0;
+  --v8-blue-500: #2f7fd9;
+  --v8-blue-400: #7cb8ff;
   --v8-nav-blue: #4c9aff;
   --v8-nav-selected: rgba(0, 0, 0, 0.28);
-  --v8-page-bg: #f6f1e7;
+  --v8-page-bg: #eef4fb;
   --v8-card-radius: 10px;
-  --v8-card-shadow: 0 2px 14px rgba(107, 80, 40, 0.07), 0 1px 3px rgba(107, 80, 40, 0.05);
+  --v8-card-shadow: 0 2px 14px rgba(23, 76, 153, 0.07), 0 1px 3px rgba(23, 76, 153, 0.05);
   --primary-1: 230, 244, 255;
   --primary-2: 186, 224, 255;
   --primary-3: 145, 202, 255;
@@ -39,13 +38,13 @@
   --login-bg-sat: 1.08;
 }
 
-/* ── 主框架：暖米色页面背景（右侧带柔和暖光晕，贴合参考稿）── */
+/* ── 主框架：淡蓝色页面背景（右侧带柔和蓝光晕）── */
 .v8-layout {
   min-height: 100vh;
   background:
-    radial-gradient(1100px 520px at 100% -8%, rgba(194, 160, 107, 0.22), rgba(246, 241, 231, 0) 62%),
-    radial-gradient(900px 620px at 104% 108%, rgba(168, 133, 78, 0.16), rgba(246, 241, 231, 0) 60%),
-    var(--v8-page-bg, #f6f1e7);
+    radial-gradient(1100px 520px at 100% -8%, rgba(76, 154, 255, 0.18), rgba(238, 244, 251, 0) 62%),
+    radial-gradient(900px 620px at 104% 108%, rgba(34, 112, 194, 0.12), rgba(238, 244, 251, 0) 60%),
+    var(--v8-page-bg, #eef4fb);
   background-attachment: fixed;
   --v8-content-max: 1440px;
   --v8-content-pad-x: 24px;
@@ -62,11 +61,11 @@
   box-sizing: border-box;
 }
 
-/* ── 浅色顶栏（暖白底，内容居中对齐）── */
+/* ── 浅色顶栏（淡蓝白底，内容居中对齐）── */
 .v8-layout .chrome-top {
   height: var(--v8-chrome-top, 64px);
-  background: rgba(255, 252, 246, 0.86);
-  border-bottom: 1px solid rgba(168, 133, 78, 0.18);
+  background: rgba(247, 250, 254, 0.88);
+  border-bottom: 1px solid rgba(76, 133, 224, 0.18);
   box-sizing: border-box;
   backdrop-filter: blur(8px);
 }
@@ -92,8 +91,8 @@
   height: 38px;
   font-size: 18px;
   border-radius: 9px;
-  background: linear-gradient(135deg, var(--v8-brown-700), var(--v8-brown-900));
-  color: var(--v8-gold-400);
+  background: linear-gradient(135deg, var(--v8-blue-700), var(--v8-blue-900));
+  color: var(--v8-blue-400);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +101,7 @@
 .v8-layout .chrome-logo {
   font-size: 19px;
   font-weight: 700;
-  color: var(--v8-brown-900);
+  color: var(--v8-blue-900);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -112,7 +111,7 @@
   flex: 0 0 auto;
   padding: 1px 6px;
   border-radius: 4px;
-  background: linear-gradient(135deg, var(--v8-gold-500), var(--v8-gold-600));
+  background: linear-gradient(135deg, var(--v8-blue-500), var(--v8-blue-600));
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -125,13 +124,13 @@
   width: 1px;
   height: 18px;
   margin: 0 4px;
-  background: rgba(90, 64, 29, 0.2);
+  background: rgba(27, 86, 160, 0.22);
 }
 
-/* 机构名称：小字、灰色 */
+/* 机构名称：小字、灰蓝色 */
 .v8-layout .chrome-org-name {
   font-size: 13px;
-  color: #8a7a5e;
+  color: #5c7398;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,10 +173,10 @@
 .v8-layout .chrome-icon-btn {
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(120, 96, 58, 0.22);
+  border: 1px solid rgba(64, 118, 200, 0.3);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.7);
-  color: #6b5a3e;
+  color: #43608f;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -188,9 +187,9 @@
 
 .v8-layout .chrome-icon-btn:hover {
   background: #fff;
-  color: var(--v8-brown-800);
-  border-color: var(--v8-gold-500);
-  box-shadow: 0 2px 10px rgba(120, 90, 40, 0.18);
+  color: var(--v8-blue-800);
+  border-color: var(--v8-blue-500);
+  box-shadow: 0 2px 10px rgba(40, 100, 190, 0.18);
 }
 
 /* 个人中心：头像 + 姓名 + 小箭头 */
@@ -208,18 +207,18 @@
 }
 
 .v8-layout .chrome-user:hover {
-  background: rgba(168, 133, 78, 0.1);
+  background: rgba(76, 133, 224, 0.1);
 }
 
 .v8-layout .chrome-user-avatar {
-  background: linear-gradient(135deg, var(--v8-brown-700), var(--v8-brown-900));
-  color: var(--v8-gold-400);
+  background: linear-gradient(135deg, var(--v8-blue-700), var(--v8-blue-900));
+  color: var(--v8-blue-400);
   flex: 0 0 auto;
 }
 
 .v8-layout .chrome-user-name {
   font-size: 14px;
-  color: #4a3a22;
+  color: #22375c;
   max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -227,20 +226,20 @@
 }
 
 .v8-layout .chrome-user-caret {
-  color: #a08c6a;
+  color: #8aa1c4;
   font-size: 12px;
 }
 
-/* ── 深棕横导航（暖金渐变光带，菜单与内容对齐）── */
+/* ── 深蓝横导航（淡蓝渐变光带，菜单与内容对齐）── */
 .v8-layout .chrome-nav {
   height: var(--v8-nav-bar, 46px);
   background:
-    linear-gradient(100deg, var(--v8-brown-900) 0%, var(--v8-brown-800) 42%, var(--v8-brown-700) 72%, var(--v8-brown-600) 100%);
-  box-shadow: 0 3px 12px rgba(58, 40, 18, 0.28);
+    linear-gradient(100deg, var(--v8-blue-900) 0%, var(--v8-blue-800) 42%, var(--v8-blue-700) 72%, var(--v8-blue-600) 100%);
+  box-shadow: 0 3px 12px rgba(11, 43, 94, 0.28);
   position: relative;
 }
 
-/* 导航右侧一道斜向暖金高光 */
+/* 导航右侧一道斜向淡蓝高光 */
 .v8-layout .chrome-nav::after {
   content: '';
   position: absolute;
@@ -248,7 +247,7 @@
   right: 0;
   width: 300px;
   height: 100%;
-  background: linear-gradient(100deg, rgba(212, 185, 138, 0) 0%, rgba(212, 185, 138, 0.16) 55%, rgba(212, 185, 138, 0.26) 100%);
+  background: linear-gradient(100deg, rgba(124, 184, 255, 0) 0%, rgba(124, 184, 255, 0.14) 55%, rgba(124, 184, 255, 0.24) 100%);
   transform: skewX(-18deg);
   transform-origin: right top;
   pointer-events: none;
@@ -271,7 +270,7 @@
   padding: 0 20px;
   height: 100%;
   border-radius: 0;
-  color: rgba(240, 228, 206, 0.78);
+  color: rgba(219, 233, 252, 0.8);
   text-decoration: none;
   font-size: 14px;
   transition: background 0.18s ease, color 0.18s ease;
@@ -288,7 +287,7 @@
   background: rgba(0, 0, 0, 0.22);
 }
 
-/* 选中项底部金色指示条 */
+/* 选中项底部亮蓝指示条 */
 .v8-layout .chrome-nav a.router-link-active::after {
   content: '';
   position: absolute;
@@ -296,7 +295,7 @@
   right: 20px;
   bottom: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--v8-gold-400), var(--v8-gold-500));
+  background: linear-gradient(90deg, var(--v8-blue-400), var(--v8-blue-500));
   border-radius: 2px 2px 0 0;
 }
 
@@ -317,7 +316,7 @@
   border: none;
   border-radius: 0;
   background: transparent;
-  color: rgba(240, 228, 206, 0.78);
+  color: rgba(219, 233, 252, 0.8);
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
@@ -338,18 +337,18 @@
   font-size: 11px;
 }
 
-/* 下拉菜单：与导航同色的深棕实色面板，顶部无缝贴合导航 */
+/* 下拉菜单：与导航同色的深蓝实色面板，顶部无缝贴合导航 */
 .v8-layout .chrome-nav-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   min-width: 132px;
   padding: 6px 0;
-  background: var(--v8-brown-800);
-  border: 1px solid rgba(212, 185, 138, 0.22);
+  background: var(--v8-blue-800);
+  border: 1px solid rgba(124, 184, 255, 0.25);
   border-top: none;
   border-radius: 0 0 6px 6px;
-  box-shadow: 0 10px 28px rgba(40, 26, 10, 0.32);
+  box-shadow: 0 10px 28px rgba(9, 30, 66, 0.32);
   opacity: 0;
   visibility: hidden;
   transform: translateY(4px);
@@ -368,7 +367,7 @@
   display: block;
   padding: 10px 18px;
   border-radius: 0;
-  color: rgba(240, 228, 206, 0.82) !important;
+  color: rgba(219, 233, 252, 0.85) !important;
   font-size: 13px;
   line-height: 1.4;
   white-space: nowrap;
@@ -381,7 +380,7 @@
 }
 
 .v8-layout a.chrome-nav-sub.router-link-active {
-  color: var(--v8-gold-400) !important;
+  color: var(--v8-blue-400) !important;
   font-weight: 600;
   background: rgba(0, 0, 0, 0.28) !important;
 }
@@ -451,13 +450,13 @@
 .v8-layout .content-card {
   border: none !important;
   border-radius: var(--v8-card-radius, 10px) !important;
-  background: rgba(255, 253, 248, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--v8-card-shadow);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .v8-layout .kpi-card:hover {
-  box-shadow: 0 6px 18px rgba(120, 90, 40, 0.12), 0 2px 6px rgba(107, 80, 40, 0.06);
+  box-shadow: 0 6px 18px rgba(35, 99, 190, 0.12), 0 2px 6px rgba(23, 76, 153, 0.06);
 }
 
 .v8-layout .kpi-card .arco-card-body,
@@ -615,19 +614,19 @@
   font-size: 13px;
 }
 
-/* 主按钮：深棕底白字（对齐参考稿查询按钮）；仅默认 primary，danger 等状态色不受影响 */
+/* 主按钮：平台蓝底白字（与全局 primary 一致）；仅默认 primary，danger 等状态色不受影响 */
 .v8-layout .arco-btn-primary:not(.arco-btn-status-danger):not(.arco-btn-status-warning):not(.arco-btn-status-success) {
   border-radius: 6px;
-  border-color: var(--v8-brown-800);
-  background: var(--v8-brown-800);
+  border-color: rgb(var(--primary-6));
+  background: rgb(var(--primary-6));
 }
 
 .v8-layout .arco-btn-primary:not(.arco-btn-status-danger):not(.arco-btn-status-warning):not(.arco-btn-status-success):hover {
-  border-color: var(--v8-brown-600);
-  background: var(--v8-brown-600);
+  border-color: rgb(var(--primary-5));
+  background: rgb(var(--primary-5));
 }
 
-/* 次按钮：暖白描边，hover 染淡金 */
+/* 次按钮：沿用默认描边样式 */
 .v8-layout .arco-btn-secondary {
   border-radius: 6px;
 }
@@ -643,10 +642,10 @@
   border-radius: 0;
 }
 
-/* 按钮组选中态：深棕底白字（与导航主题一致） */
+/* 按钮组选中态：平台蓝底白字（与全局 primary 一致） */
 .v8-layout .arco-radio-group-button .arco-radio-button.arco-radio-checked {
-  background: var(--v8-brown-800);
-  border-color: var(--v8-brown-800);
+  background: rgb(var(--primary-6));
+  border-color: rgb(var(--primary-6));
   color: #fff;
   z-index: 0;
 }
