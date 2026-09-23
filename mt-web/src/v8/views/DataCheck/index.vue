@@ -144,8 +144,12 @@
           />
         </div>
         <div class="v8-filter-actions">
-          <a-button type="primary" @click="fetchDetail(1)">查询</a-button>
-          <a-button @click="resetAll">重置</a-button>
+          <a-button type="primary" @click="fetchDetail(1)">
+            <template #icon><IconSearch /></template>查询
+          </a-button>
+          <a-button @click="resetAll">
+            <template #icon><IconRefresh /></template>重置
+          </a-button>
         </div>
       </div>
 
@@ -284,7 +288,7 @@
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
-import { IconExclamationCircle } from '@arco-design/web-vue/es/icon'
+import { IconExclamationCircle, IconRefresh, IconSearch } from '@arco-design/web-vue/es/icon'
 import {
   getDataEntries,
   getStatsSummary,

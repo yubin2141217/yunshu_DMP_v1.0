@@ -28,8 +28,12 @@
           </a-select>
         </div>
         <div class="v8-filter-actions">
-          <a-button type="primary" @click="applyFilters">查询</a-button>
-          <a-button @click="resetFilters">重置</a-button>
+          <a-button type="primary" @click="applyFilters">
+            <template #icon><IconSearch /></template>查询
+          </a-button>
+          <a-button @click="resetFilters">
+            <template #icon><IconRefresh /></template>重置
+          </a-button>
         </div>
       </div>
 
@@ -192,6 +196,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconRefresh, IconSearch } from '@arco-design/web-vue/es/icon'
 import { getEnabledStandards } from '@/v8/api/v8'
 import { getAllSuppliers } from '@/v8/api/data'
 import { logSpecDownload } from '@/v8/api/system'

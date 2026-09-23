@@ -80,6 +80,9 @@
           <a-button type="primary" @click="fetchData(1)">
             <template #icon><IconSearch /></template>查询
           </a-button>
+          <a-button @click="onReset">
+            <template #icon><IconRefresh /></template>重置
+          </a-button>
         </div>
       </div>
 
@@ -216,6 +219,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import {
   IconSearch,
+  IconRefresh,
   IconUserGroup,
   IconHeart,
   IconThunderbolt,
@@ -403,6 +407,14 @@ async function fetchData(page = pagination.current) {
 
 function onPageSize(size: number) {
   pagination.pageSize = size
+  fetchData(1)
+}
+
+/** 重置筛选区条件（名称 / 编码 / 状态），时间范围切换独立于筛选区不重置 */
+function onReset() {
+  keyword.value = ''
+  code.value = ''
+  health.value = ''
   fetchData(1)
 }
 

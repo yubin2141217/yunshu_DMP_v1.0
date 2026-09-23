@@ -20,18 +20,14 @@
           <!-- 待办通知 -->
           <a-tooltip content="待办通知" mini position="br">
             <button type="button" class="chrome-icon-btn" @click="goTodo">
-              <a-badge :count="todoCount" :max-count="99" :offset="[-3, 1]">
-                <IconCalendar :size="18" />
-              </a-badge>
+              <IconCalendar :size="18" />
             </button>
           </a-tooltip>
 
           <!-- 消息通知 -->
           <a-tooltip content="消息通知" mini position="br">
             <button type="button" class="chrome-icon-btn" @click="goMessage">
-              <a-badge :count="unread" :max-count="99" :offset="[-3, 1]">
-                <IconNotification :size="18" />
-              </a-badge>
+              <IconNotification :size="18" />
             </button>
           </a-tooltip>
 
@@ -96,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import {
@@ -112,8 +108,6 @@ import {
 } from '@arco-design/web-vue/es/icon'
 import { useUserStore } from '@/v8/store/user'
 import { V8_NAV, isNavItem, type V8NavGroup } from '@/v8/config/menus'
-import { getUnreadCount } from '@/v8/api/system'
-import { getOverview } from '@/v8/api/data'
 import V8Watermark from '@/v8/components/V8Watermark.vue'
 
 const route = useRoute()
@@ -122,8 +116,6 @@ const userStore = useUserStore()
 
 const orgName = computed(() => userStore.userInfo?.orgName || '本机构')
 const watermark = computed(() => userStore.watermarkText)
-const unread = ref(0)
-const todoCount = ref(0)
 
 /** 一级导航：按当前用户权限过滤；分组内子项全部无权限时整组隐藏 */
 const nav = computed(() =>
@@ -138,21 +130,6 @@ const userInitial = computed(() => (userStore.userInfo?.name || '机').slice(0, 
 
 function groupActive(group: V8NavGroup) {
   return group.children.some((c) => route.path.startsWith(c.path))
-}
-
-async function refreshBadges() {
-  if (userStore.can('message')) {
-    unread.value = await getUnreadCount()
-  } else {
-    unread.value = 0
-  }
-  // 待办数取首页待办聚合（待处理告警 + 待回执），无权限时静默为 0
-  try {
-    const overview = await getOverview('today')
-    todoCount.value = overview.todoSummary.pendingAlert + overview.todoSummary.waitingReceipt
-  } catch {
-    todoCount.value = 0
-  }
 }
 
 function goMtAdmin() {
@@ -195,6 +172,4 @@ function onLogout() {
     },
   })
 }
-
-onMounted(refreshBadges)
 </script>

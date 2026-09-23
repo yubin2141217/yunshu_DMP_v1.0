@@ -304,7 +304,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin: auto 2px;
+  /* 不可用上下 auto 外边距：横向 flex 中会令分组放弃拉伸、收缩成悬浮块 */
+  margin: 0 2px;
 }
 
 .v8-layout .chrome-nav-parent {
