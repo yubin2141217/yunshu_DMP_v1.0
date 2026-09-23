@@ -210,7 +210,7 @@ export const v8Service = {
     // 供方入库量 TOP 榜（降序 TOP 8；停用供方为 0）
     const topSuppliers = scopedSuppliers
       .map((s, si) => {
-        const share = s.id === 's1' ? 0.52 : s.id === 's2' ? 0.22 : s.id === 's4' ? 0.14 : s.id === 's5' ? 0.12 : 0
+        const share = s.id === 's1' ? 0.30 : s.id === 's2' ? 0.12 : s.id === 's4' ? 0.07 : s.id === 's5' ? 0.06 : s.id === 's6' ? 0.38 : s.id === 's7' ? 0.07 : 0
         const inbound = trend.reduce((sum, p) => sum + Math.round(p.inbound * share), 0)
         const reject = trend.reduce((sum, p) => sum + Math.round(p.reject * share), 0)
         void si

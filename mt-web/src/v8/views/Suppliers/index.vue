@@ -150,9 +150,19 @@
         </div>
 
         <a-descriptions :column="1" bordered size="large" class="v8-sup-desc">
-          <a-descriptions-item label="启用状态">{{ current.status === 'enabled' ? '启用' : '停用' }}</a-descriptions-item>
+          <a-descriptions-item label="启用状态">
+            <a-tag :color="current.status === 'enabled' ? 'green' : 'gray'" size="small">
+              {{ current.status === 'enabled' ? '启用' : '停用' }}
+            </a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="接入方案">{{ current.schemeName }} {{ current.schemeVersion }}</a-descriptions-item>
+          <a-descriptions-item label="AppKey">{{ current.appKeyMasked || '—' }}</a-descriptions-item>
           <a-descriptions-item label="今日入库">{{ Number(current.todayCount).toLocaleString('zh-CN') }} 条</a-descriptions-item>
           <a-descriptions-item label="今日拒收率">{{ current.todayRejectRate }}%</a-descriptions-item>
+          <a-descriptions-item label="近7日入库">{{ currentWeekTotal.toLocaleString('zh-CN') }} 条</a-descriptions-item>
+          <a-descriptions-item label="近7日首发占比">{{ current.weekFirstRate }}%</a-descriptions-item>
+          <a-descriptions-item label="近7日独有占比">{{ current.weekUniqueRate }}%</a-descriptions-item>
+          <a-descriptions-item label="近7日拒收率">{{ current.weekRejectRate }}%</a-descriptions-item>
           <a-descriptions-item label="最近推送">{{ current.lastPushAt || '暂无' }}</a-descriptions-item>
           <a-descriptions-item label="信息更新时间">{{ current.updatedAt }}</a-descriptions-item>
         </a-descriptions>
@@ -280,7 +290,7 @@ interface RangeMetrics {
   rejectRate: number
 }
 
-/** 列表指标按时间范围派生：今日直接取种子值，更长周期基于近 7 日趋势按系数放大 / 占比小幅回落 */
+/** 列表指标按时间范围派生：今日取当日字段、近 7 天取真实周字段，更长周期基于近 7 日按系数放大 / 占比小幅回落 */
 function metricsOf(s: Supplier): RangeMetrics {
   const week = (s.weekTrend || []).map((n) => Number(n) || 0)
   const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
@@ -290,15 +300,15 @@ function metricsOf(s: Supplier): RangeMetrics {
     case 'today':
       return { count: s.todayCount, firstRate: s.todayFirstRate, uniqueRate: s.todayUniqueRate, rejectRate: s.todayRejectRate }
     case '3d':
-      return { count: sum(week.slice(-3)), firstRate: Math.round(s.todayFirstRate * 0.92), uniqueRate: Math.round(s.todayUniqueRate * 0.9), rejectRate: r1(s.todayRejectRate * 0.9) }
+      return { count: sum(week.slice(-3)), firstRate: Math.round(s.weekFirstRate * 0.95), uniqueRate: Math.round(s.weekUniqueRate * 0.95), rejectRate: r1(s.weekRejectRate * 0.95) }
     case '7d':
-      return { count: weekTotal, firstRate: Math.round(s.todayFirstRate * 0.88), uniqueRate: Math.round(s.todayUniqueRate * 0.86), rejectRate: r1(s.todayRejectRate * 0.85) }
+      return { count: weekTotal, firstRate: s.weekFirstRate, uniqueRate: s.weekUniqueRate, rejectRate: r1(s.weekRejectRate) }
     case '1m':
-      return { count: Math.round(weekTotal * 4.3), firstRate: Math.round(s.todayFirstRate * 0.85), uniqueRate: Math.round(s.todayUniqueRate * 0.82), rejectRate: r1(s.todayRejectRate * 0.8) }
+      return { count: Math.round(weekTotal * 4.3), firstRate: Math.round(s.weekFirstRate * 0.95), uniqueRate: Math.round(s.weekUniqueRate * 0.94), rejectRate: r1(s.weekRejectRate * 0.92) }
     case '2m':
-      return { count: Math.round(weekTotal * 8.6), firstRate: Math.round(s.todayFirstRate * 0.82), uniqueRate: Math.round(s.todayUniqueRate * 0.8), rejectRate: r1(s.todayRejectRate * 0.78) }
+      return { count: Math.round(weekTotal * 8.6), firstRate: Math.round(s.weekFirstRate * 0.92), uniqueRate: Math.round(s.weekUniqueRate * 0.9), rejectRate: r1(s.weekRejectRate * 0.9) }
     case '3m':
-      return { count: Math.round(weekTotal * 12.9), firstRate: Math.round(s.todayFirstRate * 0.8), uniqueRate: Math.round(s.todayUniqueRate * 0.78), rejectRate: r1(s.todayRejectRate * 0.75) }
+      return { count: Math.round(weekTotal * 12.9), firstRate: Math.round(s.weekFirstRate * 0.9), uniqueRate: Math.round(s.weekUniqueRate * 0.88), rejectRate: r1(s.weekRejectRate * 0.88) }
   }
 }
 
@@ -444,6 +454,8 @@ function goDataCheck(row: Supplier) {
 /* ===== 供方能力五维评估（详情雷达） ===== */
 /** 当前供方评分 */
 const currentScore = computed<SupplierScore | null>(() => (current.value ? computeSupplierScore(current.value) : null))
+/** 当前供方近 7 日累计入库量 */
+const currentWeekTotal = computed(() => (current.value ? (current.value.weekTrend || []).reduce((a, b) => a + (Number(b) || 0), 0) : 0))
 /** 机构内启用供方的五维均值（停用供方不纳入），作为雷达参照层 */
 const orgAvgScore = computed<SupplierScore>(() => {
   const enabled = getAllSuppliers().filter((s) => s.status === 'enabled')

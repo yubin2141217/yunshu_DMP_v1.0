@@ -35,6 +35,8 @@ const supplierLogos: Record<string, string> = {
   s3: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20slate%20gray%20gradient%2C%20white%20abstract%20shield%20with%20check%20mark%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
   s4: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20blue%20indigo%20gradient%2C%20white%20abstract%20flame%20with%20magnifier%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
   s5: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20red%20orange%20gradient%2C%20white%20abstract%20cloud%20with%20radio%20signal%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s6: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20violet%20purple%20gradient%2C%20white%20abstract%20upward%20arrow%20bolt%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
+  s7: `${LOGO_BASE}minimal%20flat%20square%20app%20icon%2C%20amber%20orange%20gradient%2C%20white%20abstract%20media%20play%20triangle%20with%20signal%20wave%2C%20clean%20vector%20corporate%20logo%2C%20no%20text%2C%20centered%2C%20simple`,
 }
 
 /**
@@ -49,6 +51,7 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     todayCount: 1286, lastPushAt: '2026-09-20 09:12:00', todayRejectRate: 1.2, weekTrend: [980, 1024, 1102, 968, 1205, 1320, 1286],
     // 头部供方：独有来源多、同源数据多为首发
     todayUniqueRate: 72, todayFirstRate: 64,
+    weekRejectRate: 1.0, weekUniqueRate: 62, weekFirstRate: 56,
   },
   {
     id: 's2', name: '智慧星光', code: 'ZX001', logo: supplierLogos.s2, status: 'enabled', updatedAt: '2026-08-28 09:10:00',
@@ -57,6 +60,7 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     todayCount: 402, lastPushAt: '2026-09-20 08:58:00', todayRejectRate: 6.8, weekTrend: [520, 488, 460, 510, 470, 440, 402],
     // 与头部供方重合度较高，首发略滞后
     todayUniqueRate: 55, todayFirstRate: 38,
+    weekRejectRate: 6.2, weekUniqueRate: 47, weekFirstRate: 33,
   },
   {
     id: 's3', name: '数美科技', code: 'SM001', logo: supplierLogos.s3, status: 'disabled', updatedAt: '2026-09-02 18:06:00',
@@ -64,6 +68,7 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     // MT 端已关停 → 停用
     todayCount: 0, lastPushAt: '2026-09-02 18:06:00', todayRejectRate: 0, weekTrend: [0, 0, 0, 0, 0, 0, 0],
     todayUniqueRate: 0, todayFirstRate: 0,
+    weekRejectRate: 0, weekUniqueRate: 0, weekFirstRate: 0,
   },
   {
     id: 's4', name: '百度舆情', code: 'BD001', logo: supplierLogos.s4, status: 'enabled', updatedAt: '2026-08-15 11:00:00',
@@ -71,6 +76,7 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     // 最后接入 09-17，近 3 天无数据接入且拒收率 100% → 异常
     todayCount: 0, lastPushAt: '2026-09-17 22:40:00', todayRejectRate: 100, weekTrend: [300, 320, 280, 210, 120, 40, 0],
     todayUniqueRate: 0, todayFirstRate: 0,
+    weekRejectRate: 8.5, weekUniqueRate: 0, weekFirstRate: 0,
   },
   {
     id: 's5', name: '人民众云', code: 'RM001', logo: supplierLogos.s5, status: 'enabled', updatedAt: '2026-09-10 10:30:00',
@@ -79,6 +85,25 @@ const rawSuppliers: Omit<Supplier, 'health'>[] = [
     todayCount: 216, lastPushAt: '2026-09-20 09:05:00', todayRejectRate: 0.8, weekTrend: [0, 0, 0, 0, 190, 210, 216],
     // 小体量供方：来源多与头部重合、以转载为主
     todayUniqueRate: 41, todayFirstRate: 26,
+    weekRejectRate: 0.7, weekUniqueRate: 35, weekFirstRate: 23,
+  },
+  {
+    id: 's6', name: '蜜度信息', code: 'MD001', logo: supplierLogos.s6, status: 'enabled', updatedAt: '2026-09-08 16:40:00',
+    schemeName: '接口实时推送', schemeVersion: 'v2.1', appKeyMasked: 'ak-md••••7799',
+    // 近 1 周 7 天均有接入且累计破万 → 活跃
+    todayCount: 1560, lastPushAt: '2026-09-20 09:20:00', todayRejectRate: 0.9, weekTrend: [1420, 1500, 1380, 1600, 1550, 1490, 1560],
+    // 头部供方：独有与首发表现仅次于清博
+    todayUniqueRate: 70, todayFirstRate: 66,
+    weekRejectRate: 1.1, weekUniqueRate: 68, weekFirstRate: 71,
+  },
+  {
+    id: 's7', name: '中传智讯', code: 'ZC001', logo: supplierLogos.s7, status: 'enabled', updatedAt: '2026-09-12 09:50:00',
+    schemeName: '舆情库表增量接入', schemeVersion: 'v1.2', appKeyMasked: 'ak-zc••••3086',
+    // 近 1 周仅 3 天有量、累计不足 1 万，拒收率低 → 健康
+    todayCount: 180, lastPushAt: '2026-09-20 08:40:00', todayRejectRate: 0.5, weekTrend: [0, 0, 0, 160, 0, 175, 180],
+    // 小体量供方：重合度高、转载为主
+    todayUniqueRate: 38, todayFirstRate: 21,
+    weekRejectRate: 0.6, weekUniqueRate: 36, weekFirstRate: 24,
   },
 ]
 
@@ -432,7 +457,7 @@ export function buildTrend(days: number, scope: string[] | '*', onlyIds?: string
     const d = new Date(anchor.getTime())
     d.setDate(d.getDate() - i)
     const inbound = scoped.reduce((sum, sid, idx) => {
-      const base = sid === 's1' ? 1200 : sid === 's2' ? 480 : sid === 's4' ? 240 : sid === 's5' ? 210 : 0
+      const base = sid === 's1' ? 1200 : sid === 's2' ? 480 : sid === 's4' ? 240 : sid === 's5' ? 210 : sid === 's6' ? 1480 : sid === 's7' ? 165 : 0
       return sum + Math.round(base * (0.85 + ((i + idx) % 5) * 0.06))
     }, 0)
     const reject = Math.round(inbound * (0.01 + ((i % 6) * 0.004)))
@@ -451,12 +476,12 @@ export type OverviewGranularity = 'hour' | '12h' | 'day' | 'month'
 
 /** 各供方单位时段入库基数（用于分时 / 12 小时点估算） */
 function supplierHourBase(sid: string): number {
-  return sid === 's1' ? 96 : sid === 's2' ? 40 : sid === 's4' ? 20 : sid === 's5' ? 17 : 0
+  return sid === 's1' ? 96 : sid === 's2' ? 40 : sid === 's4' ? 20 : sid === 's5' ? 17 : sid === 's6' ? 118 : sid === 's7' ? 13 : 0
 }
 
 /** 单个供方某自然日的入库基准（与 buildTrend 日量口径一致） */
 function supplierDayBase(sid: string): number {
-  return sid === 's1' ? 1200 : sid === 's2' ? 480 : sid === 's4' ? 240 : sid === 's5' ? 210 : 0
+  return sid === 's1' ? 1200 : sid === 's2' ? 480 : sid === 's4' ? 240 : sid === 's5' ? 210 : sid === 's6' ? 1480 : sid === 's7' ? 165 : 0
 }
 
 /** 单个供方在某个整点的入库量（夜间低峰、白天高峰的真实分时波动） */
@@ -586,7 +611,7 @@ export function buildHourlyTrend(scope: string[] | '*') {
     const h = d.getHours()
     const factor = h >= 9 && h <= 21 ? 1 : h >= 7 || h <= 22 ? 0.55 : 0.18
     const inbound = scoped.reduce((sum, sid, idx) => {
-      const baseHourly = sid === 's1' ? 96 : sid === 's2' ? 36 : sid === 's4' ? 18 : 0
+      const baseHourly = sid === 's1' ? 96 : sid === 's2' ? 36 : sid === 's4' ? 18 : sid === 's6' ? 110 : sid === 's7' ? 12 : 0
       return sum + Math.round(baseHourly * factor * (0.8 + ((h + idx) % 4) * 0.1))
     }, 0)
     const reject = Math.round(inbound * (0.008 + (h % 5) * 0.004))

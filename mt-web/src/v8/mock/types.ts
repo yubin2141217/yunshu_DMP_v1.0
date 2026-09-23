@@ -320,15 +320,15 @@ export const SCORE_RULE = {
 } as const
 
 export interface SupplierScore {
-  /** 数据量：近 7 日累计入库规模 */
+  /** 数据量：近 7 日累计入库量，达到 10,000 条记满分 */
   volume: number
-  /** 活跃度：近 7 日有入库天数占比 */
+  /** 活跃度：近 7 日有入库天数占比（7 天全接入记满分） */
   activity: number
-  /** 数据质量：今日拒收率反向得分 */
+  /** 数据质量：近 7 日拒收率反向得分（0% 满分，每 1% 扣 10 分，≥10% 记 0 分） */
   quality: number
-  /** 独有性：今日独有数据量占自有数据总量占比 */
+  /** 独有性：近 7 日独有数据量占自有数据总量占比 */
   unique: number
-  /** 及时性：今日数据首发比率（同 URL 多供方报送中本供方最早入库） */
+  /** 及时性：近 7 日数据首发比率（同 URL 多供方报送中本供方最早入库） */
   timely: number
   /** 综合总分（五维等权平均，0–100） */
   total: number
@@ -339,11 +339,11 @@ export interface SupplierScore {
 }
 
 export const scoreDimensionMeta: Record<ScoreDimension, { label: string; tip: string }> = {
-  volume: { label: '数据量', tip: '近 7 日累计入库量，达到 10,000 条（活跃量级）记满分。' },
-  activity: { label: '活跃度', tip: '近 7 日中有数据接入的天数占比，7 天全接入记满分。' },
-  quality: { label: '数据质量', tip: '按今日拒收率反向计分：拒收 0% 记满分，每升高 1% 扣 10 分，≥10% 记 0 分。当前基于今日拒收率。' },
-  unique: { label: '独有性', tip: '本供数商独有的数据量占其提供数据总量的占比（今日口径）：相同 URL 的数据若其它供数商也向平台推送过，则不计入独有分子。' },
-  timely: { label: '及时性', tip: '数据首发比率（今日口径）：同一 URL 有多个供数商报送时，本供数商推送入库时间最早的数据量占此类数据量的比值。' },
+  volume: { label: '数据量', tip: '近 7 日累计入库量，数据量越多维度得分越高，达到 10,000 条（活跃量级）记满分。' },
+  timely: { label: '及时性', tip: '近 7 日数据首发比率：同一条数据有多个供数方推送时，本供数方推送入库时间最早的数据量占此类数据量的比值，比值越高维度得分越高。' },
+  unique: { label: '独有性', tip: '近 7 日本供数方独有的数据量占其提供数据总量的比值：相同数据若其它供数方也向平台推送过，则不计入，比值越高维度得分越高。' },
+  quality: { label: '数据质量', tip: '近 7 日拒收率反向计分：拒收 0% 记满分，每升高 1% 扣 10 分，≥10% 记 0 分。' },
+  activity: { label: '活跃度', tip: '近 7 日中有数据接入的天数占比，占比越高维度得分越高，7 天全接入记满分。' },
 }
 
 export const scoreGradeMeta: Record<ScoreGrade, { label: string; color: string }> = {
@@ -359,24 +359,26 @@ export const SCORE_WEAK_LINE = 60
 const clamp100 = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
 /**
- * 供数方五维能力评分（纯函数）。
- * 数据来源全部为 Supplier 现有字段：weekTrend / todayRejectRate / todayUniqueRate / todayFirstRate。
+ * 供数方五维能力评分（纯函数），统一采用近 7 日口径。
+ * 数据来源：weekTrend（近 7 日每日入库量）/ weekRejectRate / weekUniqueRate / weekFirstRate。
  */
-export function computeSupplierScore(s: Pick<Supplier, 'todayRejectRate' | 'weekTrend' | 'todayUniqueRate' | 'todayFirstRate'>): SupplierScore {
+export function computeSupplierScore(
+  s: Pick<Supplier, 'weekRejectRate' | 'weekTrend' | 'weekUniqueRate' | 'weekFirstRate'>,
+): SupplierScore {
   const trend = (s.weekTrend || []).map((n) => Number(n) || 0)
   const weekTotal = trend.reduce((sum, n) => sum + n, 0)
   const positiveDays = trend.filter((n) => n > 0)
 
-  // 数据量：累计量 / 活跃阈值
+  // 数据量：近 7 日累计量 / 活跃阈值（10,000 条）
   const volume = clamp100((weekTotal / SCORE_RULE.volumeFullCount) * 100)
-  // 活跃度：有入库天数 / 7
+  // 活跃度：近 7 日有入库天数 / 7
   const activity = clamp100((positiveDays.length / 7) * 100)
-  // 数据质量：拒收率反向
-  const quality = clamp100(100 - s.todayRejectRate * 10)
-  // 独有性：独有数据量占自有总量占比（今日口径）
-  const unique = clamp100(s.todayUniqueRate)
-  // 及时性：同 URL 多供方报送中的首发比率（今日口径）
-  const timely = clamp100(s.todayFirstRate)
+  // 数据质量：近 7 日拒收率反向（0% 满分，每 1% 扣 10 分，≥10% 记 0 分）
+  const quality = clamp100(100 - s.weekRejectRate * 10)
+  // 独有性：近 7 日独有数据量占自有总量占比
+  const unique = clamp100(s.weekUniqueRate)
+  // 及时性：近 7 日同 URL 多供方报送中的首发比率
+  const timely = clamp100(s.weekFirstRate)
 
   const dims: Record<ScoreDimension, number> = { volume, activity, quality, unique, timely }
   const total = clamp100((volume + activity + quality + unique + timely) / 5)
@@ -443,6 +445,12 @@ export interface Supplier {
   todayUniqueRate: number
   /** 今日首发占比（%）：同 URL 多供方报送的数据中，本供方推送入库时间最早的占比 */
   todayFirstRate: number
+  /** 近 7 日拒收率（%）：近 7 日拒收条数 ÷ 近 7 日请求总量，用于数据质量维度 */
+  weekRejectRate: number
+  /** 近 7 日独有占比（%）：近 7 日本供方独有数据量占其提供数据总量比例，用于独有性维度与列表近 7 天列 */
+  weekUniqueRate: number
+  /** 近 7 日首发占比（%）：近 7 日同 URL 多供方报送中本供方最早入库的数据占比，用于及时性维度与列表近 7 天列 */
+  weekFirstRate: number
 }
 
 export interface SupplierQuery {
